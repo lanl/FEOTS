@@ -1,0 +1,9 @@
+&POPTracers
+nX             = 10,
+nY             = 10, 
+nZ             = 1,
+nTracers       = 1,
+nCycles        = 10,
+operatorPeriod = 1.0,
+dt             = 1.0D-3,
+/

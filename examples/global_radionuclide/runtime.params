@@ -1,0 +1,30 @@
+&POPMeshOptions
+MeshType    = 'PeriodicTripole',
+StencilType = 'LaxWendroff',
+Regional    = .FALSE.,
+/
+&TracerModelOptions
+TracerModel      = 'SettlingModel',
+settlingVelocity = 1.0D-5,
+dt               = 1000.0, 
+runMode          = 'Forward',
+nStepsPerDump    = 1000,
+iterInit         = 0,
+nTimeSteps       = 10000,
+/
+&OperatorOptions
+operatorPeriod = 432000.0,
+nOperatorsPerCycle = 1,
+/
+&FileOptions
+extractRegionalOperators  = .TRUE.,
+meshfile                  ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/POP_03deg_mesh.nc',
+graphfile                 ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/pop_03_periodic-tripole_laxwendroff',
+operatorBaseName          = 'pop_03_periodic-tripole',
+feotsOperatorDirectory    ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Global/',
+IRFListFile               = 'IRFList_5dayAvg.txt',
+IRFStart                  = 1,
+nIRFFiles                 = 365,
+/
+&JFNKOptions
+/
