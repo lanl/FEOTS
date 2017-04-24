@@ -4,13 +4,13 @@ StencilType = 'LaxWendroff',
 Regional    = .FALSE.,
 /
 &TracerModelOptions
-TracerModel      = 'SettlingModel',
+TracerModel      = 'RadionuclideModel',
 settlingVelocity = 1.0D-5,
-dt               = 1000.0, 
+dt               = 10080.0, 
 runMode          = 'Forward',
-nStepsPerDump    = 1000,
+nStepsPerDump    = 800,
 iterInit         = 0,
-nTimeSteps       = 10000,
+nTimeSteps       = 8000,
 /
 &OperatorOptions
 operatorPeriod = 432000.0,

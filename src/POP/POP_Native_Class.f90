@@ -179,9 +179,13 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "rFac_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       rFac_varid_PN(1) ) )
-         CALL Check( nf90_def_var( ncid_PN, "mask_Particulate"//tracerid, NF90_DOUBLE, &
+         CALL Check( nf90_def_var( ncid_PN, "mask_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(1) ) )
+         CALL Check( nf90_def_var( ncid_PN, "hardset_Particulate", NF90_DOUBLE, &
+                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
+                                      hardset_varid_PN(1) ) )
+
 
          CALL Check( nf90_def_var( ncid_PN, "Source_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
@@ -189,10 +193,13 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "rFac_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       rFac_varid_PN(2) ) )
-         CALL Check( nf90_def_var( ncid_PN, "mask_Radionuclide"//tracerid, NF90_DOUBLE, &
+         CALL Check( nf90_def_var( ncid_PN, "mask_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(2) ) )
-      
+         CALL Check( nf90_def_var( ncid_PN, "hardset_Radionuclide", NF90_DOUBLE, &
+                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
+                                      hardset_varid_PN(2) ) )
+
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
          DO i = 1, this % nTracers-1
@@ -298,6 +305,8 @@ CONTAINS
                                       rFac_varid_PN(1) ) )
          CALL Check( nf90_inq_varid( ncid_PN, "mask_Particulate", &
                                       mask_varid_PN(1) ) )
+         CALL Check( nf90_inq_varid( ncid_PN, "hardset_Particulate", &
+                                      hardset_varid_PN(1) ) )
          
          CALL Check( nf90_inq_varid( ncid_PN, "Source_Radionuclide", &
                                       source_varid_PN(2) ) )
@@ -305,6 +314,8 @@ CONTAINS
                                       rFac_varid_PN(2) ) )
          CALL Check( nf90_inq_varid( ncid_PN, "mask_Radionuclide", &
                                       mask_varid_PN(2) ) )
+         CALL Check( nf90_inq_varid( ncid_PN, "hardset_Radionuclide", &
+                                      hardset_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       

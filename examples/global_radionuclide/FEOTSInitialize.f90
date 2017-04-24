@@ -82,12 +82,16 @@ CONTAINS
                x = myFeots % mesh % tLon(i,j)
                y = myFeots % mesh % tLat(i,j)
 
-               myFeots % nativeSol % source(i,j,k,:) = 0.0_prec
+               ! Particulate source
+               myFeots % nativeSol % source(i,j,k,1) = 0.0_prec
+               ! Radionuclide uniform source
+               myFeots % nativeSol % source(i,j,k,2) = 1.0_prec*10.0_prec**(-6)
                myFeots % nativeSol % rFac(i,j,k,:)   = 0.0_prec 
+
                ! Set the Surface Tracer distribution
                IF( k == 1 )THEN
-                  myFeots % nativeSol % mask(i,j,k,:)    = 0.0_prec
-                  myFeots % nativeSol % hardSet(i,j,k,:) = 1.0_prec
+                  myFeots % nativeSol % mask(i,j,k,1)    = 0.0_prec
+                  myFeots % nativeSol % hardSet(i,j,k,1) = 1.0_prec
                ENDIF
 
 

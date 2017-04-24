@@ -431,7 +431,7 @@ MODULE TracerStorage_Class
       DO iTracer = 1, ntracers-1
          ! Perform the advection and diffusion of the particulate field
          tendency(:,itracer) = transportOperators(1) % MatVecMul( tracerfield(:,itracer) ) 
-         tendency(:,itracer) = tendency(:,itracer) + transportOperators(2) % MatVecMul( tracerfield(:,itracer) ) 
+      !   tendency(:,itracer) = tendency(:,itracer) + transportOperators(2) % MatVecMul( tracerfield(:,itracer) ) 
       ENDDO
 
       ! Perform the particulate settling -> Assumes the second transport operator is
@@ -458,6 +458,8 @@ MODULE TracerStorage_Class
 
       ! Add in the scavenging operator for the radionuclide
       tendency(:,2) = tendency(:,2) + transportOperators(4) % MatVecMul( tracerfield(:,2) )
+      ! Add in the uniform source for the radionuclide
+      tendency(:,2) = tendency(:,2) + source(1:nDOF,2)
       
  END FUNCTION ParticulateRadioNuclideModel
 !

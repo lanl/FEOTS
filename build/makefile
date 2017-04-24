@@ -20,7 +20,7 @@ endif
 
 
 #/////////////////////////////////////////////////////////////////////// #
-FEOTSDIR=$(shell pwd | sed 's/\(feots_lite\).*/\1/g')
+FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')
 SRCDIR=${FEOTSDIR}/src/
 
 

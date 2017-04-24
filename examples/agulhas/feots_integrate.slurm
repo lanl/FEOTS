@@ -8,7 +8,7 @@
 module purge
 module load gcc
 
-cd /home/schoonover/feots_lite/examples/agulhas/
+cd /home/${USER}/FEOTS/examples/agulhas/
 date
-../../bin/FEOTSDriver
+./FEOTSDriver
 date

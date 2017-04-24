@@ -1,6 +1,6 @@
 
 SHELL=/bin/bash
-FEOTSDIR=$(shell pwd | sed 's/feots_lite.*/feots_lite/')
+FEOTSDIR=$(shell pwd | sed 's/FEOTS.*/FEOTS/')
 INITDIR=$(shell pwd)
 
 GreedyColoring :

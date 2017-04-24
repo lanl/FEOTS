@@ -8,7 +8,7 @@
 module purge
 module load gcc
 
-cd /home/schoonover/feots_lite/examples/global_dye/
+cd /home/${USER}/FEOTS/examples/global_dye/
 date
 ./OperatorDiagnosis
 date
