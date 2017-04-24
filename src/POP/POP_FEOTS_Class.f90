@@ -101,6 +101,7 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(out) :: this
    ! Local
    INTEGER    :: nX, nY, nZ, nTracers, nRow, nPeriods
+   INTEGER    :: nDOF
    REAL(prec) :: opPeriod, dt
    INTEGER :: nOps, i, j, k, m, stencilSize
    INTEGER, ALLOCATABLE :: nEl(:)
@@ -125,35 +126,40 @@ CONTAINS
             j = this % regionalMaps % dofToLocalIJK(2,m)
             k = this % regionalMaps % dofToLocalIJK(3,m)
             this % mesh % IJKtoDOF(i,j,k) = m
+            this % mesh % DOFtoIJK(1,m)   = i
+            this % mesh % DOFtoIJK(2,m)   = j
+            this % mesh % DOFtoIJK(3,m)   = k
          ENDDO
-
+         nDOF = this % regionalMaps % nCells
+         this % mesh % nDOF = nDOF
       ELSE
          CALL this % mesh % Load( TRIM(this % params % meshFile) )
+         nDOF = this % mesh % nDOF
       ENDIF
 
       IF( this % params % TracerModel == DyeModel )THEN
          nOps   = 2
          ALLOCATE( nEl(1:2) )
-         nEl(1) = this % mesh % nDOF*stencilSize !  number of nonzero entries in sparse advection operator
-         nEl(2) = this % mesh % nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
+         nEl(1) = nDOF*stencilSize !  number of nonzero entries in sparse advection operator
+         nEl(2) = nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
       ELSEIF( this % params % TracerModel == RadionuclideModel )THEN
          nOps = 4
          ALLOCATE( nEl(1:4) )
-         nEl(1) = this % mesh % nDOF*stencilSize !  number of nonzero entries in sparse advection operator
-         nEl(2) = this % mesh % nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
-         nEl(3) = this % mesh % nDOF*2 ! number of nonzero entries in sparse settling operator
-         nEl(4) = this % mesh % nDOF*2 ! number of nonzero entries in sparse scavenging operator
+         nEl(1) = nDOF*stencilSize !  number of nonzero entries in sparse advection operator
+         nEl(2) = nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
+         nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
+         nEl(4) = nDOF*2 ! number of nonzero entries in sparse scavenging operator
       ELSEIF( this % params % TracerModel == SettlingModel )THEN
          nOps = 3
          ALLOCATE( nEl(1:3) )
-         nEl(1) = this % mesh % nDOF*stencilSize !  number of nonzero entries in sparse advection operator
-         nEl(2) = this % mesh % nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
-         nEl(3) = this % mesh % nDOF*2 ! number of nonzero entries in sparse settling operator
+         nEl(1) = nDOF*stencilSize !  number of nonzero entries in sparse advection operator
+         nEl(2) = nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
+         nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
       ENDIF
 
       ! Allocates space for the solution storage as a 1-D array and allocates
       ! space for the transport operators 
-      CALL this % solution % Build( this % mesh % nDOF, nOps, nEl, &
+      CALL this % solution % Build( nDOF, nOps, nEl, &
                                     this % params % nOperatorsPerCycle, &
                                     this % params % nTracers+1, &        ! Always add one tracer for the volume correction
                                     this % params % operatorPeriod, &

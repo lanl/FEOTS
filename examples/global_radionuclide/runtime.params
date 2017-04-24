@@ -6,9 +6,9 @@ Regional    = .FALSE.,
 &TracerModelOptions
 TracerModel      = 'RadionuclideModel',
 settlingVelocity = 1.0D-5,
-dt               = 10080.0, 
+dt               = 1080.0, 
 runMode          = 'Forward',
-nStepsPerDump    = 800,
+nStepsPerDump    = 80,
 iterInit         = 0,
 nTimeSteps       = 8000,
 /
