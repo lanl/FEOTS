@@ -845,6 +845,15 @@ CONTAINS
             EXIT
          ENDIF
 
+         IF( MOD( iter, this % params % nStepsPerDump ) == 0 )THEN
+         
+            CALL this % MapTracerFromDOF( ) ! Map from DOF to native storage
+            CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
+                                                              this % mesh, &
+                                                              'Tracer.pickup.nc' )
+            CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
+            CALL this % nativeSol % FinalizeNetCDF( )
+         ENDIF
       ENDDO
 
       IF( GxMag <= tolerance )THEN
@@ -854,6 +863,11 @@ CONTAINS
          PRINT*, ' Final Solution Update magnitude : ', dxMag, xMag
          this % solution % tracers = x
          CALL this % MapTracerFromDOF( ) ! Map from DOF to native storage
+         CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
+                                                           this % mesh, &
+                                                           'Tracer.equilibrium.nc' )
+         CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
+         CALL this % nativeSol % FinalizeNetCDF( )
          CLOSE(fUnit)
       ELSE
          ! Not converged, write a pickup file !
@@ -861,6 +875,11 @@ CONTAINS
          this % solution % tracers = x 
          CALL this % MapTracerFromDOF( )
          !
+         CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
+                                                           this % mesh, &
+                                                           'Tracer.pickup.nc' )
+         CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
+         CALL this % nativeSol % FinalizeNetCDF( )
 
 
          PRINT*, ' Module POP_FEOTS_Class.f90 : S/R JFNK_POP_FEOTS : Solution not found in ', iter, ' iterates.'

@@ -36,9 +36,10 @@ CONTAINS
    TYPE( POP_FEOTS ), INTENT(inout) :: myFeots
    ! Local
    INTEGER  :: i, j, k
-   REAL(prec) :: x, y, z
+   REAL(prec) :: x, y, z, rfMax
 
 
+      rfMax = 1.0_prec/43200.0_prec
       DO k = 1, myFeots % mesh % nZ  
 
          z = myFeots % mesh % z(k)
@@ -52,8 +53,8 @@ CONTAINS
                ! Agulhas
                myFeots % nativeSol % tracer(i,j,k,:)   = 0.0_prec 
 
-               myFeots % nativeSol % source(i,j,k,:)   = 5.0_prec*exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) )
-               myFeots % nativeSol % rFac(i,j,k,:)     = rFMax*(exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))**2
+               myFeots % nativeSol % source(i,j,k,:)   = 5.0_prec
+               myFeots % nativeSol % rFac(i,j,k,:)     = rFMax*(exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
           
                myFeots % nativeSol % mask(i,j,k,:)     = 1.0_prec
                myFeots % nativeSol % hardSet(i,j,k,:)  = 1.0_prec
