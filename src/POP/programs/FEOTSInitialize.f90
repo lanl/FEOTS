@@ -16,8 +16,6 @@ IMPLICIT NONE
 
       CALL InitialConditions( feots )
 
-      CALL SourceTerms( feots )
-
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
@@ -52,42 +50,17 @@ CONTAINS
                x = myFeots % mesh % tLon(i,j)
                y = myFeots % mesh % tLat(i,j)
 
-               myFeots % nativeSol % tracer(i,j,k,:) = 1.0_prec
+               myFeots % nativeSol % tracer(i,j,k,:)  = 1.0_prec
+               myFeots % nativeSol % source(i,j,k,:)  = 0.0_prec
+               myFeots % nativeSol % rFac(i,j,k,:)    = 0.0_prec
+               myFeots % nativeSol % mask(i,j,k,:)    = 1.0_prec
+               myFeots % nativeSol % hardSet(i,j,k,:) = 0.0_prec
+
 
             ENDDO
          ENDDO
       ENDDO
 
  END SUBROUTINE InitialConditions
-!
- SUBROUTINE SourceTerms( myFeots )
- ! Sets the source terms and the "relaxation factor" for each tracer
- !
-   IMPLICIT NONE
-   TYPE( POP_FEOTS ), INTENT(inout) :: myFeots
-   ! Local
-   INTEGER  :: i, j, k
-   REAL(prec) :: rFmax, x, y, z
-
-      rFmax = 1.0_prec/86400.0_prec
-
-      DO k = 1, myFeots % mesh % nZ  
-
-         z = myFeots % mesh % z(k)
-
-         DO j = 1, myFeots % mesh % nY
-            DO i = 1, myFeots % mesh % nX 
- 
-               x = myFeots % mesh % tLon(i,j)
-               y = myFeots % mesh % tLat(i,j)
-
-               myFeots % nativeSol % source(i,j,k,:) = 0.0_prec
-               myFeots % nativeSol % rFac(i,j,k,:)   = 0.0_prec
-
-            ENDDO
-         ENDDO
-      ENDDO
- END SUBROUTINE SourceTerms
-!  
 
 END PROGRAM FEOTSInitialize
