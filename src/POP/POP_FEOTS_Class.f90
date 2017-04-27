@@ -161,7 +161,7 @@ CONTAINS
       ! space for the transport operators 
       CALL this % solution % Build( nDOF, nOps, nEl, &
                                     this % params % nOperatorsPerCycle, &
-                                    this % params % nTracers+1, &        ! Always add one tracer for the volume correction
+                                    this % params % nTracers, & 
                                     this % params % operatorPeriod, &
                                     this % params % dt )
 
@@ -179,7 +179,7 @@ CONTAINS
       ENDIF
 
       ! Allocates space for the solution storage on the native mesh 
-      CALL this % nativeSol % Build( this % mesh, this % params % nTracers+1 )
+      CALL this % nativeSol % Build( this % mesh, this % params % nTracers )
       this % nativeSol % mask = 1.0_prec
       IF( this % params % Regional )THEN
 
@@ -292,9 +292,10 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DO i = 1, this % params % nTracers+1 
+      DO i = 1, this % params % nTracers 
          this % solution % tracers(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % tracer(:,:,:,i) )
       ENDDO
+      this % solution % volume = this % mesh % MapFromIJKtoDOF( this % nativeSol % volume )
    
  END SUBROUTINE MapTracerToDOF_POP_FEOTS
 !
@@ -312,7 +313,7 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DO i = 1, this % params % nTracers+1
+      DO i = 1, this % params % nTracers
          this % solution % hSetTracers(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % hardSet(:,:,:,i) )
          this % solution % mask(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % mask(:,:,:,i) )
       ENDDO
@@ -333,7 +334,7 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DO i = 1, this % params % nTracers+1
+      DO i = 1, this % params % nTracers
          this % solution % source(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % source(:,:,:,i) )
          this % solution % rFac(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % rFac(:,:,:,i) )
       ENDDO
@@ -352,9 +353,10 @@ CONTAINS
    ! Local
    INTEGER :: i
  
-      DO i = 1, this % params % nTracers+1
+      DO i = 1, this % params % nTracers
          this % nativeSol % tracer(:,:,:,i) = this % mesh % MapFromDOFtoIJK( this % solution % tracers(:,i) )
       ENDDO
+      this % nativeSol % volume = this % mesh % MapFromDOFtoIJK( this % solution % volume )
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
@@ -375,6 +377,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: tracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dVdt(1:this % solution % nDOF)
    REAL(prec) :: dt, opPeriod
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
 
@@ -410,17 +413,17 @@ CONTAINS
 
          END SELECT
 
-         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt )
+         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
 
          ! Forward Step the volume 
-         vol = tracers(:,this % solution % nTracers) + dt*dCdt(:,this % solution % nTracers)
+         vol = this % solution % volume + dt*dVdt
          ! Forward step the tracers with the volume correction
-         DO m = 1, this % solution % nTracers-1
-           ! tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + tracers(:,this % solution % nTracers) )*tracers(:,m) + dt*dCdt(:,m) )
+         DO m = 1, this % solution % nTracers
+           ! tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
             tracers(:,m)  = tracers(:,m) + dt*dCdt(:,m)
          ENDDO
          ! Store the volume
-         tracers(:,this % solution % nTracers) = vol
+         this % solution % volume = vol
          tn = tn + dt
 
       ENDDO
@@ -447,6 +450,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: tracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dVdt(1:this % solution % nDOF)
    REAL(prec) :: tn, dt, opPeriod
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
@@ -494,27 +498,31 @@ CONTAINS
 
             END SELECT
 
-            CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt )
+            CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
 
             ! Forward Step the volume 
-            vol = tracers(:,this % solution % nTracers) + dt*dCdt(:,this % solution % nTracers)
+            vol = this % solution % volume + dt*dVdt
 
             ! Forward step the tracers with the volume correction
-            DO m = 1, this % solution % nTracers-1
-               tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + tracers(:,this % solution % nTracers) )*tracers(:,m) + dt*dCdt(:,m) )
+            DO m = 1, this % solution % nTracers
+               tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
             ENDDO
 
             ! Store the volume
-            tracers(:,this % solution % nTracers) = vol 
+            this % solution % volume = vol 
 
          ENDDO
 
          ! This last step ensures we end on t=tCycle
          tn = REAL(nSteps,prec)*dt
          dt = opPeriod - tn
-         CALL this % solution % CalculateTendency( tracers, tn, this % params % TracerModel, dCdt )
-         tracers  = tracers + dt*dCdt
-         !this % time = this % time + dt
+         CALL this % solution % CalculateTendency( tracers, tn, this % params % TracerModel, dCdt, dVdt )
+         
+         vol = this % solution % volume + dt*dVdt
+         DO m = 1, this % solution % nTracers
+            tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+         ENDDO
+         this % solution % volume = vol 
 
       ENDDO
 

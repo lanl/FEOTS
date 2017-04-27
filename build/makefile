@@ -7,8 +7,8 @@
 
 SHELL=/bin/bash
 FC=gfortran
-LIB=-L/home/schoonover/Software/netcdf/lib -lnetcdff -lnetcdf
-INC=-I/home/schoonover/Software/netcdf/include
+LIB=-L/home/${USER}/Software/netcdf/lib -lnetcdff -lnetcdf
+INC=-I/home/${USER}/Software/netcdf/include
 WFLAGS= 
 
 

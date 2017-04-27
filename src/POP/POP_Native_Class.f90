@@ -30,6 +30,8 @@ USE netcdf
       REAL(prec), ALLOCATABLE  :: source(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: rFac(:,:,:,:)
 
+      REAL(prec), ALLOCATABLE  :: volume(:,:,:)
+
       CONTAINS
 
       PROCEDURE :: Build => Build_POP_Native
@@ -55,6 +57,8 @@ USE netcdf
    INTEGER, ALLOCATABLE :: rfac_varid_PN(:)
    INTEGER, ALLOCATABLE :: mask_varid_PN(:)
    INTEGER, ALLOCATABLE :: hardset_varid_PN(:)
+   INTEGER              :: volume_varid_PN
+
 CONTAINS
 !
 !
@@ -87,12 +91,15 @@ CONTAINS
                 this % hardSet(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % mask(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % source(1:nX,1:nY,1:nZ,1:nTracers), &
-                this % rFac(1:nX,1:nY,1:nZ,1:nTracers) )
+                this % rFac(1:nX,1:nY,1:nZ,1:nTracers), &
+                this % volume(1:nX,1:nY,1:nZ) )
+
       this % tracer  = 0.0_prec
       this % hardSet = 0.0_prec
       this % mask    = 1.0_prec
       this % source  = 0.0_prec
       this % rFac    = 0.0_prec
+      this % volume  = 0.0_prec
 
       PRINT*, 'S/R : Build_POP_Native : Finish.'
 
@@ -109,7 +116,8 @@ CONTAINS
                   this % hardSet, &
                   this % mask, &
                   this % source, &
-                  this % rFac )
+                  this % rFac, &
+                  this % volume )
 
  END SUBROUTINE Trash_POP_Native
 !
@@ -171,7 +179,7 @@ CONTAINS
 
          CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
-                                      tracer_varid_PN(3) ) )
+                                      volume_varid_PN ) )
 
          CALL Check( nf90_def_var( ncid_PN, "Source_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
@@ -202,7 +210,7 @@ CONTAINS
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
-         DO i = 1, this % nTracers-1
+         DO i = 1, this % nTracers
             WRITE( tracerid, '(I2.2)') i
             CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
@@ -223,7 +231,7 @@ CONTAINS
       
             CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
-                                      tracer_varid_PN(this%nTracers) ) )
+                                      volume_varid_PN )  )
 
       ENDIF
 
@@ -277,7 +285,6 @@ CONTAINS
          ENDDO
          CALL Check( nf90_inq_varid( ncid_PN, "VDC_S", &
                                      tracer_varid_PN(this % nTracers) ) )
-         PRINT*, "VDC_S"
 
       ELSEIF( modelType == ImpulseField )THEN
       
@@ -297,7 +304,7 @@ CONTAINS
                                       tracer_varid_PN(2) ) )
       
          CALL Check( nf90_inq_varid( ncid_PN, "VolumeCorrection", &
-                                      tracer_varid_PN(3) ) )
+                                     volume_varid_PN ) )
       
          CALL Check( nf90_inq_varid( ncid_PN, "Source_Particulate", &
                                       source_varid_PN(1) ) )
@@ -319,7 +326,7 @@ CONTAINS
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
-         DO i = 1, this % nTracers-1
+         DO i = 1, this % nTracers
             WRITE( tracerid, '(I2.2)') i
             CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
                                       tracer_varid_PN(i) ) )
@@ -333,7 +340,7 @@ CONTAINS
                                       hardset_varid_PN(i) ) )
          ENDDO
             CALL Check( nf90_inq_varid( ncid_PN, "VolumeCorrection", &
-                                      tracer_varid_PN(this % nTracers) ) )
+                                      volume_varid_PN ) )
       
       ENDIF
 
@@ -363,7 +370,7 @@ CONTAINS
       start = (/1, 1, 1/)
       recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
 
-      DO i = 1, this % nTracers-1
+      DO i = 1, this % nTracers
          CALL Check( nf90_put_var( ncid_PN, &
                                    source_varid_pn(i), &
                                    this % source(:,:,:,i), &
@@ -402,6 +409,10 @@ CONTAINS
                                    this % tracer(:,:,:,i), &
                                    start, recCount ) )      
       ENDDO
+         CALL Check( nf90_put_var( ncid_PN, &
+                                   volume_varid_pn, &
+                                   this % volume, &
+                                   start, recCount ) )      
 
  END SUBROUTINE WriteNETCDFRecord_POP_Native
 !
@@ -416,7 +427,7 @@ CONTAINS
          start    = (/1, 1, 1/)
          recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
 
-         DO i = 1, this % nTracers-1
+         DO i = 1, this % nTracers
             CALL Check( nf90_get_var( ncid_PN, &
                                       source_varid_pn(i), &
                                       this % source(:,:,:,i), &
@@ -455,6 +466,10 @@ CONTAINS
                                       this % tracer(:,:,:,i), &
                                       start, recCount ) )
          ENDDO
+            CALL Check( nf90_get_var( ncid_PN, &
+                                      volume_varid_pn, &
+                                      this % volume, &
+                                      start, recCount ) )
 
  END SUBROUTINE ReadNETCDFRecord_POP_Native
 !

@@ -59,6 +59,7 @@ MODULE TracerStorage_Class
       REAL(prec)                     :: opPeriod, dt
       TYPE( CRSMatrix ), ALLOCATABLE :: transportOps(:) 
       REAL(prec), ALLOCATABLE        :: tracers(:,:)
+      REAL(prec), ALLOCATABLE        :: volume(:)
       REAL(prec), ALLOCATABLE        :: source(:,:), rFac(:,:)
       REAL(prec), ALLOCATABLE        :: mask(:,:), hSetTracers(:,:)
 
@@ -117,6 +118,7 @@ MODULE TracerStorage_Class
       ENDDO
 
       ALLOCATE( thisStorage % tracers(1:nDOF,1:nTracers) )
+      ALLOCATE( thisStorage % volume(1:nDOF) )
       ALLOCATE( thisStorage % source(1:nDOF,1:nTracers) )
       ALLOCATE( thisStorage % rFac(1:nDOF,1:nTracers) )
       ALLOCATE( thisStorage % mask(1:nDOF,1:nTracers) )
@@ -124,6 +126,7 @@ MODULE TracerStorage_Class
 
       ! Initiallize values to zero
       thisStorage % tracers     = 0.0_prec
+      thisStorage % volume      = 0.0_prec
       thisStorage % source      = 0.0_prec
       thisStorage % rFac        = 0.0_prec
       thisStorage % mask        = 1.0_prec
@@ -149,6 +152,7 @@ MODULE TracerStorage_Class
       
       DEALLOCATE( thisStorage % transportOps )
       DEALLOCATE( thisStorage % tracers )
+      DEALLOCATE( thisStorage % volume )
       DEALLOCATE( thisStorage % source )
       DEALLOCATE( thisStorage % rFac )
       DEALLOCATE( thisStorage % mask )
@@ -283,7 +287,7 @@ MODULE TracerStorage_Class
 
  END SUBROUTINE MaskTracers_TracerStorage
 !
- SUBROUTINE CalculateTendency_TracerStorage( thisStorage, tracerfield, t, modelflag, tendency )
+ SUBROUTINE CalculateTendency_TracerStorage( thisStorage, tracerfield, t, modelflag, tendency, volCorrection )
  ! CalculateTendency
  !
  !  This subroutine manages the call to the correct model for calculating the tendency of a 
@@ -297,6 +301,7 @@ MODULE TracerStorage_Class
    CLASS( TracerStorage ), INTENT(in) :: thisStorage
    REAL(prec), INTENT(in)             :: tracerfield(1:thisStorage % nDOF, 1:thisStorage % nTracers)
    REAL(prec), INTENT(out)            :: tendency(1:thisStorage % nDOF, 1:thisStorage % nTracers)
+   REAL(prec), INTENT(out)            :: volCorrection(1:thisStorage % nDOF)
    REAL(prec), INTENT(in)             :: t
    INTEGER, INTENT(in)                :: modelflag
    ! Local
@@ -337,7 +342,7 @@ MODULE TracerStorage_Class
          STOP
       ENDIF
 
-      tendency(:,thisStorage % nTracers) = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
+      volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
       
       DO itracer = 1, thisStorage % nTracers
          DO i = 1, thisStorage % nDOF
@@ -348,7 +353,19 @@ MODULE TracerStorage_Class
          ENDDO
       ENDDO
 
+      IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
 
+         DO i = 1, thisStorage % nDOF
+            volcorrection(i) = volcorrection(i)*thisStorage % mask(i,1)
+         ENDDO
+
+      ELSEIF( modelflag == RadioNuclideModel )THEN
+
+         DO i = 1, thisStorage % nDOF
+            volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
+         ENDDO
+
+      ENDIF
  END SUBROUTINE CalculateTendency_TracerStorage
 !
  FUNCTION PassiveDyeModel( nOperators, nTracers, nDOF,transportOperators, source, rfac, tracerfield ) RESULT( tendency )
@@ -371,7 +388,7 @@ MODULE TracerStorage_Class
    INTEGER         :: itracer, iOp
 
       ! Calculate the contribution from the transport operator
-      DO itracer = 1, nTracers-1 ! Only the passive tracers
+      DO itracer = 1, nTracers ! Only the passive tracers
 
          ! Advect the tracer (vertical diffusion is done implicitly)
          tendency(1:nDOF,itracer) = transportOperators(1) % MatVecMul( tracerfield(1:nDOF,iTracer) ) 
@@ -401,7 +418,7 @@ MODULE TracerStorage_Class
    INTEGER         :: itracer, iOp, iEl
    REAL(prec)      :: p, k, sWeight
 
-      DO iTracer = 1, ntracers-1
+      DO iTracer = 1, ntracers
          ! Advect and settle the particulate field
          tendency(:,itracer) = transportOperators(1) % MatVecMul( tracerfield(:,itracer) ) 
          tendency(:,itracer) = tendency(:,itracer) + transportOperators(3) % MatVecMul( tracerfield(:,itracer) ) 
@@ -428,7 +445,7 @@ MODULE TracerStorage_Class
    INTEGER         :: itracer, iOp, iEl
    REAL(prec)      :: p, k, sWeight
 
-      DO iTracer = 1, ntracers-1
+      DO iTracer = 1, ntracers
          ! Perform the advection and diffusion of the particulate field
          tendency(:,itracer) = transportOperators(1) % MatVecMul( tracerfield(:,itracer) ) 
       !   tendency(:,itracer) = tendency(:,itracer) + transportOperators(2) % MatVecMul( tracerfield(:,itracer) ) 
