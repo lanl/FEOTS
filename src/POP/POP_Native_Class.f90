@@ -25,7 +25,6 @@ USE netcdf
    TYPE POP_Native
       INTEGER                  :: nX, nY, nZ, nTracers
       REAL(prec), ALLOCATABLE  :: tracer(:,:,:,:)
-      REAL(prec), ALLOCATABLE  :: hardSet(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: mask(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: source(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: rFac(:,:,:,:)
@@ -94,7 +93,6 @@ CONTAINS
       this % nZ = nZ
 
       ALLOCATE( this % tracer(1:nX,1:nY,1:nZ,1:nTracers), &
-                this % hardSet(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % mask(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % source(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % rFac(1:nX,1:nY,1:nZ,1:nTracers), &
@@ -104,7 +102,6 @@ CONTAINS
                 this % buoyancy(1:nX,1:nY,1:nZ) )
 
       this % tracer       = 0.0_prec
-      this % hardSet      = 0.0_prec
       this % mask         = 1.0_prec
       this % source       = 0.0_prec
       this % rFac         = 0.0_prec
@@ -125,7 +122,6 @@ CONTAINS
    CLASS( POP_Native ), INTENT(inout) :: this
 
       DEALLOCATE( this % tracer, &
-                  this % hardSet, &
                   this % mask, &
                   this % source, &
                   this % rFac, &

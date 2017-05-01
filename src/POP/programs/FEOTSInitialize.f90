@@ -54,7 +54,6 @@ CONTAINS
                myFeots % nativeSol % source(i,j,k,:)  = 0.0_prec
                myFeots % nativeSol % rFac(i,j,k,:)    = 0.0_prec
                myFeots % nativeSol % mask(i,j,k,:)    = 1.0_prec
-               myFeots % nativeSol % hardSet(i,j,k,:) = 0.0_prec
 
 
             ENDDO

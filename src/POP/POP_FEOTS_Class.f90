@@ -318,7 +318,6 @@ CONTAINS
    INTEGER :: i
 
       DO i = 1, this % params % nTracers
-         this % solution % hSetTracers(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % hardSet(:,:,:,i) )
          this % solution % mask(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % mask(:,:,:,i) )
       ENDDO
    
