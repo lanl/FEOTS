@@ -103,8 +103,9 @@ CONTAINS
    INTEGER    :: nX, nY, nZ, nTracers, nRow, nPeriods
    INTEGER    :: nDOF
    REAL(prec) :: opPeriod, dt
-   INTEGER :: nOps, i, j, k, m, stencilSize
+   INTEGER :: nOps, i, j, k, m, stencilSize, fUnit
    INTEGER, ALLOCATABLE :: nEl(:)
+   CHARACTER(200) :: oceanStateFile
 
       PRINT*, 'S/R : Build_POP_FEOTS : Start...'
 
@@ -191,6 +192,9 @@ CONTAINS
          ENDDO
 
       ENDIF
+
+      ! Load in the initial Ocean State
+      !CALL this % nativeSol % LoadOceanState( this % mesh, thisIRFFile )
 
       PRINT*, 'S/R : Build_POP_FEOTS : Finish.'
 
@@ -419,7 +423,7 @@ CONTAINS
          vol = this % solution % volume + dt*dVdt
          ! Forward step the tracers with the volume correction
          DO m = 1, this % solution % nTracers
-           ! tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+         !   tracers(:,m)  = (1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
             tracers(:,m)  = tracers(:,m) + dt*dCdt(:,m)
          ENDDO
          ! Store the volume

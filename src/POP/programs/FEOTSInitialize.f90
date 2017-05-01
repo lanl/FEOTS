@@ -10,12 +10,12 @@ USE POP_Params_Class
 IMPLICIT NONE
 
    TYPE( POP_FEOTS ) :: feots
-
+   CHARACTER(200)    :: thisIRFFile
+   INTEGER           :: fUnit
 
       CALL feots % Build( )
 
       CALL InitialConditions( feots )
-
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &

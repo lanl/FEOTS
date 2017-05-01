@@ -10,7 +10,9 @@ IMPLICIT NONE
 
    TYPE( POP_FEOTS ) :: feots
    CHARACTER(10) :: ncFileTag
-   INTEGER       :: recordID, fileID, i, nIODumps
+   CHARACTER(5)  :: fileIDChar
+   CHARACTER(200):: thisIRFFile
+   INTEGER       :: funit, recordID, fileID, i, nIODumps
    REAL(prec)    :: tn
 
       CALL feots % Build( )
@@ -30,7 +32,31 @@ IMPLICIT NONE
          CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
          CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
          CALL feots % nativeSol % FinalizeNetCDF( )
-   
+ 
+         WRITE( fileIDChar, '(I5.5)' ) feots % params % IRFStart
+         IF( feots % params % Regional )THEN
+            CALL feots % nativeSol % LoadOceanState( feots % mesh, &
+                                                    TRIM(feots % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc')
+         ELSE
+            OPEN( UNIT=NewUnit(fUnit),&
+                  FILE=TRIM(feots % params % IRFListFile), &
+                  FORM='FORMATTED',&
+                  ACCESS='SEQUENTIAL',&
+                  ACTION='READ',&
+                  STATUS='OLD' )
+      
+            DO fileID = 1, feots % params % nIRFFiles
+      
+               READ( fUnit, '(A200)' ) thisIRFFile
+      
+               IF( fileID == feots % params % IRFStart )THEN
+                  CALL feots % nativeSol % LoadOceanState( feots % mesh,TRIM(thisIRFFile) )
+               ENDIF
+            ENDDO
+
+            CLOSE(fUnit)
+         ENDIF
+
          IF( feots % params % iterInit == 0 )THEN
             tn = 0.0_prec
          ELSE

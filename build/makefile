@@ -109,6 +109,20 @@ REOBJS = ModelPrecision.o \
          POP_Params_Class.o \
          RegionalExtraction.o
 
+EOOBJS = ModelPrecision.o \
+         ConstantsDictionary.o \
+         CommonRoutines.o \
+         BinaryIO.o \
+         CRSMatrix_Class.o \
+         TracerStorage_Class.o \
+         POP_Mesh_Class.o \
+         POP_Regional_Class.o \
+         POP_GridTypeMappings.o \
+         POP_Native_Class.o \
+         POP_FEOTS_Class.o \
+         POP_Params_Class.o \
+         ExtractOceanState.o
+
 ODOBJS = ModelPrecision.o \
        ConstantsDictionary.o \
        CommonRoutines.o \
@@ -175,6 +189,9 @@ GenerateMeshOnlyFile : ${GMOBJS}
 RegionalExtraction : ${REOBJS}
 	${FC} ${OPT} ${REOBJS} ${LIB} ${INC} -o $@
 
+ExtractOceanState : ${EOOBJS}
+	${FC} ${OPT} ${EOOBJS} ${LIB} ${INC} -o $@
+
 OperatorDiagnosis : ${ODOBJS}
 	${FC} ${OPT} ${ODOBJS} ${LIB} ${INC} -o $@
 
@@ -198,6 +215,11 @@ OperatorDiagnosis.o : ModelPrecision.o CRSMatrix_Class.o POP_Params_Class.o POP_
 RegionalExtraction.o : CRSMatrix_Class.o POP_Mesh_Class.o POP_Stencil_Class.o POP_Regional_Class.o \
                        POP_Params_Class.o
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/RegionalExtraction.f90 -o $@
+
+ExtractOceanState.o : POP_Mesh_Class.o POP_FEOTS_Class.o POP_Native_Class.o \
+                      ${SRCDIR}POP/programs/ExtractOceanState.f90
+	${FC} ${OPT} -c ${SRCDIR}POP/programs/ExtractOceanState.f90 -o $@
+
 ifdef MODDIR
 FEOTSInitialize.o : POP_Params_Class.o POP_Native_Class.o POP_FEOTS_Class.o
 	${FC} ${OPT} -c ${MODDIR}/FEOTSInitialize.f90 -o $@

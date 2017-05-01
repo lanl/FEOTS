@@ -31,6 +31,9 @@ USE netcdf
       REAL(prec), ALLOCATABLE  :: rFac(:,:,:,:)
 
       REAL(prec), ALLOCATABLE  :: volume(:,:,:)
+      REAL(prec), ALLOCATABLE  :: temperature(:,:,:)
+      REAL(prec), ALLOCATABLE  :: salinity(:,:,:)
+      REAL(prec), ALLOCATABLE  :: buoyancy(:,:,:)
 
       CONTAINS
 
@@ -45,6 +48,9 @@ USE netcdf
       PROCEDURE :: WriteSourceEtcNetCDF     => WriteSourceEtcNetCDF_POP_Native
       PROCEDURE :: ReadSourceEtcNetCDF      => ReadSourceEtcNetCDF_POP_Native
       PROCEDURE :: LoadTracerFromNetCDF     => LoadTracerFromNetCDF_POP_Native
+
+      PROCEDURE :: LoadOceanState           => LoadOceanState_POP_Native
+      PROCEDURE :: WriteOceanState          => WriteOceanState_POP_Native
 
    END TYPE POP_Native
 
@@ -92,14 +98,20 @@ CONTAINS
                 this % mask(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % source(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % rFac(1:nX,1:nY,1:nZ,1:nTracers), &
-                this % volume(1:nX,1:nY,1:nZ) )
+                this % volume(1:nX,1:nY,1:nZ), &
+                this % temperature(1:nX,1:nY,1:nZ), &
+                this % salinity(1:nX,1:nY,1:nZ), &
+                this % buoyancy(1:nX,1:nY,1:nZ) )
 
-      this % tracer  = 0.0_prec
-      this % hardSet = 0.0_prec
-      this % mask    = 1.0_prec
-      this % source  = 0.0_prec
-      this % rFac    = 0.0_prec
-      this % volume  = 0.0_prec
+      this % tracer       = 0.0_prec
+      this % hardSet      = 0.0_prec
+      this % mask         = 1.0_prec
+      this % source       = 0.0_prec
+      this % rFac         = 0.0_prec
+      this % volume       = 0.0_prec
+      this % temperature  = 0.0_prec
+      this % salinity     = 0.0_prec
+      this % buoyancy     = 0.0_prec
 
       PRINT*, 'S/R : Build_POP_Native : Finish.'
 
@@ -117,7 +129,10 @@ CONTAINS
                   this % mask, &
                   this % source, &
                   this % rFac, &
-                  this % volume )
+                  this % volume, &
+                  this % temperature, &
+                  this % salinity, &
+                  this % buoyancy )
 
  END SUBROUTINE Trash_POP_Native
 !
@@ -359,6 +374,124 @@ CONTAINS
        
  END SUBROUTINE FinalizeNetCDF_POP_Native
 !
+ SUBROUTINE LoadOceanState_POP_Native( this, mesh, filename )
+   IMPLICIT NONE
+   CLASS( POP_Native ), INTENT(inout) :: this
+   TYPE( POP_Mesh ), INTENT(in)       :: mesh
+   CHARACTER(*), INTENT(in)           :: filename
+   ! Local
+   INTEGER :: ncid, varid
+   INTEGER :: start2D(1:2), recCount2D(1:2)
+   INTEGER :: start3D(1:3), recCount3D(1:3)
+
+      CALL Check( nf90_open( TRIM(filename), nf90_nowrite, ncid ) )
+
+      start2D    = (/1, 1/)
+      recCount2D = (/mesh % nX, mesh % nY/)
+      start3D    = (/1, 1, 1/)
+      recCount3D = (/mesh % nX, mesh % nY, mesh % nZ/)
+
+      PRINT*, 'Loading SSH'
+      CALL Check( nf90_inq_varid( ncid, "SSH",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % volume(:,:,1), &
+                                start2D, recCount2D ) )
+
+      PRINT*, 'Loading TEMP'
+      CALL Check( nf90_inq_varid( ncid, "TEMP",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % temperature, &
+                                start3D, recCount3D ) )
+
+      PRINT*, 'Loading SALT'
+      CALL Check( nf90_inq_varid( ncid, "SALT",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % salinity, &
+                                start3D, recCount3D ) )
+
+      PRINT*, 'Loading PD'
+      CALL Check( nf90_inq_varid( ncid, "PD",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % buoyancy, &
+                                start3D, recCount3D ) )
+
+      PRINT*, 'DONE'
+
+      CALL Check( nf90_close( ncid ) )
+
+ END SUBROUTINE LoadOceanState_POP_Native
+!
+ SUBROUTINE WriteOceanState_POP_Native( this, mesh, filename )
+   IMPLICIT NONE
+   CLASS( POP_Native ), INTENT(inout) :: this
+   TYPE( POP_Mesh ), INTENT(in)       :: mesh
+   CHARACTER(*), INTENT(in)           :: filename
+   ! Local
+   INTEGER :: ncid, z_dimid, x_dimid, y_dimid
+   INTEGER :: varid_ssh, varid_temp, varid_salt, varid_pd
+   INTEGER :: start2D(1:2), recCount2D(1:2)
+   INTEGER :: start3D(1:3), recCount3D(1:3)
+
+      CALL Check( nf90_create( PATH=TRIM(filename),&
+                               CMODE=OR(nf90_clobber,nf90_64bit_offset),&
+                               NCID=ncid ) )
+      ! Create the dimensions - the dimension names are currently chosen based
+      CALL Check( nf90_def_dim( ncid, "z_t", mesh % nZ, z_dimid ) ) 
+      CALL Check( nf90_def_dim( ncid, "nlon", mesh % nX, x_dimid ) ) 
+      CALL Check( nf90_def_dim( ncid, "nlat", mesh % nY, y_dimid ) ) 
+
+
+      start2D    = (/1, 1/)
+      recCount2D = (/mesh % nX, mesh % nY/)
+      start3D    = (/1, 1, 1/)
+      recCount3D = (/mesh % nX, mesh % nY, mesh % nZ/)
+
+      CALL Check( nf90_def_var( ncid, "SSH", NF90_DOUBLE,&
+                                (/ x_dimid, y_dimid /), &
+                                 varid_ssh ) )
+
+      CALL Check( nf90_def_var( ncid, "TEMP", NF90_DOUBLE,&
+                                (/ x_dimid, y_dimid, z_dimid /), &
+                                 varid_temp ) )
+
+      CALL Check( nf90_def_var( ncid, "SALT", NF90_DOUBLE,&
+                                (/ x_dimid, y_dimid, z_dimid /), &
+                                 varid_salt ) )
+
+      CALL Check( nf90_def_var( ncid, "PD", NF90_DOUBLE,&
+                                (/x_dimid, y_dimid, z_dimid/),&
+                                 varid_pd ) )
+
+
+      CALL Check( nf90_enddef(ncid) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_ssh, &
+                                this % volume(:,:,1), &
+                                start2D, recCount2D ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_temp, &
+                                this % temperature, &
+                                start3D, recCount3D ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_salt, &
+                                this % salinity, &
+                                start3D, recCount3D ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_pd, &
+                                this % buoyancy, &
+                                start3D, recCount3D ) )
+      CALL Check( nf90_close( ncid ) )
+
+ END SUBROUTINE WriteOceanState_POP_Native
+!
  SUBROUTINE WriteSourceEtcNETCDF_POP_Native( this, mesh )
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(in) :: this
@@ -402,7 +535,6 @@ CONTAINS
 
       start = (/1, 1, 1, recordID/)
       recCount = (/mesh % nX, mesh % nY, mesh % nZ, 1/)
-
       DO i = 1, this % nTracers
          CALL Check( nf90_put_var( ncid_PN, &
                                    tracer_varid_pn(i), &
