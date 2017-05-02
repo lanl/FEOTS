@@ -210,6 +210,9 @@ MODULE CRSMatrix_Class
 
       
       ! Then, we cycle over the rows and compute the sums over each row.
+
+      !!!$OMP PARALLEL
+      !$OMP DO PRIVATE(rowSum)      
       DO row = 1, myMatrix % nRows
          
          rowsum = 0.0_prec
@@ -219,6 +222,9 @@ MODULE CRSMatrix_Class
          Ax(row) = rowSum
 
       ENDDO
+      !$OMP END DO
+
+      !!!$OMP END PARALLEL
       
  END FUNCTION MatVecMul_CRSMatrix
 !

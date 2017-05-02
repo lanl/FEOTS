@@ -61,7 +61,6 @@ USE netcdf
    INTEGER, ALLOCATABLE :: source_varid_PN(:)
    INTEGER, ALLOCATABLE :: rfac_varid_PN(:)
    INTEGER, ALLOCATABLE :: mask_varid_PN(:)
-   INTEGER, ALLOCATABLE :: hardset_varid_PN(:)
    INTEGER              :: volume_varid_PN
 
 CONTAINS
@@ -164,7 +163,6 @@ CONTAINS
       ALLOCATE( source_varid_PN(1:this % nTracers) )
       ALLOCATE( rfac_varid_PN(1:this % nTracers) )
       ALLOCATE( mask_varid_PN(1:this % nTracers) )
-      ALLOCATE( hardset_varid_PN(1:this % nTracers) )
       ! Set up the tracer field names based on the model type
       IF( modelType == ImpulseField )THEN
       
@@ -201,10 +199,6 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "mask_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(1) ) )
-         CALL Check( nf90_def_var( ncid_PN, "hardset_Particulate", NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      hardset_varid_PN(1) ) )
-
 
          CALL Check( nf90_def_var( ncid_PN, "Source_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
@@ -215,9 +209,6 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "mask_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(2) ) )
-         CALL Check( nf90_def_var( ncid_PN, "hardset_Radionuclide", NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      hardset_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
@@ -235,9 +226,6 @@ CONTAINS
             CALL Check( nf90_def_var( ncid_PN, "mask_"//tracerid, NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(i) ) )
-            CALL Check( nf90_def_var( ncid_PN, "hardset_"//tracerid, NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      hardset_varid_PN(i) ) )
          ENDDO
       
             CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
@@ -282,7 +270,6 @@ CONTAINS
       ALLOCATE( source_varid_PN(1:this % nTracers) )
       ALLOCATE( rfac_varid_PN(1:this % nTracers) )
       ALLOCATE( mask_varid_PN(1:this % nTracers) )
-      ALLOCATE( hardset_varid_PN(1:this % nTracers) )
       ! Set up the tracer field names based on the model type
       IF( modelType == ImpulseResponseField )THEN
       
@@ -323,8 +310,6 @@ CONTAINS
                                       rFac_varid_PN(1) ) )
          CALL Check( nf90_inq_varid( ncid_PN, "mask_Particulate", &
                                       mask_varid_PN(1) ) )
-         CALL Check( nf90_inq_varid( ncid_PN, "hardset_Particulate", &
-                                      hardset_varid_PN(1) ) )
          
          CALL Check( nf90_inq_varid( ncid_PN, "Source_Radionuclide", &
                                       source_varid_PN(2) ) )
@@ -332,8 +317,6 @@ CONTAINS
                                       rFac_varid_PN(2) ) )
          CALL Check( nf90_inq_varid( ncid_PN, "mask_Radionuclide", &
                                       mask_varid_PN(2) ) )
-         CALL Check( nf90_inq_varid( ncid_PN, "hardset_Radionuclide", &
-                                      hardset_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
@@ -347,8 +330,6 @@ CONTAINS
                                       rFac_varid_PN(i) ) )
             CALL Check( nf90_inq_varid( ncid_PN, "mask_"//tracerid, &
                                       mask_varid_PN(i) ) )
-            CALL Check( nf90_inq_varid( ncid_PN, "hardset_"//tracerid, &
-                                      hardset_varid_PN(i) ) )
          ENDDO
             CALL Check( nf90_inq_varid( ncid_PN, "VolumeCorrection", &
                                       volume_varid_PN ) )
@@ -366,7 +347,6 @@ CONTAINS
        DEALLOCATE( source_varid_PN )
        DEALLOCATE( rFac_varid_PN )
        DEALLOCATE( mask_varid_PN )
-       DEALLOCATE( hardset_varid_PN )
        
  END SUBROUTINE FinalizeNetCDF_POP_Native
 !
@@ -512,10 +492,6 @@ CONTAINS
                                    mask_varid_pn(i), &
                                    this % mask(:,:,:,i), &
                                    start, recCount ) )      
-         CALL Check( nf90_put_var( ncid_PN, &
-                                   hardset_varid_pn(i), &
-                                   this % hardset(:,:,:,i), &
-                                   start, recCount ) )      
       ENDDO
 
  END SUBROUTINE WriteSourceEtcNETCDF_POP_Native
@@ -567,10 +543,6 @@ CONTAINS
             CALL Check( nf90_get_var( ncid_PN, &
                                       mask_varid_pn(i), &
                                       this % mask(:,:,:,i), &
-                                      start, recCount ) )
-            CALL Check( nf90_get_var( ncid_PN, &
-                                      hardset_varid_pn(i), &
-                                      this % hardset(:,:,:,i), &
                                       start, recCount ) )
          ENDDO
 

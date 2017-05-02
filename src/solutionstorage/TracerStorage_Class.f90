@@ -308,6 +308,7 @@ MODULE TracerStorage_Class
    INTEGER :: itracer, i
 
 
+!!!$OMP PARALLEL
       IF( modelflag == DyeModel )THEN
          tendency = PassiveDyeModel( thisStorage % nOps, &
                                      thisStorage % nTracers, &
@@ -344,28 +345,32 @@ MODULE TracerStorage_Class
 
       volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
       
+      !$OMP DO COLLAPSE(2)
       DO itracer = 1, thisStorage % nTracers
          DO i = 1, thisStorage % nDOF
-            IF( ABS(thisStorage % mask(i,itracer)) > 1.0_prec )THEN
-               PRINT*, 'BUST! Improper Mask Value', thisStorage % mask(i,itracer), i, itracer
-            ENDIF
             tendency(i,itracer) = tendency(i,itracer)*thisStorage % mask(i,itracer)
          ENDDO
       ENDDO
+      !$OMP END DO
 
       IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
-
+         !$OMP DO
          DO i = 1, thisStorage % nDOF
             volcorrection(i) = volcorrection(i)*thisStorage % mask(i,1)
          ENDDO
-
+         !$OMP ENDDO
       ELSEIF( modelflag == RadioNuclideModel )THEN
 
+         !$OMP DO
          DO i = 1, thisStorage % nDOF
             volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
          ENDDO
+         !$OMP ENDDO
 
       ENDIF
+
+!!!$OMP END PARALLEL
+
  END SUBROUTINE CalculateTendency_TracerStorage
 !
  FUNCTION PassiveDyeModel( nOperators, nTracers, nDOF,transportOperators, source, rfac, tracerfield ) RESULT( tendency )
@@ -385,8 +390,9 @@ MODULE TracerStorage_Class
    REAL(prec)      :: rfac(1:nDOF, 1:nTracers)
    REAL(prec)      :: tendency(1:nDOF, 1:nTracers)
    ! LOCAL
-   INTEGER         :: itracer, iOp
+   INTEGER         :: itracer, i
 
+      !!!$OMP PARALLEL
       ! Calculate the contribution from the transport operator
       DO itracer = 1, nTracers ! Only the passive tracers
 
@@ -394,13 +400,17 @@ MODULE TracerStorage_Class
          tendency(1:nDOF,itracer) = transportOperators(1) % MatVecMul( tracerfield(1:nDOF,iTracer) ) 
 
          ! Add in the relaxation term
-         tendency(1:nDOF,itracer) = tendency(1:nDOF,itracer) + &
-                                   (source(1:nDOF,itracer) - tracerfield(1:nDOF,iTracer))*&
-                                    rFac(1:nDOF,itracer)
-      
+         !$OMP DO
+         DO i = 1, nDOF
+            tendency(i,itracer) = tendency(i,itracer) + &
+                                      (source(i,itracer) - tracerfield(i,iTracer))*&
+                                       rFac(i,itracer)
+         ENDDO
+         !$OMP END DO
+
       ENDDO
-
-
+      !!!$OMP END PARALLEL
+     
  END FUNCTION PassiveDyeModel
 !
  FUNCTION ParticulateSettlingModel( nOperators, nTracers, nDOF,transportOperators, source, rfac,tracerfield ) RESULT( tendency )

@@ -388,8 +388,12 @@ CONTAINS
       opPeriod = this % solution % opPeriod
       tracers = this % solution % tracers
 
+!$OMP PARALLEL PRIVATE( tn ) 
+
+      !!!$OMP SEQUENTIAL
       DO k = 1, nTimeSteps
 
+         !$OMP MASTER
          IF( this % params % Regional ) THEN
             CALL this % solution % CheckForNewOperator( tn, &
                                 TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename) )
@@ -397,40 +401,75 @@ CONTAINS
             CALL this % solution % CheckForNewOperator( tn, &
                                 TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename) )
          ENDIF
+         !$OMP END MASTER
 
          SELECT CASE (k)
 
             CASE(1) ! First order Euler
-               weightedTracers = tracers
-               trm1 = tracers
+               !$OMP DO COLLAPSE(2)
+               DO m = 1, this % solution % nTracers
+               DO i = 1, this % solution % nDOF
+                  weightedTracers(i,m) = tracers(i,m)
+                  trm1(i,m) = tracers(i,m)
+               ENDDO
+               ENDDO
+               !$OMP ENDDO
 
             CASE(2) ! Second Order Adams Bashforth
-               weightedTracers = (3.0_prec*tracers - trm1)*0.5_prec
-               trm2 = trm1
-               trm1 = tracers
+               !$OMP DO COLLAPSE(2)
+               DO m = 1, this % solution % nTracers
+               DO i = 1, this % solution % nDOF
+                  weightedTracers(i,m) = (3.0_prec*tracers(i,m) - trm1(i,m))*0.5_prec
+                  trm2(i,m) = trm1(i,m)
+                  trm1(i,m) = tracers(i,m)
+               ENDDO
+               ENDDO
+               !$OMP ENDDO
 
             CASE DEFAULT ! Third Order Adams Bashforth
-               weightedTracers = (23.0_prec*tracers - 16.0_prec*trm1 + 5.0_prec*trm2)/12.0_prec
-               trm2 = trm1
-               trm1 = tracers
+               !$OMP DO COLLAPSE(2)
+               DO m = 1, this % solution % nTracers
+               DO i = 1, this % solution % nDOF
+                  weightedTracers(i,m) = (23.0_prec*tracers(i,m) - 16.0_prec*trm1(i,m) + 5.0_prec*trm2(i,m))/12.0_prec
+                  trm2(i,m) = trm1(i,m)
+                  trm1(i,m) = tracers(i,m)
+               ENDDO
+               ENDDO
+               !$OMP ENDDO
 
          END SELECT
 
          CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
 
          ! Forward Step the volume 
-         vol = this % solution % volume + dt*dVdt
-         ! Forward step the tracers with the volume correction
-         DO m = 1, this % solution % nTracers
-         !   tracers(:,m)  = (1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
-            tracers(:,m)  = tracers(:,m) + dt*dCdt(:,m)
+
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+            vol(i) = this % solution % volume(i) + dt*dVdt(i)
          ENDDO
+         !$OMP ENDDO
+
+         ! Forward step the tracers with the volume correction
+         !$OMP DO COLLAPSE(2)
+         DO m = 1, this % solution % nTracers
+            DO i = 1, this % solution % nDOF
+         !   tracers(:,m)  = (1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+               tracers(i,m)  = tracers(i,m) + dt*dCdt(i,m)
+            ENDDO
+         ENDDO
+         !$OMP ENDDO
+
          ! Store the volume
-         this % solution % volume = vol
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+            this % solution % volume(i) = vol(i)
+         ENDDO
+         !$OMP ENDDO
          tn = tn + dt
 
       ENDDO
 
+!$OMP END PARALLEL
       this % solution % tracers = tracers
  
  END SUBROUTINE ForwardStepAB3_POP_FEOTS

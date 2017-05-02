@@ -5,6 +5,7 @@ PROGRAM FEOTSDriver
 USE POP_FEOTS_Class
 USE POP_Params_Class
 
+USE OMP_LIB
 
 IMPLICIT NONE
 
@@ -14,6 +15,7 @@ IMPLICIT NONE
    CHARACTER(200):: thisIRFFile
    INTEGER       :: funit, recordID, fileID, i, nIODumps
    REAL(prec)    :: tn
+   REAL(prec)    :: t1, t2
 
       CALL feots % Build( )
 
@@ -80,8 +82,12 @@ IMPLICIT NONE
    
          DO i = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
    
+            t1 = omp_get_wtime( )
+          !  CALL CPU_TIME( t1 )
             CALL feots % ForwardStepAB3( tn, feots % params % nStepsPerDump )
-   
+            t2 = omp_get_wtime( )
+          !  CALL CPU_TIME( t2 )
+            PRINT*, 'ForwardStepAB3 wall time :', t2-t1
             CALL feots % MapTracerFromDOF( )
    
             WRITE( ncfileTag, '(I10.10)' ) i + feots % params % nStepsPerDump

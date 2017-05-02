@@ -15,7 +15,7 @@ WFLAGS=
 ifeq (${DEBUG},yes)
   OPT=-O0 -g -ffree-line-length-none -ffpe-trap=invalid -fbacktrace
 else
-  OPT=-O2 -ffree-line-length-none
+  OPT=-O2 -ffree-line-length-none -fopenmp
 endif
 
 
