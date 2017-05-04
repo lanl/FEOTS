@@ -8,6 +8,8 @@ USE ModelPrecision
 USE POP_Mesh_Class
 USE POP_Stencil_Class
 USE POP_GridTypeMappings
+!
+USE netcdf
 
 ! This module defines a class for handling masks of a global mesh so that
 ! regional meshes can be constructed, boundary conditions can be applied, and
@@ -53,6 +55,7 @@ IMPLICIT NONE
 
       PROCEDURE :: Build => Build_POP_Regional
       PROCEDURE :: Trash => Trash_POP_Regional
+      PROCEDURE :: LoadMaskField => LoadMaskField_POP_Regional
 
       PROCEDURE :: FindThoseInRegion => FindThoseInRegion_POP_Regional 
       PROCEDURE :: FindBoundaryCells => FindBoundaryCells_POP_Regional
@@ -68,7 +71,7 @@ IMPLICIT NONE
 CONTAINS
 
 
- SUBROUTINE Build_POP_Regional( myRegion, mesh, mystencil, meshType, south, north, east, west )
+ SUBROUTINE Build_POP_Regional( myRegion, mesh, mystencil, meshType, south, north, east, west, maskfile )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(out) :: myRegion
@@ -76,57 +79,71 @@ CONTAINS
    TYPE( Stencil ), INTENT(in)        :: mystencil
    INTEGER, INTENT(in)                :: meshType
    REAL(prec), INTENT(in)             :: south, north, east, west
+   CHARACTER(*), INTENT(in), OPTIONAL :: maskFile
    ! Local
-   LOGICAL inputProblem
+   INTEGER :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
+   LOGICAL :: inputProblem
 
       inputProblem = .FALSE.
+      IF( present(maskfile) )THEN
 
-      IF( north > 90.0_prec .OR. north < -90.0_prec .OR. &
-          south > 90.0_prec .OR. south < -90.0_prec )THEN
-         PRINT *, 'Module POP_Regional_Class.f90 : S/R Build :'
-         PRINT *, '    Latitudes must be specified in degrees N and'
-         PRINT*,  '    must be between -90 and 90.'
-         inputProblem = .TRUE.
-      ELSE
-         myRegion % south = south
-         myRegion % north = north
-      ENDIF
+         CALL myRegion % LoadMaskField( mesh, maskfield, maskfile )
 
-      IF( east < -360.0_prec .OR. east > 360.0_prec .OR. & 
-          west < -360.0_prec .OR. west > 360.0_prec )THEN
-         PRINT *, 'Module POP_Regional_Class.f90 : S/R Build :'
-         PRINT *, '    Longitudes must be specified in degrees E and'
-         PRINT*,  '    must be between -360 and 360.'
-         inputProblem = .TRUE.
+         PRINT*, ' Finding cells in Region '
+         CALL myRegion % FindThoseInRegion( mesh, maskfield )
+
+         PRINT*, ' Finding boundary cells'
+         CALL myRegion % FindBoundaryCells( mesh, mystencil, meshType, maskfield )
+
       ELSE
-          
-         IF( east < 0.0_prec )THEN
-            ! Force the longitudes between 0 and 360 to conform with POP mesh.
-            myRegion % east = east + 360.0_prec
+
+         IF( north > 90.0_prec .OR. north < -90.0_prec .OR. &
+             south > 90.0_prec .OR. south < -90.0_prec )THEN
+            PRINT *, 'Module POP_Regional_Class.f90 : S/R Build :'
+            PRINT *, '    Latitudes must be specified in degrees N and'
+            PRINT*,  '    must be between -90 and 90.'
+            inputProblem = .TRUE.
          ELSE
-            myRegion % east = east
+            myRegion % south = south
+            myRegion % north = north
          ENDIF
 
-         IF( west < 0.0_prec )THEN
-            ! Force the longitudes between 0 and 360 to conform with POP mesh.
-            myRegion % west = west + 360.0_prec
+         IF( east < -360.0_prec .OR. east > 360.0_prec .OR. & 
+             west < -360.0_prec .OR. west > 360.0_prec )THEN
+            PRINT *, 'Module POP_Regional_Class.f90 : S/R Build :'
+            PRINT *, '    Longitudes must be specified in degrees E and'
+            PRINT*,  '    must be between -360 and 360.'
+            inputProblem = .TRUE.
          ELSE
-            myRegion % west = west
+             
+            IF( east < 0.0_prec )THEN
+               ! Force the longitudes between 0 and 360 to conform with POP mesh.
+               myRegion % east = east + 360.0_prec
+            ELSE
+               myRegion % east = east
+            ENDIF
+
+            IF( west < 0.0_prec )THEN
+               ! Force the longitudes between 0 and 360 to conform with POP mesh.
+               myRegion % west = west + 360.0_prec
+            ELSE
+               myRegion % west = west
+            ENDIF
+
          ENDIF
 
+         myRegion % nDOF = mesh % nDOF
+
+         IF( inputProblem )THEN
+            STOP '     Stopping!'
+         ENDIF
+         PRINT*, ' Finding cells in Region '
+         CALL myRegion % FindThoseInRegion( mesh )
+
+         PRINT*, ' Finding boundary cells'
+         CALL myRegion % FindBoundaryCells( mesh, mystencil, meshType )
+
       ENDIF
-
-      myRegion % nDOF = mesh % nDOF
-
-      IF( inputProblem )THEN
-         STOP '     Stopping!'
-      ENDIF
-      PRINT*, ' Finding cells in Region '
-      CALL myRegion % FindThoseInRegion( mesh )
-
-      PRINT*, ' Finding boundary cells'
-      CALL myRegion % FindBoundaryCells( mesh, mystencil, meshType )
-
 
  END SUBROUTINE Build_POP_Regional
 
@@ -141,154 +158,233 @@ CONTAINS
 
  END SUBROUTINE Trash_POP_Regional
 !
- SUBROUTINE FindThoseInRegion_POP_Regional( myRegion, mesh )
+ SUBROUTINE LoadMaskField_POP_Regional( myRegion, mesh, maskfield, maskfile )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
+   INTEGER, INTENT(out)                 :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
+   CHARACTER(*), INTENT(in)             :: maskfile
+   ! Local
+   INTEGER :: start(1:3), recCount(1:3)
+   INTEGER :: ncid, varid
+
+      start    = (/1, 1, 1/)
+      recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
+
+
+      CALL Check( nf90_open( TRIM(maskfile), nf90_nowrite, ncid ) )
+      CALL Check( nf90_inq_varid( ncid, "mask", varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                maskfield, &
+                                start, recCount ) )
+      CALL Check( nf90_close( ncid ) )
+
+
+ END SUBROUTINE LoadMaskField_POP_Regional
+!
+ SUBROUTINE FindThoseInRegion_POP_Regional( myRegion, mesh, maskfield )
+
+   IMPLICIT NONE
+   CLASS( POP_Regional ), INTENT(inout) :: myRegion
+   TYPE( POP_Mesh ), INTENT(inout)      :: mesh
+   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
    !
    INTEGER :: i, j, k
    INTEGER :: nInRegion
    LOGICAL :: inRegion
 
-      mesh % tracerMask = 1.0_prec
-      IF( myRegion % east < myRegion % west  )THEN
-         myRegion % crossesPrimeMeridian = .TRUE. 
-         PRINT*, '  Region crosses prime-meridian'
-         ! In this scenario, the domain crosses over 0 East. As an example
-         ! consider the case in the Atlantic Ocean (perhaps near the Agulhas
-         ! region), where the western edge of the domain we would like to model
-         ! covers longitudes between -10E and 40E. When calling "Build", -10E is
-         ! converted to 350, which is greater than 40. To find cells in this
-         ! region, we look for cells with lon > 350 and lon < 40. In general,
-         ! for this case "lon > mesh % west" OR "lon < mesh % east" 
+      IF( present(maskfield) )THEN
 
-         ! First, count how many cells are in the region
-         nInRegion = 0
-         DO j = 1, mesh % nY
-            DO i = 1, mesh % nX
-               DO k = 1, mesh % KMT(i,j)
+          mesh % tracerMask(i,j,k) = 0.0_prec
 
-                  IF( mesh % tLon(i,j) >= myRegion % west .OR. &
-                      mesh % tLon(i,j) <= myRegion % east ) THEN
-                     IF( mesh % tLat(i,j) >= myRegion % south .AND. &
-                         mesh % tLat(i,j) <= myRegion % north )THEN
+            nInRegion = 0
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  DO k = 1, mesh % KMT(i,j)
+   
+                     IF( maskfield(i,j,k) /= 0 )THEN
                          nInRegion = nInRegion + 1
+                         mesh % tracerMask(i,j,k) = 1.0_prec
                      ENDIF
-                  ENDIF
-
+   
+                  ENDDO
                ENDDO
             ENDDO
-         ENDDO
-         PRINT*, '  Found ', nInRegion, 'in region' 
-         myRegion % nCells = nInRegion
-         ALLOCATE( myRegion % ijkInRegion(1:3,1:nInRegion), &
-                   myRegion % dofInRegion(1:nInRegion), &
-                   myRegion % dofToLocalIJK(1:3,nInRegion) )
-
-         nInRegion = 0 
-         DO j = 1, mesh % nY
-            DO i = 1, mesh % nX
-               DO k = 1, mesh % KMT(i,j) 
-
-                  inRegion = .FALSE.
-                  IF( mesh % tLon(i,j) >= myRegion % west .OR. &
-                      mesh % tLon(i,j) <= myRegion % east ) THEN
-                     IF( mesh % tLat(i,j) >= myRegion % south .AND. &
-                         mesh % tLat(i,j) <= myRegion % north )THEN
-
+            PRINT*, '  Found ', nInRegion, 'in region' 
+            myRegion % nCells = nInRegion
+            ALLOCATE( myRegion % ijkInRegion(1:3,1:nInRegion), &
+                      myRegion % dofInRegion(1:nInRegion), &
+                      myRegion % dofToLocalIJK(1:3,nInRegion) )
+   
+            nInRegion = 0 
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  DO k = 1, mesh % KMT(i,j) 
+   
+                     IF( maskfield(i,j,k) /= 0 )THEN
                          nInRegion = nInRegion + 1
                          myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
                          myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
-
-                        inRegion = .TRUE.
                      ENDIF
-                  ENDIF
-
-                  IF( .NOT.(inRegion) ) THEN
-                     mesh % tracermask(i,j,k) = 0.0_prec
-                  ENDIF
-
+   
+                  ENDDO
                ENDDO
             ENDDO
+         ! Generate the inverse dof map
+         ALLOCATE( myRegion % inverseDOFMap(1:mesh % nDOF) )
+         myRegion % inverseDOFMap = 0
+   
+         ! Determine the inverse map
+         DO k = 1, myRegion % nCells
+            ! k is the local DOF, dofInRegion(k) is the globalDOF
+            myRegion % inverseDOFMap( myRegion % dofInRegion(k) ) = k
          ENDDO
+         
 
       ELSE
-         myRegion % crossesPrimeMeridian = .FALSE. 
-
-         ! First, count how many cells are in the region
-         nInRegion = 0
-         DO j = 1, mesh % nY
-            DO i = 1, mesh % nX
-               DO k = 1, mesh % KMT(i,j)
-
-                  IF( mesh % tLon(i,j) >= myRegion % west .AND. &
-                      mesh % tLon(i,j) <= myRegion % east ) THEN
-                     IF( mesh % tLat(i,j) >= myRegion % south .AND. &
-                         mesh % tLat(i,j) <= myRegion % north )THEN
-                         nInRegion = nInRegion + 1
+   
+         mesh % tracerMask = 1.0_prec
+         IF( myRegion % east < myRegion % west  )THEN
+            myRegion % crossesPrimeMeridian = .TRUE. 
+            PRINT*, '  Region crosses prime-meridian'
+            ! In this scenario, the domain crosses over 0 East. As an example
+            ! consider the case in the Atlantic Ocean (perhaps near the Agulhas
+            ! region), where the western edge of the domain we would like to model
+            ! covers longitudes between -10E and 40E. When calling "Build", -10E is
+            ! converted to 350, which is greater than 40. To find cells in this
+            ! region, we look for cells with lon > 350 and lon < 40. In general,
+            ! for this case "lon > mesh % west" OR "lon < mesh % east" 
+   
+            ! First, count how many cells are in the region
+            nInRegion = 0
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  DO k = 1, mesh % KMT(i,j)
+   
+                     IF( mesh % tLon(i,j) >= myRegion % west .OR. &
+                         mesh % tLon(i,j) <= myRegion % east ) THEN
+                        IF( mesh % tLat(i,j) >= myRegion % south .AND. &
+                            mesh % tLat(i,j) <= myRegion % north )THEN
+                            nInRegion = nInRegion + 1
+                        ENDIF
                      ENDIF
-                  ENDIF
-
+   
+                  ENDDO
                ENDDO
             ENDDO
-         ENDDO
-         PRINT*, '  Found ', nInRegion, 'in region' 
-          
-         myRegion % nCells = nInRegion
-         ALLOCATE( myRegion % ijkInRegion(1:3,1:nInRegion), &
-                   myRegion % dofInRegion(1:nInRegion), &
-                   myRegion % doftoLocalIJK(1:3,1:nInRegion) )
-
-         nInRegion = 0 
-         DO j = 1, mesh % nY
-            DO i = 1, mesh % nX
-               DO k = 1, mesh % KMT(i,j) 
-
-                  inRegion = .FALSE.
-                  IF( mesh % tLon(i,j) >= myRegion % west .AND. &
-                      mesh % tLon(i,j) <= myRegion % east ) THEN
-                     IF( mesh % tLat(i,j) >= myRegion % south .AND. &
-                         mesh % tLat(i,j) <= myRegion % north )THEN
-
-                         nInRegion = nInRegion + 1
-                         myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
-                         myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
-                         inRegion = .TRUE.
-
+            PRINT*, '  Found ', nInRegion, 'in region' 
+            myRegion % nCells = nInRegion
+            ALLOCATE( myRegion % ijkInRegion(1:3,1:nInRegion), &
+                      myRegion % dofInRegion(1:nInRegion), &
+                      myRegion % dofToLocalIJK(1:3,nInRegion) )
+   
+            nInRegion = 0 
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  DO k = 1, mesh % KMT(i,j) 
+   
+                     inRegion = .FALSE.
+                     IF( mesh % tLon(i,j) >= myRegion % west .OR. &
+                         mesh % tLon(i,j) <= myRegion % east ) THEN
+                        IF( mesh % tLat(i,j) >= myRegion % south .AND. &
+                            mesh % tLat(i,j) <= myRegion % north )THEN
+   
+                            nInRegion = nInRegion + 1
+                            myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
+                            myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
+   
+                           inRegion = .TRUE.
+                        ENDIF
                      ENDIF
-                  ENDIF
-
-                  IF( .NOT.(inRegion) ) THEN
-                     mesh % tracermask(i,j,k) = 0.0_prec
-                  ENDIF
-
+   
+                     IF( .NOT.(inRegion) ) THEN
+                        mesh % tracermask(i,j,k) = 0.0_prec
+                     ENDIF
+   
+                  ENDDO
                ENDDO
             ENDDO
+   
+         ELSE
+            myRegion % crossesPrimeMeridian = .FALSE. 
+   
+            ! First, count how many cells are in the region
+            nInRegion = 0
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  DO k = 1, mesh % KMT(i,j)
+   
+                     IF( mesh % tLon(i,j) >= myRegion % west .AND. &
+                         mesh % tLon(i,j) <= myRegion % east ) THEN
+                        IF( mesh % tLat(i,j) >= myRegion % south .AND. &
+                            mesh % tLat(i,j) <= myRegion % north )THEN
+                            nInRegion = nInRegion + 1
+                        ENDIF
+                     ENDIF
+   
+                  ENDDO
+               ENDDO
+            ENDDO
+            PRINT*, '  Found ', nInRegion, 'in region' 
+             
+            myRegion % nCells = nInRegion
+            ALLOCATE( myRegion % ijkInRegion(1:3,1:nInRegion), &
+                      myRegion % dofInRegion(1:nInRegion), &
+                      myRegion % doftoLocalIJK(1:3,1:nInRegion) )
+   
+            nInRegion = 0 
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  DO k = 1, mesh % KMT(i,j) 
+   
+                     inRegion = .FALSE.
+                     IF( mesh % tLon(i,j) >= myRegion % west .AND. &
+                         mesh % tLon(i,j) <= myRegion % east ) THEN
+                        IF( mesh % tLat(i,j) >= myRegion % south .AND. &
+                            mesh % tLat(i,j) <= myRegion % north )THEN
+   
+                            nInRegion = nInRegion + 1
+                            myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
+                            myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
+                            inRegion = .TRUE.
+   
+                        ENDIF
+                     ENDIF
+   
+                     IF( .NOT.(inRegion) ) THEN
+                        mesh % tracermask(i,j,k) = 0.0_prec
+                     ENDIF
+   
+                  ENDDO
+               ENDDO
+            ENDDO
+   
+         ENDIF
+   
+         ! Generate the inverse dof map
+         ALLOCATE( myRegion % inverseDOFMap(1:mesh % nDOF) )
+         myRegion % inverseDOFMap = 0
+   
+         ! Determine the inverse map
+         DO k = 1, myRegion % nCells
+            ! k is the local DOF, dofInRegion(k) is the globalDOF
+            myRegion % inverseDOFMap( myRegion % dofInRegion(k) ) = k
          ENDDO
 
       ENDIF
-
-      ! Generate the inverse dof map
-      ALLOCATE( myRegion % inverseDOFMap(1:mesh % nDOF) )
-      myRegion % inverseDOFMap = 0
-
-      ! Determine the inverse map
-      DO k = 1, myRegion % nCells
-         ! k is the local DOF, dofInRegion(k) is the globalDOF
-         myRegion % inverseDOFMap( myRegion % dofInRegion(k) ) = k
-      ENDDO
-
-                  
+         
  END SUBROUTINE FindThoseInRegion_POP_Regional
 !
- SUBROUTINE FindBoundaryCells_POP_Regional( myRegion, mesh, mystencil, meshType )
+ SUBROUTINE FindBoundaryCells_POP_Regional( myRegion, mesh, mystencil, meshType, maskfield )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout)  :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)       :: mesh
    TYPE( Stencil ), INTENT(in)           :: mystencil
    INTEGER, INTENT(in)                   :: meshType
+   INTEGER, INTENT(in), OPTIONAL         :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
    ! Local
    INTEGER :: i, j, k, ii, jj, this_i, this_j, m, n
    INTEGER :: minI, maxI, minJ, maxJ, minL
@@ -296,102 +392,172 @@ CONTAINS
    INTEGER :: regionmask(1:mesh % nX,1:mesh % nY,1:mesh % nZ)
    INTEGER :: stencilSum
       
-      ! To find the boundary cells, we will create a "mask" field with 0's assigned to the 
-      ! points within the specified region and one assigned to points outside.
-      ! Then, for every point in the region, we add the values of the neighbors that lie within the
-      ! stencil.
-      
-      ! (1) Generate the regional mask
-      regionMask = 1 ! Set all values to 1 initially
+      IF( present(maskfield) )THEN
 
-      minI = MINVAL( myRegion % ijkInRegion(1,:) ) 
-      maxI = MAXVAL( myRegion % ijkInRegion(1,:) ) 
-      minJ = MINVAL( myRegion % ijkInRegion(2,:) ) 
-      maxJ = MAXVAL( myRegion % ijkInRegion(2,:) ) 
-
-      IF( myRegion % crossesPrimeMeridian .AND. mesh % tLon(minI,minJ) > myRegion % west )THEN
-         minL = mesh % tLon(minI,minJ) - 360.0_prec
-      ELSE
-         minL = mesh % tLon(minI,minJ)
-      ENDIF
-
-      ! Zeros out the mask points within the region
-      IF( mesh % tLon(maxI,minJ) < minL )THEN
+         ! To find the boundary cells, we will create a "mask" field with 0's assigned to the 
+         ! points within the specified region and one assigned to points outside.
+         ! Then, for every point in the region, we add the values of the neighbors that lie within the
+         ! stencil.
          
+         ! (1) Generate the regional mask
+         regionMask = 1 ! Set all values to 1 initially
+
          DO k = 1, mesh % nZ
-            DO j = minJ, maxJ
-               DO i = 1, minI
-                  regionMask(i,j,k) = 0
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  IF( maskfield(i,j,k) /= 0 )THEN
+                     regionMask(i,j,k) = 0
+                  ENDIF
                ENDDO
             ENDDO
          ENDDO
 
-         DO k = 1, mesh % nZ
-            DO j = minJ, maxJ
-               DO i = maxI, mesh % nX
-                  regionMask(i,j,k) = 0
-               ENDDO
+         ! (2) Loop over the region and compute the sum of the points within the stencil. The first 
+         ! pass through will count the number of border cells.
+         nBCells = 0
+         DO m = 1, myRegion % nCells
+
+            i = myRegion % ijkInRegion(1,m) ! Global i, j, k
+            j = myRegion % ijkInRegion(2,m)
+            k = myRegion % ijkInRegion(3,m)
+
+            stencilSum = 0
+            DO n = 1, myStencil % nPoints
+
+               ii = i + myStencil % relativeNeighbors(1,n)
+               jj = j + myStencil % relativeNeighbors(2,n)
+               CALL GetTrueIJ( meshType, ii, jj, &
+                               mesh % nX, mesh % nY, &
+                               this_i, this_j )
+              
+               stencilSum = stencilSum + regionMask(this_i,this_j,k)
+
             ENDDO
+
+            IF( stencilSum > 0 )THEN
+               nBCells = nBcells + 1
+               mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
+            ENDIF
+
+         ENDDO
+
+         PRINT*,'  Found', nBCells,' boundary cells.' 
+         myRegion % nBCells = nBCells
+         ALLOCATE( myRegion % boundaryCells(1:nBCells) )
+         ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
+         nBCells = 0
+         DO m = 1, myRegion % nCells
+
+            i = myRegion % ijkInRegion(1,m)
+            j = myRegion % ijkInRegion(2,m)
+            k = myRegion % ijkInRegion(3,m)
+
+            IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
+               nBCells = nBCells + 1
+               myRegion % boundaryCells(nBCells) = m
+            ENDIF
+
          ENDDO
 
       ELSE
+         ! To find the boundary cells, we will create a "mask" field with 0's assigned to the 
+         ! points within the specified region and one assigned to points outside.
+         ! Then, for every point in the region, we add the values of the neighbors that lie within the
+         ! stencil.
+         
+         ! (1) Generate the regional mask
+         regionMask = 1 ! Set all values to 1 initially
 
-         DO k = 1, mesh % nZ
-            DO j = minJ, maxJ
-               DO i = minI, maxI
-                  regionMask(i,j,k) = 0
+         minI = MINVAL( myRegion % ijkInRegion(1,:) ) 
+         maxI = MAXVAL( myRegion % ijkInRegion(1,:) ) 
+         minJ = MINVAL( myRegion % ijkInRegion(2,:) ) 
+         maxJ = MAXVAL( myRegion % ijkInRegion(2,:) ) 
+
+         IF( myRegion % crossesPrimeMeridian .AND. mesh % tLon(minI,minJ) > myRegion % west )THEN
+            minL = mesh % tLon(minI,minJ) - 360.0_prec
+         ELSE
+            minL = mesh % tLon(minI,minJ)
+         ENDIF
+
+         ! Zeros out the mask points within the region
+         IF( mesh % tLon(maxI,minJ) < minL )THEN
+            
+            DO k = 1, mesh % nZ
+               DO j = minJ, maxJ
+                  DO i = 1, minI
+                     regionMask(i,j,k) = 0
+                  ENDDO
                ENDDO
             ENDDO
+
+            DO k = 1, mesh % nZ
+               DO j = minJ, maxJ
+                  DO i = maxI, mesh % nX
+                     regionMask(i,j,k) = 0
+                  ENDDO
+               ENDDO
+            ENDDO
+
+         ELSE
+
+            DO k = 1, mesh % nZ
+               DO j = minJ, maxJ
+                  DO i = minI, maxI
+                     regionMask(i,j,k) = 0
+                  ENDDO
+               ENDDO
+            ENDDO
+
+         ENDIF
+
+         ! (2) Loop over the region and compute the sum of the points within the stencil. The first 
+         ! pass through will count the number of border cells.
+         nBCells = 0
+         DO m = 1, myRegion % nCells
+
+            i = myRegion % ijkInRegion(1,m) ! Global i, j, k
+            j = myRegion % ijkInRegion(2,m)
+            k = myRegion % ijkInRegion(3,m)
+
+            stencilSum = 0
+            DO n = 1, myStencil % nPoints
+
+               ii = i + myStencil % relativeNeighbors(1,n)
+               jj = j + myStencil % relativeNeighbors(2,n)
+               CALL GetTrueIJ( meshType, ii, jj, &
+                               mesh % nX, mesh % nY, &
+                               this_i, this_j )
+              
+               stencilSum = stencilSum + regionMask(this_i,this_j,k)
+
+            ENDDO
+
+            IF( stencilSum > 0 )THEN
+               nBCells = nBcells + 1
+               mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
+            ENDIF
+
+         ENDDO
+
+         PRINT*,'  Found', nBCells,' boundary cells.' 
+         myRegion % nBCells = nBCells
+         ALLOCATE( myRegion % boundaryCells(1:nBCells) )
+         ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
+         nBCells = 0
+         DO m = 1, myRegion % nCells
+
+            i = myRegion % ijkInRegion(1,m)
+            j = myRegion % ijkInRegion(2,m)
+            k = myRegion % ijkInRegion(3,m)
+
+            IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
+               nBCells = nBCells + 1
+               myRegion % boundaryCells(nBCells) = m
+            ENDIF
+
          ENDDO
 
       ENDIF
-
-      ! (2) Loop over the region and compute the sum of the points within the stencil. The first 
-      ! pass through will count the number of border cells.
-      nBCells = 0
-      DO m = 1, myRegion % nCells
-
-         i = myRegion % ijkInRegion(1,m) ! Global i, j, k
-         j = myRegion % ijkInRegion(2,m)
-         k = myRegion % ijkInRegion(3,m)
-
-         stencilSum = 0
-         DO n = 1, myStencil % nPoints
-
-            ii = i + myStencil % relativeNeighbors(1,n)
-            jj = j + myStencil % relativeNeighbors(2,n)
-            CALL GetTrueIJ( meshType, ii, jj, &
-                            mesh % nX, mesh % nY, &
-                            this_i, this_j )
-           
-            stencilSum = stencilSum + regionMask(this_i,this_j,k)
-
-         ENDDO
-
-         IF( stencilSum > 0 )THEN
-            nBCells = nBcells + 1
-            mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
-         ENDIF
-
-      ENDDO
-
-      PRINT*,'  Found', nBCells,' boundary cells.' 
-      myRegion % nBCells = nBCells
-      ALLOCATE( myRegion % boundaryCells(1:nBCells) )
-      ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
-      nBCells = 0
-      DO m = 1, myRegion % nCells
-
-         i = myRegion % ijkInRegion(1,m)
-         j = myRegion % ijkInRegion(2,m)
-         k = myRegion % ijkInRegion(3,m)
-
-         IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
-            nBCells = nBCells + 1
-            myRegion % boundaryCells(nBCells) = m
-         ENDIF
-
-      ENDDO
 
  END SUBROUTINE FindBoundaryCells_POP_Regional
 !

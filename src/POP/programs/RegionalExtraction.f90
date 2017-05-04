@@ -30,9 +30,15 @@ IMPLICIT NONE
       CALL modelstencil % Build( stencilFlag = params % stencilType, &
                                  flavor      = LateralPlusCorners )
 
-      CALL region % Build( globalMesh, modelstencil, params % meshType, &
-                           params % south, params % north, &
-                           params % east, params % west ) 
+      IF( TRIM(params % maskfile) == '' )THEN
+         CALL region % Build( globalMesh, modelstencil, params % meshType, &
+                              params % south, params % north, &
+                              params % east, params % west ) 
+      ELSE
+         CALL region % Build( globalMesh, modelstencil, params % meshType, &
+                              params % south, params % north, &
+                              params % east, params % west, params % maskfile ) 
+      ENDIF
 
       CALL region % GenerateRegionalMesh( globalMesh, regionalMesh )
       CALL regionalMesh % WriteNetCDF( TRIM(params % regionalMeshFile) )

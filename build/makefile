@@ -22,6 +22,10 @@ ifeq (${OMP},yes)
   OPT+=-fopenmp -DHAVE_OPENMP
 endif
 
+ifeq (${PROFILE},yes)
+  OPT+=-pg
+endif
+
 #/////////////////////////////////////////////////////////////////////// #
 FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')
 SRCDIR=${FEOTSDIR}/src/
