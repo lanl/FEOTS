@@ -13,11 +13,14 @@ WFLAGS=
 
 
 ifeq (${DEBUG},yes)
-  OPT=-O0 -g -ffree-line-length-none -ffpe-trap=invalid -fbacktrace
+  OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace
 else
-  OPT=-O2 -ffree-line-length-none -fopenmp
+  OPT=-cpp -O2 -ffree-line-length-none
 endif
 
+ifeq (${OMP},yes)
+  OPT+=-fopenmp -DHAVE_OPENMP
+endif
 
 #/////////////////////////////////////////////////////////////////////// #
 FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')

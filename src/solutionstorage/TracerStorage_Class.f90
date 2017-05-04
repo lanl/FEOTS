@@ -308,7 +308,6 @@ MODULE TracerStorage_Class
    INTEGER :: itracer, i
 
 
-!!!$OMP PARALLEL
       IF( modelflag == DyeModel )THEN
          tendency = PassiveDyeModel( thisStorage % nOps, &
                                      thisStorage % nTracers, &
@@ -369,7 +368,6 @@ MODULE TracerStorage_Class
 
       ENDIF
 
-!!!$OMP END PARALLEL
 
  END SUBROUTINE CalculateTendency_TracerStorage
 !

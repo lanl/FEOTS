@@ -5,7 +5,9 @@ PROGRAM FEOTSDriver
 USE POP_FEOTS_Class
 USE POP_Params_Class
 
+#ifdef HAVE_OPENMP
 USE OMP_LIB
+#endif
 
 IMPLICIT NONE
 
@@ -80,13 +82,25 @@ IMPLICIT NONE
          ! //// Forward Mode //// !
          PRINT*, '  Starting ForwardStepAB3'
    
+        !$OMP PARALLEL
          DO i = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
-   
+
+#ifdef HAVE_OPENMP   
+            !$OMP MASTER
             t1 = omp_get_wtime( )
-          !  CALL CPU_TIME( t1 )
+            !$OMP END MASTER
+#else
+            CALL CPU_TIME( t1 )
+#endif
             CALL feots % ForwardStepAB3( tn, feots % params % nStepsPerDump )
+
+            !$OMP MASTER
+
+#ifdef HAVE_OPENMP
             t2 = omp_get_wtime( )
-          !  CALL CPU_TIME( t2 )
+#else
+            CALL CPU_TIME( t2 )
+#endif
             PRINT*, 'ForwardStepAB3 wall time :', t2-t1
             CALL feots % MapTracerFromDOF( )
    
@@ -96,8 +110,9 @@ IMPLICIT NONE
                                                                  'Tracer.'//ncFileTag//'.nc' )
             CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, recordID )
             CALL feots % nativeSol % FinalizeNetCDF( )
-   
+            !$OMP END MASTER   
          ENDDO
+         !$OMP END PARALLEL 
 
       ELSEIF( feots % params % runMode == EQUILIBRIUM )THEN
 
@@ -121,7 +136,20 @@ IMPLICIT NONE
          ! Transfer the data from the native storage to the FEOTS storage
          CALL feots % MapAllToDOF( )
 
+#ifdef HAVE_OPENMP   
+            t1 = omp_get_wtime( )
+#else
+            CALL CPU_TIME( t1 )
+#endif
          CALL feots % JFNK( )
+
+          
+#ifdef HAVE_OPENMP
+            t2 = omp_get_wtime( )
+#else
+            CALL CPU_TIME( t2 )
+#endif
+            PRINT*, 'JFNK wall time :', t2-t1
 
       ENDIF
 
