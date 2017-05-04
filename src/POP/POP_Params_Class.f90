@@ -22,11 +22,12 @@ USE ConstantsDictionary
 
     TYPE POP_Params
       ! POPMeshOptions
-      INTEGER    :: MeshType 
-      INTEGER    :: StencilType
-      INTEGER    :: OverlapStencil
-      LOGICAL    :: Regional
-      REAL(prec) :: south, east, north, west 
+      INTEGER        :: MeshType 
+      INTEGER        :: StencilType
+      INTEGER        :: OverlapStencil
+      LOGICAL        :: Regional
+      REAL(prec)     :: south, east, north, west 
+      CHARACTER(100) :: maskfile
       ! TracerModelOptions
       INTEGER    :: TracerModel
       REAL(prec) :: settlingVelocity
@@ -37,6 +38,7 @@ USE ConstantsDictionary
       INTEGER    :: nTimeSteps
       INTEGER    :: nStepsPerDump
       INTEGER    :: nRecordsPerfile
+      LOGICAL    :: WaterMassTagging
       ! OperatorOptions
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
@@ -88,6 +90,7 @@ USE ConstantsDictionary
       CHARACTER(40)  :: StencilType
       LOGICAL        :: Regional
       REAL(prec)     :: south, east, north, west 
+      CHARACTER(100) :: maskfile
       ! TracerModelOptions
       CHARACTER(50)  :: TracerModel
       REAL(prec)     :: settlingVelocity
@@ -98,6 +101,7 @@ USE ConstantsDictionary
       INTEGER        :: nTimeSteps
       INTEGER        :: nStepsPerDump
       INTEGER        :: nRecordsPerFile
+      LOGICAL        :: WaterMassTagging
       ! OperatorOptions
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
@@ -123,8 +127,9 @@ USE ConstantsDictionary
       REAL(prec) :: toleranceJFNK
       REAL(prec) :: toleranceGMRES 
 
-      NAMELIST / POPMeshOptions / MeshType, StencilType, Regional, south, east, north, west
-      NAMELIST / TracerModelOptions / TracerModel, settlingVelocity, nTracers, RunMode, dt, iterInit, nTimeSteps, nStepsPerDump, nRecordsPerFile
+      NAMELIST / POPMeshOptions / MeshType, StencilType, Regional, south, east, north, west, maskfile
+      NAMELIST / TracerModelOptions / TracerModel, settlingVelocity, nTracers, RunMode, dt, iterInit, nTimeSteps, nStepsPerDump, nRecordsPerFile, &
+                                      WaterMassTagging
       NAMELIST / OperatorOptions / operatorPeriod, nOperatorsPerCycle
       NAMELIST / FileOptions / extractRegionalOperators, IRFListFile, IRFStart, feotsOperatorDirectory, &
                                regionalOperatorDirectory, settlingOperatorFile, nIRFFiles, operatorBaseName, &
@@ -140,7 +145,7 @@ USE ConstantsDictionary
       east             = 0.0_prec
       north            = 0.0_prec
       west             = 0.0_prec
-
+      maskfile         = ''
       ! TracerModelOptions
       TracerModel      = 'DyeModel'
       settlingVelocity = 0.0_prec
@@ -151,6 +156,7 @@ USE ConstantsDictionary
       nTimeSteps       = 0
       nStepsPerDump    = 0
       nRecordsPerFile  = 10
+      WaterMassTagging = .FALSE.
       ! OperatorOptions
       operatorPeriod     = 86400.0_prec
       nOperatorsPerCycle = 1
@@ -200,8 +206,10 @@ USE ConstantsDictionary
       thisParam % east           = east
       thisParam % north          = north
       thisParam % west           = west
+      thisParam % maskfile       = maskfile
       ! TracerModelOptions
       thisParam % TracerModel      = GetFlagForChar( TRIM(TracerModel) )
+      thisParam % WaterMassTagging = WaterMassTagging
       thisParam % settlingVelocity = settlingVelocity
       !**********************************************************!
       ! If your your model must use a fixed number of tracers,

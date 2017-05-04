@@ -25,10 +25,14 @@ USE netcdf
    TYPE POP_Native
       INTEGER                  :: nX, nY, nZ, nTracers
       REAL(prec), ALLOCATABLE  :: tracer(:,:,:,:)
-      REAL(prec), ALLOCATABLE  :: hardSet(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: mask(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: source(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: rFac(:,:,:,:)
+
+      REAL(prec), ALLOCATABLE  :: volume(:,:,:)
+      REAL(prec), ALLOCATABLE  :: temperature(:,:,:)
+      REAL(prec), ALLOCATABLE  :: salinity(:,:,:)
+      REAL(prec), ALLOCATABLE  :: buoyancy(:,:,:)
 
       CONTAINS
 
@@ -44,6 +48,9 @@ USE netcdf
       PROCEDURE :: ReadSourceEtcNetCDF      => ReadSourceEtcNetCDF_POP_Native
       PROCEDURE :: LoadTracerFromNetCDF     => LoadTracerFromNetCDF_POP_Native
 
+      PROCEDURE :: LoadOceanState           => LoadOceanState_POP_Native
+      PROCEDURE :: WriteOceanState          => WriteOceanState_POP_Native
+
    END TYPE POP_Native
 
 
@@ -54,7 +61,8 @@ USE netcdf
    INTEGER, ALLOCATABLE :: source_varid_PN(:)
    INTEGER, ALLOCATABLE :: rfac_varid_PN(:)
    INTEGER, ALLOCATABLE :: mask_varid_PN(:)
-   INTEGER, ALLOCATABLE :: hardset_varid_PN(:)
+   INTEGER              :: volume_varid_PN
+
 CONTAINS
 !
 !
@@ -84,15 +92,22 @@ CONTAINS
       this % nZ = nZ
 
       ALLOCATE( this % tracer(1:nX,1:nY,1:nZ,1:nTracers), &
-                this % hardSet(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % mask(1:nX,1:nY,1:nZ,1:nTracers), &
                 this % source(1:nX,1:nY,1:nZ,1:nTracers), &
-                this % rFac(1:nX,1:nY,1:nZ,1:nTracers) )
-      this % tracer  = 0.0_prec
-      this % hardSet = 0.0_prec
-      this % mask    = 1.0_prec
-      this % source  = 0.0_prec
-      this % rFac    = 0.0_prec
+                this % rFac(1:nX,1:nY,1:nZ,1:nTracers), &
+                this % volume(1:nX,1:nY,1:nZ), &
+                this % temperature(1:nX,1:nY,1:nZ), &
+                this % salinity(1:nX,1:nY,1:nZ), &
+                this % buoyancy(1:nX,1:nY,1:nZ) )
+
+      this % tracer       = 0.0_prec
+      this % mask         = 1.0_prec
+      this % source       = 0.0_prec
+      this % rFac         = 0.0_prec
+      this % volume       = 0.0_prec
+      this % temperature  = 0.0_prec
+      this % salinity     = 0.0_prec
+      this % buoyancy     = 0.0_prec
 
       PRINT*, 'S/R : Build_POP_Native : Finish.'
 
@@ -106,10 +121,13 @@ CONTAINS
    CLASS( POP_Native ), INTENT(inout) :: this
 
       DEALLOCATE( this % tracer, &
-                  this % hardSet, &
                   this % mask, &
                   this % source, &
-                  this % rFac )
+                  this % rFac, &
+                  this % volume, &
+                  this % temperature, &
+                  this % salinity, &
+                  this % buoyancy )
 
  END SUBROUTINE Trash_POP_Native
 !
@@ -145,7 +163,6 @@ CONTAINS
       ALLOCATE( source_varid_PN(1:this % nTracers) )
       ALLOCATE( rfac_varid_PN(1:this % nTracers) )
       ALLOCATE( mask_varid_PN(1:this % nTracers) )
-      ALLOCATE( hardset_varid_PN(1:this % nTracers) )
       ! Set up the tracer field names based on the model type
       IF( modelType == ImpulseField )THEN
       
@@ -171,7 +188,7 @@ CONTAINS
 
          CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
-                                      tracer_varid_PN(3) ) )
+                                      volume_varid_PN ) )
 
          CALL Check( nf90_def_var( ncid_PN, "Source_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
@@ -182,10 +199,6 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "mask_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(1) ) )
-         CALL Check( nf90_def_var( ncid_PN, "hardset_Particulate", NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      hardset_varid_PN(1) ) )
-
 
          CALL Check( nf90_def_var( ncid_PN, "Source_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
@@ -196,13 +209,10 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "mask_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(2) ) )
-         CALL Check( nf90_def_var( ncid_PN, "hardset_Radionuclide", NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      hardset_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
-         DO i = 1, this % nTracers-1
+         DO i = 1, this % nTracers
             WRITE( tracerid, '(I2.2)') i
             CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
@@ -216,9 +226,6 @@ CONTAINS
             CALL Check( nf90_def_var( ncid_PN, "mask_"//tracerid, NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       mask_varid_PN(i) ) )
-            CALL Check( nf90_def_var( ncid_PN, "hardset_"//tracerid, NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      hardset_varid_PN(i) ) )
 
             CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "long_name", &
                                       "Dye tracer concentration of tracer "//tracerid ) )
@@ -260,32 +267,21 @@ CONTAINS
             CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "missing_value", &
                                       fillValue) )
 
-            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "long_name", &
-                                      "Hardset values of tracer "//tracerid ) )
-            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "units", "" ) )
-            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "coordinates", &
-                                      "TLONG TLAT z_t" ) )
-            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "_FillValue", &
-                                      fillValue) )
-            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "missing_value", &
-                                      fillValue) )
-
-
          ENDDO
       
             CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
-                                      tracer_varid_PN(this%nTracers) ) )
+                                      volume_varid_PN )  )
 
-            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this%nTracers), "long_name", &
-            !                           "Volume Correction for forward integration" ) )
-            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "units", "" ) )
-            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "coordinates", &
-            !                           "TLONG TLAT z_t" ) )
-            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "_FillValue", &
-            !                           fillValue) )
-            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "missing_value", &
-            !                           fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, volume_varid_PN, "long_name", &
+                                      "Fractional change of fluid volume" ) )
+            CALL Check( nf90_put_att( ncid_PN, volume_varid_PN, "units", "" ) )
+            CALL Check( nf90_put_att( ncid_PN, volume_varid_PN, "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, volume_varid_PN, "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, volume_varid_PN, "missing_value", &
+                                      fillValue) )
 
 
       ENDIF
@@ -338,7 +334,6 @@ CONTAINS
       ALLOCATE( source_varid_PN(1:this % nTracers) )
       ALLOCATE( rfac_varid_PN(1:this % nTracers) )
       ALLOCATE( mask_varid_PN(1:this % nTracers) )
-      ALLOCATE( hardset_varid_PN(1:this % nTracers) )
       ! Set up the tracer field names based on the model type
       IF( modelType == ImpulseResponseField )THEN
       
@@ -352,7 +347,6 @@ CONTAINS
          ENDDO
          CALL Check( nf90_inq_varid( ncid_PN, "VDC_S", &
                                      tracer_varid_PN(this % nTracers) ) )
-         PRINT*, "VDC_S"
 
       ELSEIF( modelType == ImpulseField )THEN
       
@@ -372,7 +366,7 @@ CONTAINS
                                       tracer_varid_PN(2) ) )
       
          CALL Check( nf90_inq_varid( ncid_PN, "VolumeCorrection", &
-                                      tracer_varid_PN(3) ) )
+                                     volume_varid_PN ) )
       
          CALL Check( nf90_inq_varid( ncid_PN, "Source_Particulate", &
                                       source_varid_PN(1) ) )
@@ -380,8 +374,6 @@ CONTAINS
                                       rFac_varid_PN(1) ) )
          CALL Check( nf90_inq_varid( ncid_PN, "mask_Particulate", &
                                       mask_varid_PN(1) ) )
-         CALL Check( nf90_inq_varid( ncid_PN, "hardset_Particulate", &
-                                      hardset_varid_PN(1) ) )
          
          CALL Check( nf90_inq_varid( ncid_PN, "Source_Radionuclide", &
                                       source_varid_PN(2) ) )
@@ -389,12 +381,10 @@ CONTAINS
                                       rFac_varid_PN(2) ) )
          CALL Check( nf90_inq_varid( ncid_PN, "mask_Radionuclide", &
                                       mask_varid_PN(2) ) )
-         CALL Check( nf90_inq_varid( ncid_PN, "hardset_Radionuclide", &
-                                      hardset_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
       
-         DO i = 1, this % nTracers-1
+         DO i = 1, this % nTracers
             WRITE( tracerid, '(I2.2)') i
             CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
                                       tracer_varid_PN(i) ) )
@@ -404,11 +394,9 @@ CONTAINS
                                       rFac_varid_PN(i) ) )
             CALL Check( nf90_inq_varid( ncid_PN, "mask_"//tracerid, &
                                       mask_varid_PN(i) ) )
-            CALL Check( nf90_inq_varid( ncid_PN, "hardset_"//tracerid, &
-                                      hardset_varid_PN(i) ) )
          ENDDO
             CALL Check( nf90_inq_varid( ncid_PN, "VolumeCorrection", &
-                                      tracer_varid_PN(this % nTracers) ) )
+                                      volume_varid_PN ) )
       
       ENDIF
 
@@ -423,9 +411,126 @@ CONTAINS
        DEALLOCATE( source_varid_PN )
        DEALLOCATE( rFac_varid_PN )
        DEALLOCATE( mask_varid_PN )
-       DEALLOCATE( hardset_varid_PN )
        
  END SUBROUTINE FinalizeNetCDF_POP_Native
+!
+ SUBROUTINE LoadOceanState_POP_Native( this, mesh, filename )
+   IMPLICIT NONE
+   CLASS( POP_Native ), INTENT(inout) :: this
+   TYPE( POP_Mesh ), INTENT(in)       :: mesh
+   CHARACTER(*), INTENT(in)           :: filename
+   ! Local
+   INTEGER :: ncid, varid
+   INTEGER :: start2D(1:2), recCount2D(1:2)
+   INTEGER :: start3D(1:3), recCount3D(1:3)
+
+      CALL Check( nf90_open( TRIM(filename), nf90_nowrite, ncid ) )
+
+      start2D    = (/1, 1/)
+      recCount2D = (/mesh % nX, mesh % nY/)
+      start3D    = (/1, 1, 1/)
+      recCount3D = (/mesh % nX, mesh % nY, mesh % nZ/)
+
+      PRINT*, 'Loading SSH'
+      CALL Check( nf90_inq_varid( ncid, "SSH",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % volume(:,:,1), &
+                                start2D, recCount2D ) )
+
+      PRINT*, 'Loading TEMP'
+      CALL Check( nf90_inq_varid( ncid, "TEMP",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % temperature, &
+                                start3D, recCount3D ) )
+
+      PRINT*, 'Loading SALT'
+      CALL Check( nf90_inq_varid( ncid, "SALT",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % salinity, &
+                                start3D, recCount3D ) )
+
+      PRINT*, 'Loading PD'
+      CALL Check( nf90_inq_varid( ncid, "PD",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                this % buoyancy, &
+                                start3D, recCount3D ) )
+
+      PRINT*, 'DONE'
+
+      CALL Check( nf90_close( ncid ) )
+
+ END SUBROUTINE LoadOceanState_POP_Native
+!
+ SUBROUTINE WriteOceanState_POP_Native( this, mesh, filename )
+   IMPLICIT NONE
+   CLASS( POP_Native ), INTENT(inout) :: this
+   TYPE( POP_Mesh ), INTENT(in)       :: mesh
+   CHARACTER(*), INTENT(in)           :: filename
+   ! Local
+   INTEGER :: ncid, z_dimid, x_dimid, y_dimid
+   INTEGER :: varid_ssh, varid_temp, varid_salt, varid_pd
+   INTEGER :: start2D(1:2), recCount2D(1:2)
+   INTEGER :: start3D(1:3), recCount3D(1:3)
+
+      CALL Check( nf90_create( PATH=TRIM(filename),&
+                               CMODE=OR(nf90_clobber,nf90_64bit_offset),&
+                               NCID=ncid ) )
+      ! Create the dimensions - the dimension names are currently chosen based
+      CALL Check( nf90_def_dim( ncid, "z_t", mesh % nZ, z_dimid ) ) 
+      CALL Check( nf90_def_dim( ncid, "nlon", mesh % nX, x_dimid ) ) 
+      CALL Check( nf90_def_dim( ncid, "nlat", mesh % nY, y_dimid ) ) 
+
+
+      start2D    = (/1, 1/)
+      recCount2D = (/mesh % nX, mesh % nY/)
+      start3D    = (/1, 1, 1/)
+      recCount3D = (/mesh % nX, mesh % nY, mesh % nZ/)
+
+      CALL Check( nf90_def_var( ncid, "SSH", NF90_DOUBLE,&
+                                (/ x_dimid, y_dimid /), &
+                                 varid_ssh ) )
+
+      CALL Check( nf90_def_var( ncid, "TEMP", NF90_DOUBLE,&
+                                (/ x_dimid, y_dimid, z_dimid /), &
+                                 varid_temp ) )
+
+      CALL Check( nf90_def_var( ncid, "SALT", NF90_DOUBLE,&
+                                (/ x_dimid, y_dimid, z_dimid /), &
+                                 varid_salt ) )
+
+      CALL Check( nf90_def_var( ncid, "PD", NF90_DOUBLE,&
+                                (/x_dimid, y_dimid, z_dimid/),&
+                                 varid_pd ) )
+
+
+      CALL Check( nf90_enddef(ncid) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_ssh, &
+                                this % volume(:,:,1), &
+                                start2D, recCount2D ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_temp, &
+                                this % temperature, &
+                                start3D, recCount3D ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_salt, &
+                                this % salinity, &
+                                start3D, recCount3D ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                varid_pd, &
+                                this % buoyancy, &
+                                start3D, recCount3D ) )
+      CALL Check( nf90_close( ncid ) )
+
+ END SUBROUTINE WriteOceanState_POP_Native
 !
  SUBROUTINE WriteSourceEtcNETCDF_POP_Native( this, mesh )
    IMPLICIT NONE
@@ -438,7 +543,7 @@ CONTAINS
       start = (/1, 1, 1/)
       recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
 
-      DO i = 1, this % nTracers-1
+      DO i = 1, this % nTracers
          CALL Check( nf90_put_var( ncid_PN, &
                                    source_varid_pn(i), &
                                    this % source(:,:,:,i), &
@@ -450,10 +555,6 @@ CONTAINS
          CALL Check( nf90_put_var( ncid_PN, &
                                    mask_varid_pn(i), &
                                    this % mask(:,:,:,i), &
-                                   start, recCount ) )      
-         CALL Check( nf90_put_var( ncid_PN, &
-                                   hardset_varid_pn(i), &
-                                   this % hardset(:,:,:,i), &
                                    start, recCount ) )      
       ENDDO
 
@@ -470,13 +571,16 @@ CONTAINS
 
       start = (/1, 1, 1, recordID/)
       recCount = (/mesh % nX, mesh % nY, mesh % nZ, 1/)
-
       DO i = 1, this % nTracers
          CALL Check( nf90_put_var( ncid_PN, &
                                    tracer_varid_pn(i), &
                                    this % tracer(:,:,:,i), &
                                    start, recCount ) )      
       ENDDO
+         CALL Check( nf90_put_var( ncid_PN, &
+                                   volume_varid_pn, &
+                                   this % volume, &
+                                   start, recCount ) )      
 
  END SUBROUTINE WriteNETCDFRecord_POP_Native
 !
@@ -491,7 +595,7 @@ CONTAINS
          start    = (/1, 1, 1/)
          recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
 
-         DO i = 1, this % nTracers-1
+         DO i = 1, this % nTracers
             CALL Check( nf90_get_var( ncid_PN, &
                                       source_varid_pn(i), &
                                       this % source(:,:,:,i), &
@@ -503,10 +607,6 @@ CONTAINS
             CALL Check( nf90_get_var( ncid_PN, &
                                       mask_varid_pn(i), &
                                       this % mask(:,:,:,i), &
-                                      start, recCount ) )
-            CALL Check( nf90_get_var( ncid_PN, &
-                                      hardset_varid_pn(i), &
-                                      this % hardset(:,:,:,i), &
                                       start, recCount ) )
          ENDDO
 
@@ -530,6 +630,10 @@ CONTAINS
                                       this % tracer(:,:,:,i), &
                                       start, recCount ) )
          ENDDO
+            CALL Check( nf90_get_var( ncid_PN, &
+                                      volume_varid_pn, &
+                                      this % volume, &
+                                      start, recCount ) )
 
  END SUBROUTINE ReadNETCDFRecord_POP_Native
 !

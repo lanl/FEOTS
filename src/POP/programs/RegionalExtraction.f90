@@ -30,9 +30,15 @@ IMPLICIT NONE
       CALL modelstencil % Build( stencilFlag = params % stencilType, &
                                  flavor      = LateralPlusCorners )
 
-      CALL region % Build( globalMesh, modelstencil, params % meshType, &
-                           params % south, params % north, &
-                           params % east, params % west ) 
+      IF( TRIM(params % maskfile) == '' )THEN
+         CALL region % Build( globalMesh, modelstencil, params % meshType, &
+                              params % south, params % north, &
+                              params % east, params % west ) 
+      ELSE
+         CALL region % Build( globalMesh, modelstencil, params % meshType, &
+                              params % south, params % north, &
+                              params % east, params % west, params % maskfile ) 
+      ENDIF
 
       CALL region % GenerateRegionalMesh( globalMesh, regionalMesh )
       CALL regionalMesh % WriteNetCDF( TRIM(params % regionalMeshFile) )
@@ -56,40 +62,43 @@ IMPLICIT NONE
          PRINT*, ' Extracting regional operators.'
          DO fileID = 1, params % nIRFFiles
 
-            WRITE(fileIDChar, '(I5.5)' ) fileID
-            crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
-            PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-            CALL transportOp % ReadSparseConnectivity( TRIM(crsFile) )
-            CALL transportOp % ReadMatrixData( TRIM(crsFile) )
+            IF( fileID >= params % IRFStart )THEN
 
-            crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
-            PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-            CALL diffusionOp % ReadSparseConnectivity( TRIM(crsFile) )
-            CALL diffusionOp % ReadMatrixData( TRIM(crsFile) )
+               WRITE(fileIDChar, '(I5.5)' ) fileID
+               crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
+               PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
+               CALL transportOp % ReadSparseConnectivity( TRIM(crsFile) )
+               CALL transportOp % ReadMatrixData( TRIM(crsFile) )
 
-            ! Extract advection operator in region 
-            CALL transportOp % SubSample( regionalTransportOp, &
-                                          region % dofInRegion, &
-                                          region % inverseDOFMap, &
-                                          region % nCells, &
-                                          nRentries )
-            ! Extract diffusion operator in region 
-            CALL diffusionOp % SubSample( regionalDiffusionOp, &
-                                          region % dofInRegion, &
-                                          region % inverseDOFMap, &
-                                          region % nCells, &
-                                          region % nCells*3 )
+               crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
+               PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
+               CALL diffusionOp % ReadSparseConnectivity( TRIM(crsFile) )
+               CALL diffusionOp % ReadMatrixData( TRIM(crsFile) )
 
-            crsFile=TRIM(params % regionalOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
-            PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-            CALL regionalTransportOp % WriteSparseConnectivity( TRIM(crsFile) )
-            CALL regionalTransportOp % WriteMatrixData( TRIM(crsFile) )
+               ! Extract advection operator in region 
+               CALL transportOp % SubSample( regionalTransportOp, &
+                                             region % dofInRegion, &
+                                             region % inverseDOFMap, &
+                                             region % nCells, &
+                                             nRentries )
+               ! Extract diffusion operator in region 
+               CALL diffusionOp % SubSample( regionalDiffusionOp, &
+                                             region % dofInRegion, &
+                                             region % inverseDOFMap, &
+                                             region % nCells, &
+                                             region % nCells*3 )
 
-            crsFile=TRIM(params % regionalOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
-            PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-            CALL regionalDiffusionOp % WriteSparseConnectivity( TRIM(crsFile) )
-            CALL regionalDiffusionOp % WriteMatrixData( TRIM(crsFile) )
+               crsFile=TRIM(params % regionalOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
+               PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
+               CALL regionalTransportOp % WriteSparseConnectivity( TRIM(crsFile) )
+               CALL regionalTransportOp % WriteMatrixData( TRIM(crsFile) )
 
+               crsFile=TRIM(params % regionalOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
+               PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
+               CALL regionalDiffusionOp % WriteSparseConnectivity( TRIM(crsFile) )
+               CALL regionalDiffusionOp % WriteMatrixData( TRIM(crsFile) )
+            
+            ENDIF
          ENDDO
    
          CALL transportOp % Trash( )

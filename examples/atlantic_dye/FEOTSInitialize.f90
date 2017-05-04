@@ -18,7 +18,6 @@ IMPLICIT NONE
 
       CALL SourceTerms( feots )
 
-
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                          feots % mesh, &

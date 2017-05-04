@@ -35,7 +35,7 @@ CONTAINS
    IMPLICIT NONE
    TYPE( POP_FEOTS ), INTENT(inout) :: myFeots
    ! Local
-   INTEGER  :: i, j, k
+   INTEGER  :: i, j, k, iTracer
    REAL(prec) :: x, y, z, rfMax
 
 
@@ -55,10 +55,14 @@ CONTAINS
 
                myFeots % nativeSol % source(i,j,k,:)   = 5.0_prec
                myFeots % nativeSol % rFac(i,j,k,:)     = rFMax*(exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
-          
-               myFeots % nativeSol % mask(i,j,k,:)     = 1.0_prec
-               myFeots % nativeSol % hardSet(i,j,k,:)  = 1.0_prec
-
+      
+               DO iTracer = 1, myFeots % params % nTracers
+                  IF( myFeots % nativeSol % mask(i,j,k,iTracer) /= 0.0_prec )THEN  
+                     ! REset mask values  
+                     myFeots % nativeSol % mask(i,j,k,iTracer)     = 1.0_prec
+                     myFeots % nativeSol % hardSet(i,j,k,iTracer)  = 0.0_prec
+                  ENDIF
+               ENDDO
             ENDDO
          ENDDO
       ENDDO

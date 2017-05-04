@@ -17,5 +17,6 @@ GreedyColoring
 GenerateMeshOnlyFile
 OperatorDiagnosis
 RegionalExtraction
+ExtractOceanState
 FEOTSInitialize
 FEOTSDriver

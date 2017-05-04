@@ -19,6 +19,10 @@ RegionalExtraction :
 	make --directory=${FEOTSDIR}/build/ RegionalExtraction
 	mv ${FEOTSDIR}/build/RegionalExtraction ./
 
+ExtractOceanState :
+	make --directory=${FEOTSDIR}/build/ ExtractOceanState
+	mv ${FEOTSDIR}/build/ExtractOceanState ./
+
 FEOTSInitialize :
 	make MODDIR=${INITDIR} --directory=${FEOTSDIR}/build/ FEOTSInitialize
 	mv ${FEOTSDIR}/build/FEOTSInitialize ./

@@ -65,7 +65,7 @@ MODULE CRSMatrix_Class
    TYPE CRSMatrix  
       INTEGER                         :: nRows, nCols, nElems
       REAL(prec), ALLOCATABLE         :: A(:)
-      INTEGER, ALLOCATABLE            :: rowBounds(:,:), col(:)
+      INTEGER, ALLOCATABLE            :: rowBounds(:,:), col(:) 
 
       CONTAINS
 
@@ -210,6 +210,8 @@ MODULE CRSMatrix_Class
 
       
       ! Then, we cycle over the rows and compute the sums over each row.
+
+      !$OMP DO PRIVATE(rowSum)      
       DO row = 1, myMatrix % nRows
          
          rowsum = 0.0_prec
@@ -219,6 +221,7 @@ MODULE CRSMatrix_Class
          Ax(row) = rowSum
 
       ENDDO
+      !$OMP END DO
       
  END FUNCTION MatVecMul_CRSMatrix
 !

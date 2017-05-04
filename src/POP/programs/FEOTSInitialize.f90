@@ -10,12 +10,12 @@ USE POP_Params_Class
 IMPLICIT NONE
 
    TYPE( POP_FEOTS ) :: feots
-
+   CHARACTER(200)    :: thisIRFFile
+   INTEGER           :: fUnit
 
       CALL feots % Build( )
 
       CALL InitialConditions( feots )
-
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
@@ -54,7 +54,6 @@ CONTAINS
                myFeots % nativeSol % source(i,j,k,:)  = 0.0_prec
                myFeots % nativeSol % rFac(i,j,k,:)    = 0.0_prec
                myFeots % nativeSol % mask(i,j,k,:)    = 1.0_prec
-               myFeots % nativeSol % hardSet(i,j,k,:) = 0.0_prec
 
 
             ENDDO
