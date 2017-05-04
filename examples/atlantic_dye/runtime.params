@@ -1,0 +1,35 @@
+&POPMeshOptions
+MeshType    = 'PeriodicTripole',
+StencilType = 'LaxWendroff',
+Regional    = .TRUE.,
+south       = -60.0,
+east        = 30.0,
+west        = -100.0,
+north       = 70.0,  
+/
+&TracerModelOptions
+TracerModel = 'DyeModel',
+dt          = 1080.0, 
+runMode     = 'Forward',
+nStepsPerDump   = 80,
+iterInit        = 0,
+nTimeSteps      = 160,
+/
+&OperatorOptions
+operatorPeriod = 432000.0,
+nOperatorsPerCycle = 73,
+/
+&FileOptions
+extractRegionalOperators  = .TRUE.,
+meshfile                  ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/POP_03deg_mesh.nc',
+regionalmeshfile          ='Atlantic_mesh.nc', 
+graphfile                 ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/pop_03_periodic-tripole_laxwendroff',
+operatorBaseName          = 'pop_03_periodic-tripole',
+feotsOperatorDirectory    ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Global/',
+regionalOperatorDirectory ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Atlantic/',
+IRFListFile               = 'IRFList_5dayAvg.txt',
+IRFStart                  = 1,
+nIRFFiles                 = 365,
+/
+&JFNKOptions
+/
