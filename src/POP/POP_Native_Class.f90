@@ -219,18 +219,93 @@ CONTAINS
             CALL Check( nf90_def_var( ncid_PN, "hardset_"//tracerid, NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       hardset_varid_PN(i) ) )
+
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "long_name", &
+                                      "Dye tracer concentration of tracer "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "units", "" ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "missing_value", &
+                                      fillValue) )
+
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "long_name", &
+                                      "Relaxation field of tracer "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "units", "" ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "missing_value", &
+                                      fillValue) )
+
+            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "long_name", &
+                                      "Relaxation frequency of tracer "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "units", "" ) )
+            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "missing_value", &
+                                      fillValue) )
+
+            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "long_name", &
+                                      "Source-region mask of tracer "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "units", "" ) )
+            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "missing_value", &
+                                      fillValue) )
+
+            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "long_name", &
+                                      "Hardset values of tracer "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "units", "" ) )
+            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, hardset_varid_PN(i), "missing_value", &
+                                      fillValue) )
+
+
          ENDDO
       
             CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
                                       tracer_varid_PN(this%nTracers) ) )
 
+            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this%nTracers), "long_name", &
+            !                           "Volume Correction for forward integration" ) )
+            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "units", "" ) )
+            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "coordinates", &
+            !                           "TLONG TLAT z_t" ) )
+            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "_FillValue", &
+            !                           fillValue) )
+            ! CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(this@nTracers), "missing_value", &
+            !                           fillValue) )
+
+
       ENDIF
 
-      ! And assign units to each variable
-      CALL Check( nf90_put_att( ncid_PN, z_varid_PN, "units", "cm" ) )
-      CALL Check( nf90_put_att( ncid_PN, y_varid_PN, "units", "deg N" ) )
-      CALL Check( nf90_put_att( ncid_PN, z_varid_PN, "units", "deg E" ) )
+      ! And assign attributes to each variable
+
+      CALL Check( nf90_put_att( ncid_PN, x_varid_PN, "long_name", "array of t-grid longitudes" ) )
+      CALL Check( nf90_put_att( ncid_PN, x_varid_PN, "units", "degrees_east" ) )
+      CALL Check( nf90_put_att( ncid_PN, x_varid_PN, "_FillValue", fillValue) )
+      CALL Check( nf90_put_att( ncid_PN, x_varid_PN, "missing_value", fillValue) )
+
+      CALL Check( nf90_put_att( ncid_PN, y_varid_PN, "long_name", "array of t-grid latitudes" ) )
+      CALL Check( nf90_put_att( ncid_PN, y_varid_PN, "units", "degrees_north" ) )
+      CALL Check( nf90_put_att( ncid_PN, y_varid_PN, "_FillValue", fillValue) )
+      CALL Check( nf90_put_att( ncid_PN, y_varid_PN, "missing_value", fillValue) )
+
+      CALL Check( nf90_put_att( ncid_PN, z_varid_PN, "long_name", "depth from surface to midpoint of layer" ) )
+      CALL Check( nf90_put_att( ncid_PN, z_varid_PN, "units", "centimeters" ) )
+      CALL Check( nf90_put_att( ncid_PN, z_varid_PN, "positive", "down" ) )
+
 
       ! End the Define Mode
       CALL Check( nf90_enddef(ncid_PN) )
