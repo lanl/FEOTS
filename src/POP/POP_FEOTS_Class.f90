@@ -136,8 +136,13 @@ CONTAINS
       ENDIF
 
       IF( this % params % Regional )THEN
-         CALL this % mesh % Load( TRIM(this % params % RegionalMeshFile) )
-         CALL this % regionalMaps % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings' )
+         IF( TRIM(this % params % maskfile) == '' )THEN
+            CALL this % mesh % Load( TRIM(this % params % RegionalMeshFile) )
+            CALL this % regionalMaps % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings', maskProvided=.FALSE. )
+         ELSE
+            CALL this % mesh % LoadWithMask( TRIM(this % params % RegionalMeshFile) )
+            CALL this % regionalMaps % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
+         ENDIF
 
          this % mesh % DOFtoIJK = this % regionalMaps % dofToLocalIJK
          DO m = 1, this % regionalMaps % nCells

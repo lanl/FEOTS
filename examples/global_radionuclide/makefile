@@ -11,6 +11,10 @@ GenerateMeshOnlyFile :
 	make --directory=${FEOTSDIR}/build/ GenerateMeshOnlyFile
 	mv ${FEOTSDIR}/build/GenerateMeshOnlyFile ./
 
+GenMask :
+	make MODDIR=${INITDIR} --directory=${FEOTSDIR}/build/ GenMask
+	mv ${FEOTSDIR}/build/GenMask ./
+
 OperatorDiagnosis :
 	make --directory=${FEOTSDIR}/build/ OperatorDiagnosis
 	mv ${FEOTSDIR}/build/OperatorDiagnosis ./
@@ -18,6 +22,10 @@ OperatorDiagnosis :
 RegionalExtraction :
 	make --directory=${FEOTSDIR}/build/ RegionalExtraction
 	mv ${FEOTSDIR}/build/RegionalExtraction ./
+
+ExtractOceanState :
+	make --directory=${FEOTSDIR}/build/ ExtractOceanState
+	mv ${FEOTSDIR}/build/ExtractOceanState ./
 
 FEOTSInitialize :
 	make MODDIR=${INITDIR} --directory=${FEOTSDIR}/build/ FEOTSInitialize

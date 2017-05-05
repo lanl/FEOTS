@@ -20,6 +20,7 @@ IMPLICIT NONE
    TYPE( POP_Regional ) :: region
    
    INTEGER        :: fileID, nGentries, nRentries
+   INTEGER, ALLOCATABLE :: maskfield(:,:)
    CHARACTER(5)   :: fileIDChar
    CHARACTER(400) :: crsFile
 
@@ -27,6 +28,7 @@ IMPLICIT NONE
 
       CALL globalMesh % Load( TRIM( params % meshFile ) )
 
+      ALLOCATE( maskfield(1:globalmesh % nX, 1:globalmesh % nY) )
       CALL modelstencil % Build( stencilFlag = params % stencilType, &
                                  flavor      = LateralPlusCorners )
 
@@ -34,17 +36,26 @@ IMPLICIT NONE
          CALL region % Build( globalMesh, modelstencil, params % meshType, &
                               params % south, params % north, &
                               params % east, params % west ) 
+         CALL region % GenerateRegionalMesh( globalMesh, regionalMesh )
       ELSE
+
+         PRINT*, ' Using Mask file ', TRIM(params % maskFile)
+         CALL region % LoadMaskField( globalmesh, maskfield, params % maskfile )
+
          CALL region % Build( globalMesh, modelstencil, params % meshType, &
                               params % south, params % north, &
-                              params % east, params % west, params % maskfile ) 
+                              params % east, params % west, maskfield ) 
+         CALL region % GenerateRegionalMesh( globalMesh, regionalMesh, maskfield )
       ENDIF
 
-      CALL region % GenerateRegionalMesh( globalMesh, regionalMesh )
       CALL regionalMesh % WriteNetCDF( TRIM(params % regionalMeshFile) )
-
       ! Write the regional data structure to a pickup file for later use
-      CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings' )
+
+      IF( TRIM(params % maskfile) == '' )THEN
+         CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings', maskProvided=.FALSE. )
+      ELSE
+         CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
+      ENDIF
 
       IF( params % ExtractRegionalOperators )THEN
 
@@ -109,6 +120,7 @@ IMPLICIT NONE
       ENDIF   
       
       ! Clean up memory !
+      DEALLOCATE( maskfield )
       CALL globalMesh % Trash( )
       CALL regionalMesh % Trash( )
       CALL modelstencil % Trash( )

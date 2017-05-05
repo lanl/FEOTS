@@ -44,11 +44,12 @@ IMPLICIT NONE
    TYPE POP_Regional
       REAL(prec) :: south, north, east, west
       LOGICAL    :: crossesPrimeMeridian
-      INTEGER    :: nCells, nBCells, nDOF
+      INTEGER    :: nCells, nBCells, nPCells, nDOF
       INTEGER, ALLOCATABLE :: ijkInRegion(:,:)
       INTEGER, ALLOCATABLE :: dofInRegion(:)  
       INTEGER, ALLOCATABLE :: inverseDOFMap(:)  
       INTEGER, ALLOCATABLE :: boundaryCells(:)
+      INTEGER, ALLOCATABLE :: prescribedCells(:)
       INTEGER, ALLOCATABLE :: dofToLocalIJK(:,:)
 
       CONTAINS
@@ -71,7 +72,7 @@ IMPLICIT NONE
 CONTAINS
 
 
- SUBROUTINE Build_POP_Regional( myRegion, mesh, mystencil, meshType, south, north, east, west, maskfile )
+ SUBROUTINE Build_POP_Regional( myRegion, mesh, mystencil, meshType, south, north, east, west, maskfield )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(out) :: myRegion
@@ -79,15 +80,13 @@ CONTAINS
    TYPE( Stencil ), INTENT(in)        :: mystencil
    INTEGER, INTENT(in)                :: meshType
    REAL(prec), INTENT(in)             :: south, north, east, west
-   CHARACTER(*), INTENT(in), OPTIONAL :: maskFile
+   INTEGER, INTENT(in), OPTIONAL   :: maskfield(1:mesh%nX,1:mesh%nY)
    ! Local
-   INTEGER :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
    LOGICAL :: inputProblem
 
       inputProblem = .FALSE.
-      IF( present(maskfile) )THEN
+      IF( present(maskfield) )THEN
 
-         CALL myRegion % LoadMaskField( mesh, maskfield, maskfile )
 
          PRINT*, ' Finding cells in Region '
          CALL myRegion % FindThoseInRegion( mesh, maskfield )
@@ -163,14 +162,14 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
-   INTEGER, INTENT(out)                 :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
+   INTEGER, INTENT(out)                 :: maskfield(1:mesh % nX, 1:mesh % nY)
    CHARACTER(*), INTENT(in)             :: maskfile
    ! Local
-   INTEGER :: start(1:3), recCount(1:3)
+   INTEGER :: start(1:2), recCount(1:2)
    INTEGER :: ncid, varid
 
-      start    = (/1, 1, 1/)
-      recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
+      start    = (/1, 1/)
+      recCount = (/mesh % nX, mesh % nY/)
 
 
       CALL Check( nf90_open( TRIM(maskfile), nf90_nowrite, ncid ) )
@@ -189,24 +188,29 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
-   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
+   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY)
    !
    INTEGER :: i, j, k
    INTEGER :: nInRegion
    LOGICAL :: inRegion
+   LOGICAL :: logicMask(1:mesh % nX, 1:mesh % nY)
+   REAL(prec) :: minLonMesh, maxLonMesh, minLonRegion, maxLonRegion
 
       IF( present(maskfield) )THEN
+        
+          logicMask = .FALSE.
 
-          mesh % tracerMask(i,j,k) = 0.0_prec
+          mesh % tracerMask = fillValue
 
             nInRegion = 0
             DO j = 1, mesh % nY
                DO i = 1, mesh % nX
                   DO k = 1, mesh % KMT(i,j)
    
-                     IF( maskfield(i,j,k) /= 0 )THEN
+                     IF( maskfield(i,j) /= 0 )THEN
                          nInRegion = nInRegion + 1
                          mesh % tracerMask(i,j,k) = 1.0_prec
+                         logicMask(i,j) = .TRUE.
                      ENDIF
    
                   ENDDO
@@ -223,7 +227,7 @@ CONTAINS
                DO i = 1, mesh % nX
                   DO k = 1, mesh % KMT(i,j) 
    
-                     IF( maskfield(i,j,k) /= 0 )THEN
+                     IF( maskfield(i,j) /= 0 )THEN
                          nInRegion = nInRegion + 1
                          myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
                          myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
@@ -242,6 +246,64 @@ CONTAINS
             myRegion % inverseDOFMap( myRegion % dofInRegion(k) ) = k
          ENDDO
          
+         myRegion % south = MINVAL( mesh % tLat, logicMask )
+         myRegion % north = MAXVAL( mesh % tLat, logicMask )
+
+         ! Need to determine if the region crosses the prime meridian.
+         ! To do this, we need to find the min and max longitudes. If the
+         ! minimum longitude equals the minimum longitude in the mesh and the
+         ! maximum longitude and the maximum longitude equals the maximum
+         ! longitude in the mesh, then the domain crosses the prime meridian.
+         minLonMesh = MINVAL( mesh % tLon ) 
+         maxLonMesh = MAXVAL( mesh % tLon ) 
+         minLonRegion = MINVAL( mesh % tLon, logicMask )
+         maxLonRegion = MAXVAL( mesh % tLon, logicMask )
+
+         IF( minLonRegion == minLonMesh .AND. maxLonRegion == maxLonMesh )THEN
+
+            PRINT*, '  Region crosses prime-meridian'
+            myRegion % crossesPrimeMeridian = .TRUE.
+
+            ! Shift the mesh
+            DO j = 1, mesh % nY
+               DO i = 1, mesh % nX
+                  IF( mesh % tLon(i,j) >= 180.0_prec )THEN
+                     mesh % tLon(i,j) = mesh % tLon(i,j) - 360.0_prec
+                  ENDIF
+               ENDDO
+           ENDDO
+
+           minLonMesh = MINVAL( mesh % tLon ) 
+           maxLonMesh = MAXVAL( mesh % tLon ) 
+           minLonRegion = MINVAL( mesh % tLon, logicMask )
+           maxLonRegion = MAXVAL( mesh % tLon, logicMask )
+ 
+           IF( minLonRegion == minLonMesh .AND. maxLonRegion == maxLonMesh )THEN
+              ! In this case, the region completely encompasses the globe in a
+              ! latitudinal band.
+              PRINT*, '  Wrap-around detected'
+              DO j = 1, mesh % nY
+                 DO i = 1, mesh % nX
+                    IF( mesh % tLon(i,j) < 0.0_prec )THEN
+                       mesh % tLon(i,j) = mesh % tLon(i,j) + 360.0_prec
+                    ENDIF
+                 ENDDO
+             ENDDO
+             myRegion % west = minLonMesh
+             myRegion % east = maxLonMesh
+           ELSE
+
+             myRegion % west = minLonRegion + 360.0_prec
+             myRegion % east = maxLonRegion
+
+           ENDIF
+
+        ELSE
+
+           myRegion % crossesPrimeMeridian = .TRUE.
+           myRegion % west = minLonRegion
+           myRegion % east = maxLonRegion
+        ENDIF
 
       ELSE
    
@@ -384,11 +446,12 @@ CONTAINS
    TYPE( POP_Mesh ), INTENT(inout)       :: mesh
    TYPE( Stencil ), INTENT(in)           :: mystencil
    INTEGER, INTENT(in)                   :: meshType
-   INTEGER, INTENT(in), OPTIONAL         :: maskfield(1:mesh % nX, 1:mesh % nY,1:mesh % nZ)
+   INTEGER, INTENT(in), OPTIONAL         :: maskfield(1:mesh % nX, 1:mesh % nY)
    ! Local
    INTEGER :: i, j, k, ii, jj, this_i, this_j, m, n
-   INTEGER :: minI, maxI, minJ, maxJ, minL
-   INTEGER :: nBCells
+   INTEGER :: minI, maxI, minJ, maxJ
+   REAL(prec) :: minL
+   INTEGER :: nBCells, nPCells
    INTEGER :: regionmask(1:mesh % nX,1:mesh % nY,1:mesh % nZ)
    INTEGER :: stencilSum
       
@@ -405,7 +468,7 @@ CONTAINS
          DO k = 1, mesh % nZ
             DO j = 1, mesh % nY
                DO i = 1, mesh % nX
-                  IF( maskfield(i,j,k) /= 0 )THEN
+                  IF( maskfield(i,j) /= 0 )THEN
                      regionMask(i,j,k) = 0
                   ENDIF
                ENDDO
@@ -415,6 +478,7 @@ CONTAINS
          ! (2) Loop over the region and compute the sum of the points within the stencil. The first 
          ! pass through will count the number of border cells.
          nBCells = 0
+         nPCells = 0
          DO m = 1, myRegion % nCells
 
             i = myRegion % ijkInRegion(1,m) ! Global i, j, k
@@ -434,18 +498,27 @@ CONTAINS
 
             ENDDO
 
-            IF( stencilSum > 0 )THEN
+            IF( stencilSum > 0 .OR. maskfield(i,j) == -1 )THEN
                nBCells = nBcells + 1
-               mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
+               IF( maskfield(i,j) == -1 )THEN ! In this case the user wants to prescribe a boundary condition
+                  nPCells = nPCells + 1
+                  mesh % tracerMask(i,j,k) = -2.0_prec ! Set the border cell tracer mask to -1
+               ELSE
+                  mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
+               ENDIF
             ENDIF
 
          ENDDO
 
          PRINT*,'  Found', nBCells,' boundary cells.' 
+         PRINT*,'  Found', nPCells,' prescribed cells.' 
          myRegion % nBCells = nBCells
+         myRegion % nPCells = nPCells
          ALLOCATE( myRegion % boundaryCells(1:nBCells) )
+         ALLOCATE( myRegion % prescribedCells(1:nBCells) )
          ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
          nBCells = 0
+         nPCells = 0
          DO m = 1, myRegion % nCells
 
             i = myRegion % ijkInRegion(1,m)
@@ -455,6 +528,11 @@ CONTAINS
             IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
                nBCells = nBCells + 1
                myRegion % boundaryCells(nBCells) = m
+            ELSEIF( mesh % tracerMask(i,j,k) == -2.0_prec )THEN
+               nPCells = nPCells + 1
+               nBCells = nBCells + 1
+               myRegion % boundaryCells(nBCells)   = m
+               myRegion % prescribedCells(nPCells) = m
             ENDIF
 
          ENDDO
@@ -561,134 +639,250 @@ CONTAINS
 
  END SUBROUTINE FindBoundaryCells_POP_Regional
 !
- SUBROUTINE GenerateRegionalMesh_POP_Regional( myRegion, mesh, regionalmesh )
+ SUBROUTINE GenerateRegionalMesh_POP_Regional( myRegion, mesh, regionalmesh, maskfield )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(in)         :: mesh
    TYPE( POP_Mesh ), INTENT(out)        :: regionalMesh
+   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY)
    ! Local
    INTEGER :: minI, maxI, minJ, maxJ, i, j, k, m, ii, jj, nXr, nYr
    REAL(prec) :: minL
 
-      minI = MINVAL( myRegion % ijkInRegion(1,:) ) 
-      maxI = MAXVAL( myRegion % ijkInRegion(1,:) ) 
-      minJ = MINVAL( myRegion % ijkInRegion(2,:) ) 
-      maxJ = MAXVAL( myRegion % ijkInRegion(2,:) ) 
-
-      IF( myRegion % crossesPrimeMeridian .AND. mesh % tLon(minI,minJ) > myRegion % west )THEN
-         minL = mesh % tLon(minI,minJ) - 360.0_prec
+      IF( present(maskfield) )THEN
+         minI = MINVAL( myRegion % ijkInRegion(1,:) ) 
+         maxI = MAXVAL( myRegion % ijkInRegion(1,:) ) 
+         minJ = MINVAL( myRegion % ijkInRegion(2,:) ) 
+         maxJ = MAXVAL( myRegion % ijkInRegion(2,:) ) 
+   
+         IF( myRegion % crossesPrimeMeridian .AND. mesh % tLon(minI,minJ) > myRegion % west )THEN
+            minL = mesh % tLon(minI,minJ) - 360.0_prec
+         ELSE
+            minL = mesh % tLon(minI,minJ)
+         ENDIF
+   
+   
+         IF( mesh % tLon(maxI,minJ) < minL )THEN
+            ! In this case the region crosses the boundary of the periodic computational mesh
+            nXr = ( mesh % nX - maxI + 1 ) + minI
+            nYr = maxJ - minJ + 1
+   
+            CALL regionalMesh % Build( nXr, nYr, mesh % nZ )
+   
+           m = 0
+           jj = 0
+           DO j = minJ, maxJ
+              jj = jj+1
+              ii = 0
+              DO i = maxI, mesh % nX
+                 ii = ii + 1
+                 regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
+                 regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
+                 regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
+                 regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
+                 regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
+                 regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 DO k = 1, mesh % KMT(i,j)
+                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                 IF( maskfield(i,j) /= 0 )THEN
+                    m = m+1
+                    myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
+                 ENDIF
+                 ENDDO
+              ENDDO
+   
+              DO i = 1, minI
+                 ii = ii + 1
+                 regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
+                 regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
+                 regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
+                 regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
+                 regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
+                 regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 DO k = 1, mesh % KMT(i,j)
+                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                 IF( maskfield(i,j) /= 0 )THEN
+                    m = m+1
+                    myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
+                 ENDIF
+                 ENDDO
+              ENDDO
+   
+           ENDDO
+   
+        ELSE
+   
+            nXr = maxI - minI + 1
+            nYr = maxJ - minJ + 1
+   
+            CALL regionalMesh % Build( nXr, nYr, mesh % nZ )
+           m  = 0   
+           jj = 0
+           DO j = minJ, maxJ
+              jj = jj+1
+              ii = 0
+              DO i = minI, maxI
+                 ii = ii + 1
+                 regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
+                 regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
+                 regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
+                 regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
+                 regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
+                 regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 DO k = 1, mesh % KMT(i,j)
+                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                 IF( maskfield(i,j) /= 0 )THEN
+                    m = m+1
+                    myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
+                 ENDIF
+                 ENDDO
+              ENDDO
+   
+           ENDDO
+   
+        ENDIF
+   
+        IF( myRegion % crossesPrimeMeridian )THEN
+   
+           DO j = 1, nYr
+              DO i = 1, nXr
+                 IF( regionalMesh % tLon(i,j) >= myRegion % west )THEN
+                    regionalMesh % tLon(i,j) = regionalMesh % tLon(i,j) - 360.0_prec
+                 ENDIF
+              ENDDO
+           ENDDO
+   
+        ENDIF
+   
+        DO k = 1, mesh % nZ
+           regionalMesh % z(k)   = mesh % z(k)
+           regionalMesh % dz(k)  = mesh % dz(k)
+           regionalMesh % dzw(k) = mesh % dzw(k)
+        ENDDO
+   
       ELSE
-         minL = mesh % tLon(minI,minJ)
-      ENDIF
-
-
-      IF( mesh % tLon(maxI,minJ) < minL )THEN
-         ! In this case the region crosses the boundary of the periodic computational mesh
-         nXr = ( mesh % nX - maxI + 1 ) + minI
-         nYr = maxJ - minJ + 1
-
-         CALL regionalMesh % Build( nXr, nYr, mesh % nZ )
-
-        m = 0
-        jj = 0
-        DO j = minJ, maxJ
-           jj = jj+1
-           ii = 0
-           DO i = maxI, mesh % nX
-              ii = ii + 1
-              regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
-              regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
-              regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
-              regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
-              regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
-              regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
-              DO k = 1, mesh % KMT(i,j)
-              regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-              IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
-                 m = m+1
-                 myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
-              ENDIF
+         minI = MINVAL( myRegion % ijkInRegion(1,:) ) 
+         maxI = MAXVAL( myRegion % ijkInRegion(1,:) ) 
+         minJ = MINVAL( myRegion % ijkInRegion(2,:) ) 
+         maxJ = MAXVAL( myRegion % ijkInRegion(2,:) ) 
+   
+         IF( myRegion % crossesPrimeMeridian .AND. mesh % tLon(minI,minJ) > myRegion % west )THEN
+            minL = mesh % tLon(minI,minJ) - 360.0_prec
+         ELSE
+            minL = mesh % tLon(minI,minJ)
+         ENDIF
+   
+   
+         IF( mesh % tLon(maxI,minJ) < minL )THEN
+            ! In this case the region crosses the boundary of the periodic computational mesh
+            nXr = ( mesh % nX - maxI + 1 ) + minI
+            nYr = maxJ - minJ + 1
+   
+            CALL regionalMesh % Build( nXr, nYr, mesh % nZ )
+   
+           m = 0
+           jj = 0
+           DO j = minJ, maxJ
+              jj = jj+1
+              ii = 0
+              DO i = maxI, mesh % nX
+                 ii = ii + 1
+                 regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
+                 regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
+                 regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
+                 regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
+                 regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
+                 regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 DO k = 1, mesh % KMT(i,j)
+                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                    m = m+1
+                    myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
+                 ENDIF
+                 ENDDO
+              ENDDO
+   
+              DO i = 1, minI
+                 ii = ii + 1
+                 regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
+                 regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
+                 regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
+                 regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
+                 regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
+                 regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 DO k = 1, mesh % KMT(i,j)
+                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                    m = m+1
+                    myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
+                 ENDIF
+                 ENDDO
+              ENDDO
+   
+           ENDDO
+   
+        ELSE
+   
+            nXr = maxI - minI + 1
+            nYr = maxJ - minJ + 1
+   
+            CALL regionalMesh % Build( nXr, nYr, mesh % nZ )
+   
+           m = 0
+           jj = 0
+           DO j = minJ, maxJ
+              jj = jj+1
+              ii = 0
+              DO i = minI, maxI
+                 ii = ii + 1
+                 regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
+                 regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
+                 regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
+                 regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
+                 regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
+                 regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 DO k = 1, mesh % KMT(i,j)
+                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                    m = m+1
+                    myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
+                 ENDIF
+                 ENDDO
+              ENDDO
+   
+           ENDDO
+   
+        ENDIF
+   
+        IF( myRegion % crossesPrimeMeridian )THEN
+   
+           DO j = 1, nYr
+              DO i = 1, nXr
+                 IF( regionalMesh % tLon(i,j) >= myRegion % west )THEN
+                    regionalMesh % tLon(i,j) = regionalMesh % tLon(i,j) - 360.0_prec
+                 ENDIF
               ENDDO
            ENDDO
-
-           DO i = 1, minI
-              ii = ii + 1
-              regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
-              regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
-              regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
-              regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
-              regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
-              regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
-              DO k = 1, mesh % KMT(i,j)
-              regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-              IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
-                 m = m+1
-                 myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
-              ENDIF
-              ENDDO
-           ENDDO
-
+   
+        ENDIF
+   
+        DO k = 1, mesh % nZ
+           regionalMesh % z(k)   = mesh % z(k)
+           regionalMesh % dz(k)  = mesh % dz(k)
+           regionalMesh % dzw(k) = mesh % dzw(k)
         ENDDO
-
-     ELSE
-
-         nXr = maxI - minI + 1
-         nYr = maxJ - minJ + 1
-
-         CALL regionalMesh % Build( nXr, nYr, mesh % nZ )
-
-        jj = 0
-        DO j = minJ, maxJ
-           jj = jj+1
-           ii = 0
-           DO i = minI, maxI
-              ii = ii + 1
-              regionalMesh % tLon(ii,jj)  = mesh % tLon(i,j)
-              regionalMesh % tLat(ii,jj)  = mesh % tLat(i,j)
-              regionalMesh % dXt(ii,jj)   = mesh % dXt(i,j)
-              regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
-              regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
-              regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
-              DO k = 1, mesh % KMT(i,j)
-              regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-              IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
-                 m = m+1
-                 myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
-              ENDIF
-              ENDDO
-           ENDDO
-
-        ENDDO
-
      ENDIF
-
-     IF( myRegion % crossesPrimeMeridian )THEN
-
-        DO j = 1, nYr
-           DO i = 1, nXr
-              IF( regionalMesh % tLon(i,j) >= myRegion % west )THEN
-                 regionalMesh % tLon(i,j) = regionalMesh % tLon(i,j) - 360.0_prec
-              ENDIF
-           ENDDO
-        ENDDO
-
-     ENDIF
-
-     DO k = 1, mesh % nZ
-        regionalMesh % z(k)   = mesh % z(k)
-        regionalMesh % dz(k)  = mesh % dz(k)
-        regionalMesh % dzw(k) = mesh % dzw(k)
-     ENDDO
 
 
  END SUBROUTINE GenerateRegionalMesh_POP_Regional
 !
- SUBROUTINE WritePickup_POP_Regional( myRegional, filename )
+ SUBROUTINE WritePickup_POP_Regional( myRegional, filename, maskProvided )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(in) :: myRegional
    CHARACTER(*), INTENT(in)          :: filename
+   LOGICAL, INTENT(in)               :: maskProvided
    ! Local 
    INTEGER :: fUnit, i
 
@@ -700,8 +894,12 @@ CONTAINS
             STATUS='REPLACE', &
             ACTION='WRITE' )
 
-     WRITE( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nDOF
-     
+     IF( maskProvided )THEN
+        WRITE( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nPCells, myRegional % nDOF
+     ELSE
+        WRITE( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nDOF
+     ENDIF    
+ 
      DO i = 1, myRegional % nCells
         WRITE(fUnit,*) myRegional % ijkInRegion(1:3,i), &
                        myRegional % dofInRegion(i), &
@@ -712,17 +910,24 @@ CONTAINS
         WRITE(fUnit,*)myRegional % boundaryCells(i)
      ENDDO
 
+     IF( maskProvided )THEN
+        DO i = 1, myRegional % nPCells
+           WRITE(fUnit,*)myRegional % prescribedCells(i)
+        ENDDO
+     ENDIF
+
      DO i = 1, myRegional % nDOF
         WRITE(fUnit,*)myRegional % inverseDOFMap(i)
      ENDDO
 
  END SUBROUTINE WritePickup_POP_Regional
 !
- SUBROUTINE ReadPickup_POP_Regional( myRegional, filename )
+ SUBROUTINE ReadPickup_POP_Regional( myRegional, filename, maskProvided )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegional
    CHARACTER(*), INTENT(in)             :: filename
+   LOGICAL, INTENT(in)                  :: maskProvided
    ! Local 
    INTEGER :: fUnit, i, readStatus
 
@@ -734,14 +939,25 @@ CONTAINS
             STATUS='OLD', &
             ACTION='READ' )
 
-     READ( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nDOF
+     IF( maskProvided )THEN
+        READ( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nPCells, myRegional % nDOF
      
-     ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
-               myRegional % dofInRegion(1:myRegional % nCells), &
-               myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
-               myRegional % boundaryCells(1:myRegional % nBCells), &
-               myRegional % inverseDOFMap(1:myRegional % nDOF) )
-
+        ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
+                  myRegional % dofInRegion(1:myRegional % nCells), &
+                  myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
+                  myRegional % boundaryCells(1:myRegional % nBCells), &
+                  myRegional % prescribedCells(1:myRegional % nBCells), &
+                  myRegional % inverseDOFMap(1:myRegional % nDOF) )
+     ELSE
+        READ( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nDOF
+        ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
+                  myRegional % dofInRegion(1:myRegional % nCells), &
+                  myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
+                  myRegional % boundaryCells(1:myRegional % nBCells), &
+                  myRegional % inverseDOFMap(1:myRegional % nDOF) )
+        myRegional % nPCells = 0
+     ENDIF    
+     
      DO i = 1, myRegional % nCells
         READ(fUnit,*) myRegional % ijkInRegion(1:3,i), &
                        myRegional % dofInRegion(i), &
@@ -751,6 +967,12 @@ CONTAINS
      DO i = 1, myRegional % nBCells
         READ(fUnit,*)myRegional % boundaryCells(i)
      ENDDO
+
+     IF( maskProvided )THEN
+        DO i = 1, myRegional % nBCells
+           READ(fUnit,*)myRegional % prescribedCells(i)
+        ENDDO
+     ENDIF
 
      DO i = 1, myRegional % nDOF
         READ(fUnit,*,IOSTAT=readStatus)myRegional % inverseDOFMap(i)

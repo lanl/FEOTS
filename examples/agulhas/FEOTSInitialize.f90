@@ -35,8 +35,8 @@ CONTAINS
    IMPLICIT NONE
    TYPE( POP_FEOTS ), INTENT(inout) :: myFeots
    ! Local
-   INTEGER  :: i, j, k, iTracer
-   REAL(prec) :: x, y, z, rfMax
+   INTEGER  :: i, j, k, iTracer, m, dof
+   REAL(prec) :: x, y, z, rfMax, s, T, rho
 
 
       rfMax = 1.0_prec/43200.0_prec
@@ -56,15 +56,34 @@ CONTAINS
                myFeots % nativeSol % source(i,j,k,:)   = 5.0_prec
                myFeots % nativeSol % rFac(i,j,k,:)     = rFMax*(exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
       
-               DO iTracer = 1, myFeots % params % nTracers
-                  IF( myFeots % nativeSol % mask(i,j,k,iTracer) /= 0.0_prec )THEN  
-                     ! REset mask values  
-                     myFeots % nativeSol % mask(i,j,k,iTracer)     = 1.0_prec
-                     myFeots % nativeSol % hardSet(i,j,k,iTracer)  = 0.0_prec
-                  ENDIF
-               ENDDO
             ENDDO
          ENDDO
+      ENDDO
+
+      ! Set any prescribed cells here
+      DO m = 1, myFeots % regionalMaps % nPCells
+
+         dof = myFeots % regionalMaps % prescribedCells(m)
+         i   = myFeots % regionalMaps % dofToLocalIJK(1,dof)
+         j   = myFeots % regionalMaps % dofToLocalIJK(2,dof)
+         k   = myFeots % regionalMaps % dofToLocalIJK(3,dof)
+
+         x = myFeots % mesh % tLon(i,j)
+         y = myFeots % mesh % tLat(i,j)
+         IF( myFeots % params % waterMassTagging )THEN
+            T   = myFeots % nativeSol % temperature(i,j,k)
+            S   = myFeots % nativeSol % salinity(i,j,k)
+            rho = myFeots % nativeSol % buoyancy(i,j,k)
+            
+            IF( T > 15.0_prec .AND. T < 16.0_prec )THEN
+               myFEOTS % nativeSol % tracer(i,j,k,:) = 1.0_prec
+            ENDIF
+
+         ELSE
+            myFEOTS % nativeSol % tracer(i,j,k,:) = 1.0_prec
+         ENDIF
+
+
       ENDDO
 
  END SUBROUTINE InitialConditions

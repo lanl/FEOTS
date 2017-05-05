@@ -15,6 +15,7 @@
 
 GreedyColoring
 GenerateMeshOnlyFile
+GenMask
 OperatorDiagnosis
 RegionalExtraction
 ExtractOceanState

@@ -2,10 +2,7 @@
 MeshType    = 'PeriodicTripole',
 StencilType = 'LaxWendroff',
 Regional    = .TRUE.,
-south       = -60.0,
-east        = 50.0,
-west        = -10.0,
-north       = -20.0,  
+maskfile    = 'Agulhas_mask.nc',
 /
 &TracerModelOptions
 TracerModel = 'DyeModel',
@@ -13,7 +10,7 @@ dt          = 1080.0,
 runMode     = 'Forward',
 nStepsPerDump   = 80,
 iterInit        = 0,
-nTimeSteps      = 160,
+nTimeSteps      = 29200,
 /
 &OperatorOptions
 operatorPeriod = 432000.0,
@@ -26,10 +23,10 @@ regionalmeshfile          ='Agulhas_mesh.nc',
 graphfile                 ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/pop_03_periodic-tripole_laxwendroff',
 operatorBaseName          = 'pop_03_periodic-tripole',
 feotsOperatorDirectory    ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Global/',
-regionalOperatorDirectory ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Agulhas/',
+regionalOperatorDirectory ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Agulhas_wmask/',
 IRFListFile               = 'IRFList_5dayAvg.txt',
-IRFStart                  = 220,
-nIRFFiles                 = 365,
+IRFStart                  = 1,
+nIRFFiles                 = 73,
 /
 &JFNKOptions
 /

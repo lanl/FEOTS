@@ -48,7 +48,6 @@ MODULE TracerStorage_Class
 !   source       -- Real(prec), " ", " ", the source terms
 !   rFac         -- Real(prec), " ", " ", the relaxation factor for the source terms
 !   mask         -- Real(prec), " ", " ", a mask for hard-setting tracer values
-!   hSetTracers  -- Real(prec), " ", " ", the "hard-set" tracer values where the mask is applied
 !
 ! ================================================================================================ !
 !
@@ -61,7 +60,7 @@ MODULE TracerStorage_Class
       REAL(prec), ALLOCATABLE        :: tracers(:,:)
       REAL(prec), ALLOCATABLE        :: volume(:)
       REAL(prec), ALLOCATABLE        :: source(:,:), rFac(:,:)
-      REAL(prec), ALLOCATABLE        :: mask(:,:), hSetTracers(:,:)
+      REAL(prec), ALLOCATABLE        :: mask(:,:)
 
       CONTAINS
       
@@ -71,7 +70,6 @@ MODULE TracerStorage_Class
       PROCEDURE :: LoadSparseConnectivities => LoadSparseConnectivities_TracerStorage
       PROCEDURE :: CheckForNewOperator => CheckForNewOperator_TracerStorage
       PROCEDURE :: MaskField         => MaskField_TracerStorage
-      PROCEDURE :: MaskTracers       => MaskTracers_TracerStorage
       PROCEDURE :: CalculateTendency => CalculateTendency_TracerStorage
 
    END TYPE TracerStorage
@@ -122,7 +120,6 @@ MODULE TracerStorage_Class
       ALLOCATE( thisStorage % source(1:nDOF,1:nTracers) )
       ALLOCATE( thisStorage % rFac(1:nDOF,1:nTracers) )
       ALLOCATE( thisStorage % mask(1:nDOF,1:nTracers) )
-      ALLOCATE( thisStorage % hSetTracers(1:nDOF,1:nTracers) )
 
       ! Initiallize values to zero
       thisStorage % tracers     = 0.0_prec
@@ -130,7 +127,6 @@ MODULE TracerStorage_Class
       thisStorage % source      = 0.0_prec
       thisStorage % rFac        = 0.0_prec
       thisStorage % mask        = 1.0_prec
-      thisStorage % hSetTracers = 0.0_prec
 
  END SUBROUTINE Build_TracerStorage
 ! 
@@ -156,7 +152,6 @@ MODULE TracerStorage_Class
       DEALLOCATE( thisStorage % source )
       DEALLOCATE( thisStorage % rFac )
       DEALLOCATE( thisStorage % mask )
-      DEALLOCATE( thisStorage % hSetTracers )
 
  END SUBROUTINE Trash_TracerStorage
 !
@@ -255,37 +250,6 @@ MODULE TracerStorage_Class
       field = field*thisStorage % mask(:,i)
 
  END SUBROUTINE MaskField_TracerStorage
-!
-!
-!
- SUBROUTINE MaskTracers_TracerStorage( thisStorage )
- ! S/R MaskTracers
- !
- !    This subroutine masks the tracers and sets the mask-points to the hard-set values specified
- !    by the attribute "hSetTracers". It is assumed that the hard-set tracer field is set to 
- !    zero where the tracer field is not masked out.
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( TracerStorage ), INTENT(inout) :: thisStorage
-   ! LOCAL
-   INTEGER    :: i, j
-   REAL(prec) :: field(1:thisStorage % nDOF)
-   
-      DO i = 1, thisStorage % nTracers
-
-         field = thisStorage % tracers(:,i)
-         CALL thisStorage % MaskField( i, field )
-
-         DO j = 1, thisStorage % nDOF
-            field(j) = field(j) + thisStorage % hSetTracers(j,i)
-         ENDDO
-
-         thisStorage % tracers(:,i)  = field
- 
-      ENDDO
-
- END SUBROUTINE MaskTracers_TracerStorage
 !
  SUBROUTINE CalculateTendency_TracerStorage( thisStorage, tracerfield, t, modelflag, tendency, volCorrection )
  ! CalculateTendency

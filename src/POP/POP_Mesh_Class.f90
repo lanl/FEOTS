@@ -46,11 +46,13 @@ USE netcdf
           PROCEDURE :: Build => Build_POP_Mesh
           PROCEDURE :: Trash => Trash_POP_Mesh
           PROCEDURE :: Load  => Load_POP_Mesh
+          PROCEDURE :: LoadWithMask  => LoadWithMask_POP_Mesh
     
           PROCEDURE :: WriteNetCDF => WriteNetCDF_POP_Mesh          
 
           PROCEDURE :: ConstructDummyTracerMesh => ConstructDummyTracerMesh_POP_Mesh
           PROCEDURE :: ConstructWetPointMap     => ConstructWetPointMap_POP_Mesh
+          PROCEDURE :: ConstructWetPointMapWithMask     => ConstructWetPointMapWithMask_POP_Mesh
           PROCEDURE :: MapFromDOFtoIJK          => MapFromDOFtoIJK_POP_Mesh
           PROCEDURE :: MapFromIJKtoDOF          => MapFromIJKtoDOF_POP_Mesh
 
@@ -125,7 +127,7 @@ USE netcdf
    CLASS(POP_Mesh), INTENT(inout) :: theGrid
    CHARACTER(*), INTENT(in)       :: ncFile
    ! Local
-   INTEGER       :: ncid, varid, dimid
+   INTEGER       :: ncid, varid, dimid, nstat
    INTEGER       :: nX, nY, nZ
    CHARACTER(10) :: dimname
 
@@ -193,16 +195,109 @@ USE netcdf
         CALL Check( nf90_get_var( ncid, varid, theGrid % tArea ) )
 
         ! Get the variable ID for the lateral grid cell areas
-       ! CALL Check( nf90_inq_varid( ncid, "TracerMask", varid ) )
-        ! And read the longitude data in
-       ! CALL Check( nf90_get_var( ncid, varid, theGrid % tracermask ) )
-
+        nstat = nf90_inq_varid( ncid, "TracerMask", varid )
+        IF( nstat == nf90_noerr )THEN
+           CALL Check( nf90_get_var( ncid, varid, theGrid % tracermask ) )
+        ENDIF
         ! Close the netcdf file
         CALL Check( nf90_close( ncid ) )
 
         CALL theGrid % ConstructWetPointMap( )
         
  END SUBROUTINE Load_POP_Mesh
+!
+ SUBROUTINE LoadWithMask_POP_Mesh( theGrid, ncFile )
+ ! S/R Load
+ !  Desription:
+ !  
+ !    Loads in the MITgcm grid where all of the standard grid files are
+ !    located in dataDir. This subroutine must be called after the 
+ !    data-sturcture has been built with S/R BuildPOP_Mesh
+ !    
+ ! =============================================================================================== !
+ ! DECLARATIONS
+   IMPLICIT NONE
+   CLASS(POP_Mesh), INTENT(inout) :: theGrid
+   CHARACTER(*), INTENT(in)       :: ncFile
+   ! Local
+   INTEGER       :: ncid, varid, dimid, nstat
+   INTEGER       :: nX, nY, nZ
+   CHARACTER(10) :: dimname
+
+        ! ** Need to switch this to NetCDF ** 
+        PRINT*, 'S/R Load_POP_Mesh : Reading in the grid information from '//TRIM(ncFile)
+        
+        ! Open the netcdf file - store the file handle in ncid        
+        CALL Check( nf90_open( TRIM(ncFile), NF90_NOWRITE, ncid ) ) 
+        ! Get the dimensions of the mesh !
+        CALL Check( nf90_inq_dimid( ncid, "nlon", dimid ) ) 
+        CALL Check( nf90_inquire_dimension( ncid, dimid, dimname, nX ) )
+        
+        CALL Check( nf90_inq_dimid( ncid, "nlat", dimid ) )
+        CALL Check( nf90_inquire_dimension( ncid, dimid, dimname, nY ) )
+        
+        CALL Check( nf90_inq_dimid( ncid, "z_t", dimid ) ) 
+        CALL Check( nf90_inquire_dimension( ncid, dimid, dimname, nZ ) )
+
+        PRINT*, 'S/R Load_POP_Mesh : Grid Dimensions (nX,nY,nZ) : (',nX,',',nY,',',nZ,')'
+        CALL theGrid % Build( nX, nY, nZ )
+        
+        ! Get the variable ID for the longitude
+        CALL Check( nf90_inq_varid( ncid, "TLONG", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % tLon ) )
+        ! Get the variable ID for the latitude
+        CALL Check( nf90_inq_varid( ncid, "TLAT", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % tLat ) )
+
+        ! Get the variable ID for the KMT
+        CALL Check( nf90_inq_varid( ncid, "KMT", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % kmt ) )
+
+        ! Get the variable ID for the vertical grid
+        CALL Check( nf90_inq_varid( ncid, "z_t", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % z ) )
+
+        ! Get the variable ID for the vertical grid spacing
+        CALL Check( nf90_inq_varid( ncid, "dz", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % dz ) )
+
+        ! Get the variable ID for the vertical grid spacing
+        CALL Check( nf90_inq_varid( ncid, "dzw", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % dzw ) )
+
+
+        ! Get the variable ID for the lateral grid spacing in x
+        CALL Check( nf90_inq_varid( ncid, "DXT", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % dxt ) )
+
+        ! Get the variable ID for the lateral grid spacing in y
+        CALL Check( nf90_inq_varid( ncid, "DYT", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % dyt ) )
+
+        ! Get the variable ID for the lateral grid cell areas
+        CALL Check( nf90_inq_varid( ncid, "TAREA", varid ) )
+        ! And read the longitude data in
+        CALL Check( nf90_get_var( ncid, varid, theGrid % tArea ) )
+
+        ! Get the variable ID for the lateral grid cell areas
+        nstat = nf90_inq_varid( ncid, "TracerMask", varid )
+        IF( nstat == nf90_noerr )THEN
+           CALL Check( nf90_get_var( ncid, varid, theGrid % tracermask ) )
+        ENDIF
+        ! Close the netcdf file
+        CALL Check( nf90_close( ncid ) )
+
+        CALL theGrid % ConstructWetPointMapWithMask( )
+        
+ END SUBROUTINE LoadWithMask_POP_Mesh
 !
  SUBROUTINE WriteNetCDF_POP_Mesh( mesh, ncFile )
  ! S/R WriteNetCDF
@@ -267,6 +362,11 @@ USE netcdf
                                   NF90_DOUBLE, (/ x_dimid, y_dimid, z_dimid /),&
                                   tmask_varid ) )        
         
+      CALL Check( nf90_put_att( ncid, tmask_varid, "long_name", "Domain Mask" ) )
+      CALL Check( nf90_put_att( ncid, tmask_varid, "units", "" ) )
+      CALL Check( nf90_put_att( ncid, tmask_varid, "_FillValue", fillValue) )
+      CALL Check( nf90_put_att( ncid, tmask_varid, "missing_value", fillValue) )
+
         PRINT*,'                           Defining units.' 
         CALL Check( nf90_put_att( ncid, z_varid, 'units', 'cm' ) )
         CALL Check( nf90_put_att( ncid, y_varid, 'units', 'degrees North' ) )
@@ -399,6 +499,64 @@ USE netcdf
       ENDDO
 
  END SUBROUTINE ConstructWetPointMap_POP_Mesh
+!
+ SUBROUTINE ConstructWetPointMapWithMask_POP_Mesh( theGrid )
+ ! S/R ConstructWetPointMapWithMask
+ !
+ !  This subroutine uses the KMT field to determine the wet-points. First, the "tracermask" is 
+ !  set to one for all of the wet-points, and is left as zero for "dry" points in the structured
+ !  "ijk" POP mesh. The sum of the tracermask gives the number of wet-points (aka "degrees of 
+ !  freedom", or "DOF" ). Then, the tracermask is used to generate an array that is indexed over
+ !  the DOF and returns the associated (i,j,k) in the original POP mesh.
+ !
+ !  ** This routine is used by "Build" and assumes that memory has already been allocated for 
+ !     the POPmesh attributes. Since this routine is called by Build and should really not be 
+ !     called again, this subroutine is PRIVATE ** 
+ !  
+ ! =============================================================================================== !
+ ! DECLARATIONS
+   IMPLICIT NONE
+   CLASS( POP_Mesh ), INTENT(inout) :: theGrid
+   ! LOCAL
+   INTEGER :: i, j, k, nDOF
+
+      nDOF = 0
+
+      ! Count the number of wet-points and set the IJK to DOF mapping
+      DO j = 1, theGrid % nY
+         DO i = 1, theGrid % nX
+            DO k = 1, theGrid % KMT(i,j)
+               IF( theGrid % tracerMask(i,j,k) /= fillValue )THEN
+                  nDOF = nDOF + 1
+                  theGrid % IJKtoDOF(i,j,k)   = nDOF
+               ENDIF
+            ENDDO
+
+         ENDDO
+      ENDDO
+
+      PRINT*, 'S/R ConstructWetPointMap :'
+      PRINT*, 'Found ', nDOF, 'degrees of freedom from ', theGrid % nX*theGrid % nY*theGrid % nZ, 'mesh points.'
+
+      ALLOCATE( theGrid % DOFtoIJK(1:3,1:nDOF) ) 
+      theGrid % nDOF = nDOF
+
+      ! Now we can set the DOF to IJK mapping
+      nDOF = 0
+      DO j = 1, theGrid % nY
+         DO i = 1, theGrid % nX
+            DO k = 1, theGrid % KMT(i,j)
+               IF( theGrid % tracerMask(i,j,k) /= fillValue )THEN
+                  nDOF = nDOF + 1
+                  theGrid % DOFtoIJK(1,nDOF) = i
+                  theGrid % DOFtoIJK(2,nDOF) = j
+                  theGrid % DOFtoIJK(3,nDOF) = k
+               ENDIF
+            ENDDO
+         ENDDO
+      ENDDO
+
+ END SUBROUTINE ConstructWetPointMapWithMask_POP_Mesh
 !
 !
 ! 

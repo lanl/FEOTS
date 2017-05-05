@@ -34,6 +34,7 @@ SRCDIR=${FEOTSDIR}/src/
 all :
 	make GreedyColoring
 	make GenerateMeshOnlyFile
+	make GenMask
 	make RegionalExtraction 
 	make OperatorDiagnosis
 	make FEOTSInitialize
@@ -159,6 +160,13 @@ GMOBJS= ModelPrecision.o \
       POP_Mesh_Class.o \
       GenerateMeshOnlyFile.o
 
+GMaOBJS= ModelPrecision.o \
+      ConstantsDictionary.o \
+      CommonRoutines.o \
+      POP_Params_Class.o \
+      POP_Mesh_Class.o \
+      GenMask.o
+
 FIOBJS = ModelPrecision.o \
          ConstantsDictionary.o \
          CommonRoutines.o \
@@ -193,6 +201,9 @@ GreedyColoring : ${GCOBJS}
 GenerateMeshOnlyFile : ${GMOBJS}
 	${FC} ${OPT} ${GMOBJS} ${LIB} ${INC} -o $@
 
+GenMask : ${GMaOBJS}
+	${FC} ${OPT} ${GMaOBJS} ${LIB} ${INC} -o $@
+
 RegionalExtraction : ${REOBJS}
 	${FC} ${OPT} ${REOBJS} ${LIB} ${INC} -o $@
 
@@ -214,6 +225,14 @@ GreedyGraphColoring.o : POP_Params_Class.o POP_Mesh_Class.o POP_Stencil_Class.o 
 
 GenerateMeshOnlyFile.o : POP_Params_Class.o POP_Mesh_Class.o
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/GenerateMeshOnlyFile.f90 -o $@
+
+ifdef MODDIR
+GenMask.o : POP_Params_Class.o POP_Mesh_Class.o
+	${FC} ${OPT} -c ${MODDIR}/GenMask.f90 -o $@
+else
+GenMask.o : POP_Params_Class.o POP_Mesh_Class.o
+	${FC} ${OPT} -c ${SRCDIR}POP/programs/GenMask.f90 -o $@
+endif
 
 OperatorDiagnosis.o : ModelPrecision.o CRSMatrix_Class.o POP_Params_Class.o POP_Mesh_Class.o POP_Stencil_Class.o \
                       POP_AdjacencyGraph_Class.o POP_Native_Class.o POP_GridTypeMappings.o
