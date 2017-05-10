@@ -515,7 +515,6 @@ CONTAINS
                DO iTracer = 1, this % params % nTracers
                   IF( trackingVar > this % stateLowerBound(iTracer) .AND. &
                       trackingVar < this % stateUpperBound(iTracer) )THEN
-                     PRINT*, trackingVar
                      this % solution % tracers(dof,iTracer) = 1.0_prec
                   ENDIF
                ENDDO
