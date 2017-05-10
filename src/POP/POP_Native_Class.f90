@@ -32,7 +32,7 @@ USE netcdf
       REAL(prec), ALLOCATABLE  :: volume(:,:,:)
       REAL(prec), ALLOCATABLE  :: temperature(:,:,:)
       REAL(prec), ALLOCATABLE  :: salinity(:,:,:)
-      REAL(prec), ALLOCATABLE  :: buoyancy(:,:,:)
+      REAL(prec), ALLOCATABLE  :: density(:,:,:)
 
       CONTAINS
 
@@ -98,7 +98,7 @@ CONTAINS
                 this % volume(1:nX,1:nY,1:nZ), &
                 this % temperature(1:nX,1:nY,1:nZ), &
                 this % salinity(1:nX,1:nY,1:nZ), &
-                this % buoyancy(1:nX,1:nY,1:nZ) )
+                this % density(1:nX,1:nY,1:nZ) )
 
       this % tracer       = 0.0_prec
       this % mask         = 1.0_prec
@@ -107,7 +107,7 @@ CONTAINS
       this % volume       = 0.0_prec
       this % temperature  = 0.0_prec
       this % salinity     = 0.0_prec
-      this % buoyancy     = 0.0_prec
+      this % density     = 0.0_prec
 
       PRINT*, 'S/R : Build_POP_Native : Finish.'
 
@@ -127,7 +127,7 @@ CONTAINS
                   this % volume, &
                   this % temperature, &
                   this % salinity, &
-                  this % buoyancy )
+                  this % density )
 
  END SUBROUTINE Trash_POP_Native
 !
@@ -456,7 +456,7 @@ CONTAINS
       CALL Check( nf90_inq_varid( ncid, "PD",varid ) )
       CALL Check( nf90_get_var( ncid, &
                                 varid, &
-                                this % buoyancy, &
+                                this % density, &
                                 start3D, recCount3D ) )
 
       PRINT*, 'DONE'
@@ -526,7 +526,7 @@ CONTAINS
 
       CALL Check( nf90_put_var( ncid, &
                                 varid_pd, &
-                                this % buoyancy, &
+                                this % density, &
                                 start3D, recCount3D ) )
       CALL Check( nf90_close( ncid ) )
 

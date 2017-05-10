@@ -54,6 +54,11 @@ USE POP_Native_Class
       TYPE( POP_Params )        :: params
       TYPE( POP_Native )        :: nativeSol
 
+      ! Water Mass Tagging
+      REAL(prec)                :: stateMask(1:3)
+      REAL(prec), ALLOCATABLE   :: stateLowerBound(:)
+      REAL(prec), ALLOCATABLE   :: stateUpperBound(:)
+
       CONTAINS
 
       PROCEDURE :: Build => Build_POP_FEOTS
@@ -122,8 +127,11 @@ CONTAINS
    INTEGER    :: nDOF
    REAL(prec) :: opPeriod, dt
    INTEGER :: nOps, i, j, k, m, stencilSize, fUnit
+   INTEGER :: trackingVar
    INTEGER, ALLOCATABLE :: nEl(:)
    CHARACTER(200) :: oceanStateFile
+   CHARACTER(20)  :: trackingVar_Char
+   
 
       PRINT*, 'S/R : Build_POP_FEOTS : Start...'
 
@@ -227,6 +235,47 @@ CONTAINS
 
       ! Load in the initial Ocean State
       !CALL this % nativeSol % LoadOceanState( this % mesh, thisIRFFile )
+      IF( this % params % WaterMassTagging )THEN
+         PRINT*, '   Enabling water mass tagging.'
+         ALLOCATE( this % stateLowerBound(1:this % params % nTracers), &
+                   this % stateUpperBound(1:this % params % nTracers) )
+         this % stateLowerBound = 0.0_prec
+         this % stateUpperBound = 0.0_prec
+         
+         OPEN( UNIT   = NewUnit( fUnit ), &
+               FILE   = 'watermass.config', &
+               FORM   = 'FORMATTED', &
+               STATUS = 'OLD', &
+               ACTION = 'READ' )
+
+         READ( fUnit, '(A20)' ) trackingVar_Char
+         PRINT*, '   Tagging water masses with '//TRIM( trackingVar_Char )
+         trackingVar = GetFlagforChar( TRIM(trackingVar_Char) ) 
+         IF( trackingVar == Temperature ) THEN
+            this % stateMask(1) = 1.0_prec
+            this % stateMask(2) = 0.0_prec
+            this % stateMask(3) = 0.0_prec
+         ELSEIF( trackingVar == Salinity ) THEN
+            this % stateMask(1) = 0.0_prec
+            this % stateMask(2) = 1.0_prec
+            this % stateMask(3) = 0.0_prec
+         ELSEIF( trackingVar == Density ) THEN
+            this % stateMask(1) = 0.0_prec
+            this % stateMask(2) = 0.0_prec
+            this % stateMask(3) = 1.0_prec
+         ELSE
+            PRINT*, 'Bad Water Mass Tracking variable.'
+            STOP 'STOPPING!'
+         ENDIF
+
+         PRINT*, '        Tracer |        Lower Bound           |    Upper Bound' 
+         DO i = 1, this % params % nTracers
+            READ( fUnit, * ) this % stateLowerBound(i), this % stateUpperBound(i)
+            PRINT*, i, '   |', this % stateLowerBound(i),'   |', this % stateUpperBound(i)
+         ENDDO
+
+         CLOSE( fUnit )
+      ENDIF
 
       PRINT*, 'S/R : Build_POP_FEOTS : Finish.'
 
@@ -423,21 +472,60 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
 #endif
-   INTEGER    :: i, j, k, m 
+   INTEGER         :: i, j, k, m, iT, dof, iTracer 
+   LOGICAL         :: operatorsSwapped
+   CHARACTER(400)  :: oceanStateFile
+   CHARACTER(5)    :: fileIDChar
+   REAL(prec)      :: trackingVar
 
-      DO k = 1, nTimeSteps
+      DO iT = 1, nTimeSteps
 
          !$OMP MASTER
          IF( this % params % Regional ) THEN
             CALL this % solution % CheckForNewOperator( tn, &
-                                TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename) )
+                                TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                operatorsSwapped )
          ELSE
             CALL this % solution % CheckForNewOperator( tn, &
-                                TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename) )
+                                TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                operatorsSwapped )
          ENDIF
+
+         IF( this % params % waterMassTagging .AND. operatorsSwapped)THEN
+
+            WRITE(fileIDChar, '(I5.5)' ) this % solution % currentPeriod + 1 
+            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
+            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+
+            ! Set any prescribed cells here
+            DO m = 1, this % regionalMaps % nPCells
+
+               dof = this % regionalMaps % prescribedCells(m)
+               i   = this % regionalMaps % dofToLocalIJK(1,dof)
+               j   = this % regionalMaps % dofToLocalIJK(2,dof)
+               k   = this % regionalMaps % dofToLocalIJK(3,dof)
+
+               trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
+                             this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
+                             this % nativeSol % density(i,j,k)*this % statemask(3)                 
+  
+               this % nativeSol % tracer(i,j,k,:) = 0.0_prec ! Reset prescribed values
+
+               DO iTracer = 1, this % params % nTracers
+                  IF( trackingVar > this % stateLowerBound(iTracer) .AND. &
+                      trackingVar < this % stateUpperBound(iTracer) )THEN
+                     PRINT*, trackingVar
+                     this % solution % tracers(dof,iTracer) = 1.0_prec
+                  ENDIF
+               ENDDO
+
+             ENDDO
+         ENDIF
+
          !$OMP END MASTER
 
-         SELECT CASE (k)
+         SELECT CASE (iT)
 
             CASE(1) ! First order Euler
                !$OMP DO COLLAPSE(2)

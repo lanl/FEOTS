@@ -587,6 +587,12 @@ END FUNCTION NewUnit
          intFlag = PeriodicTripole
       ELSEIF( LowerCase( TRIM(myChar) ) == 'dipole') THEN
          intFlag = Dipole
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'temperature') THEN
+         intFlag = Temperature
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'salinity') THEN
+         intFlag = Salinity
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'density') THEN
+         intFlag = Density
       ELSE
          PRINT*, 'Unknown Character Option : '//TRIM(myChar)
       ENDIF

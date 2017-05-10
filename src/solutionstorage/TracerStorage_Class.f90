@@ -180,7 +180,7 @@ MODULE TracerStorage_Class
  
  END SUBROUTINE LoadSparseConnectivities_TracerStorage
 !
- SUBROUTINE CheckForNewOperator_TracerStorage( thisStorage, t, filebase )
+ SUBROUTINE CheckForNewOperator_TracerStorage( thisStorage, t, filebase, OpSwapped )
  ! 
  ! This routine takes in the simulation time "t" and determines which operator
  ! period needs to be loaded. If the operator period changes, then a new
@@ -191,11 +191,13 @@ MODULE TracerStorage_Class
    CLASS( TracerStorage ), INTENT(inout) :: thisStorage
    REAL(prec), INTENT(in)                :: t
    CHARACTER(*)                          :: fileBase
+   LOGICAL                               :: OpSwapped
    ! Local
    INTEGER      :: nthCycle, newPeriod
    REAL(prec)   :: adjT
    CHARACTER(5) :: periodChar
 
+      opSwapped = .FALSE.
       IF( thisStorage % nPeriods == 1 )THEN
          newPeriod = 0
       ELSE
@@ -223,7 +225,7 @@ MODULE TracerStorage_Class
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_vdiffu.'//periodChar
          CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
          CALL thisStorage % transportOps(2) % ReadMatrixData( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
-
+         opSwapped = .TRUE.
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0
          ELSE 

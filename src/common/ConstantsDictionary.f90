@@ -104,6 +104,9 @@
    INTEGER, PARAMETER :: Overlap = 851
    INTEGER, PARAMETER :: Lateral = 852
    INTEGER, PARAMETER :: LateralPlusCorners = 853
+   INTEGER, PARAMETER :: Temperature = 1000
+   INTEGER, PARAMETER :: Salinity = 1000
+   INTEGER, PARAMETER :: Density = 1000
 
 
  END MODULE ConstantsDictionary

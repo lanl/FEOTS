@@ -3,6 +3,16 @@ SHELL=/bin/bash
 FEOTSDIR=$(shell pwd | sed 's/FEOTS.*/FEOTS/')
 INITDIR=$(shell pwd)
 
+
+.PHONY: GreedyColoring \
+        GenerateMeshOnlyFile \
+        GenMask \
+        OperatorDiagnosis \
+        RegionalExtraction \
+        ExtractOceanState \
+        FEOTSInitialize \
+        FEOTSDriver
+
 GreedyColoring :
 	make --directory=${FEOTSDIR}/build/ GreedyColoring
 	mv ${FEOTSDIR}/build/GreedyColoring ./

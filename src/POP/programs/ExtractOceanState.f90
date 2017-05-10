@@ -55,7 +55,7 @@ IMPLICIT NONE
 
                feots % nativeSol % temperature(i_local,j_local,k_local) = globalState % temperature(i,j,k)
                feots % nativeSol % salinity(i_local,j_local,k_local)    = globalState % salinity(i,j,k)
-               feots % nativeSol % buoyancy(i_local,j_local,k_local)    = globalState % buoyancy(i,j,k)
+               feots % nativeSol % density(i_local,j_local,k_local)     = globalState % density(i,j,k)
                feots % nativeSol % volume(i_local,j_local,k_local)      = globalState % volume(i,j,k)
             ENDDO
 

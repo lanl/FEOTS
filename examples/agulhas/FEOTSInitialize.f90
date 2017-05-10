@@ -53,8 +53,8 @@ CONTAINS
                ! Agulhas
                myFeots % nativeSol % tracer(i,j,k,:)   = 0.0_prec 
 
-               myFeots % nativeSol % source(i,j,k,:)   = 5.0_prec
-               myFeots % nativeSol % rFac(i,j,k,:)     = rFMax*(exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
+               myFeots % nativeSol % source(i,j,k,:)   = 0.0_prec !5.0_prec
+               myFeots % nativeSol % rFac(i,j,k,:)     = 0.0_prec !rFMax*(exp( -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
       
             ENDDO
          ENDDO
@@ -70,19 +70,7 @@ CONTAINS
 
          x = myFeots % mesh % tLon(i,j)
          y = myFeots % mesh % tLat(i,j)
-         IF( myFeots % params % waterMassTagging )THEN
-            T   = myFeots % nativeSol % temperature(i,j,k)
-            S   = myFeots % nativeSol % salinity(i,j,k)
-            rho = myFeots % nativeSol % buoyancy(i,j,k)
-            
-            IF( T > 15.0_prec .AND. T < 16.0_prec )THEN
-               myFEOTS % nativeSol % tracer(i,j,k,:) = 1.0_prec
-            ENDIF
-
-         ELSE
-            myFEOTS % nativeSol % tracer(i,j,k,:) = 1.0_prec
-         ENDIF
-
+         myFEOTS % nativeSol % tracer(i,j,k,:) = 0.0_prec
 
       ENDDO
 

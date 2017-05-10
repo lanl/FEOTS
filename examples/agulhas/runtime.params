@@ -5,12 +5,14 @@ Regional    = .TRUE.,
 maskfile    = 'Agulhas_mask.nc',
 /
 &TracerModelOptions
-TracerModel = 'DyeModel',
-dt          = 1080.0, 
-runMode     = 'Forward',
-nStepsPerDump   = 80,
-iterInit        = 0,
-nTimeSteps      = 29200,
+TracerModel      = 'DyeModel',
+WaterMassTagging = .TRUE.,
+dt               = 1080.0, 
+runMode          = 'Forward',
+nStepsPerDump    = 80,
+iterInit         = 0,
+nTimeSteps       = 80,
+nTracers         = 1
 /
 &OperatorOptions
 operatorPeriod = 432000.0,

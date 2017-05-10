@@ -46,60 +46,67 @@ all :
 # ---------------------------------------------------------------------- #
 
 # Modules
-ModelPrecision.o :
+ModelPrecision.o : ${SRCDIR}common/ModelPrecision.f90
 	${FC} ${OPT} -c ${SRCDIR}common/ModelPrecision.f90 -o $@
 
-ConstantsDictionary.o : ModelPrecision.o
+ConstantsDictionary.o : ModelPrecision.o ${SRCDIR}common/ConstantsDictionary.f90
 	${FC} ${OPT} -c ${SRCDIR}common/ConstantsDictionary.f90 -o $@
 
-CommonRoutines.o : ModelPrecision.o ConstantsDictionary.o
+CommonRoutines.o : ModelPrecision.o ConstantsDictionary.o ${SRCDIR}common/CommonRoutines.f90
 	${FC} ${OPT} -c ${SRCDIR}common/CommonRoutines.f90 ${LIB} ${INC} -o $@
 
-BinaryIO.o : ModelPrecision.o CommonRoutines.o
+BinaryIO.o : ModelPrecision.o CommonRoutines.o ${SRCDIR}common/BinaryIO.f90
 	${FC} ${OPT} -c ${SRCDIR}common/BinaryIO.f90 -o $@
 
 # ---------------------------------------------------------------------- #
 #                          ~/src/matrices/                               #
 # ---------------------------------------------------------------------- #
 
-CRSMatrix_Class.o : ConstantsDictionary.o CommonRoutines.o
+CRSMatrix_Class.o : ConstantsDictionary.o CommonRoutines.o ${SRCDIR}matrices/CRSMatrix_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}matrices/CRSMatrix_Class.f90 -o $@
 
 # ---------------------------------------------------------------------- #
 #                     ~/src/solutionstorage/                             #
 # ---------------------------------------------------------------------- #
 
-TracerStorage_Class.o : ModelPrecision.o ConstantsDictionary.o CommonRoutines.o CRSMatrix_Class.o
+TracerStorage_Class.o : ModelPrecision.o ConstantsDictionary.o CommonRoutines.o CRSMatrix_Class.o \
+                        ${SRCDIR}solutionstorage/TracerStorage_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}solutionstorage/TracerStorage_Class.f90 -o $@
 
 # ---------------------------------------------------------------------- #
 #                              ~/src/POP/                                #
 # ---------------------------------------------------------------------- #
 
-POP_GridTypeMappings.o : ConstantsDictionary.o
+POP_GridTypeMappings.o : ConstantsDictionary.o \
+                         ${SRCDIR}POP/POP_GridTypeMappings.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_GridTypeMappings.f90 -o $@
 
-POP_Stencil_Class.o : ConstantsDictionary.o
+POP_Stencil_Class.o : ConstantsDictionary.o \
+                      ${SRCDIR}POP/POP_Stencil_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_Stencil_Class.f90 -o $@
 
 POP_AdjacencyGraph_Class.o : CommonRoutines.o POP_GridTypeMappings.o POP_Stencil_Class.o \
-                             POP_Mesh_Class.o
+                             POP_Mesh_Class.o ${SRCDIR}POP/POP_AdjacencyGraph_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_AdjacencyGraph_Class.f90 -o $@
 
-POP_Params_Class.o : ModelPrecision.o CommonRoutines.o ConstantsDictionary.o
+POP_Params_Class.o : ModelPrecision.o CommonRoutines.o ConstantsDictionary.o \
+                     ${SRCDIR}POP/POP_Params_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_Params_Class.f90 -o $@
 
-POP_Native_Class.o : ModelPrecision.o CommonRoutines.o POP_Mesh_Class.o
+POP_Native_Class.o : ModelPrecision.o CommonRoutines.o POP_Mesh_Class.o \
+                     ${SRCDIR}POP/POP_Native_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_Native_Class.f90 ${LIB} ${INC} -o $@
 
-POP_Mesh_Class.o : ModelPrecision.o ConstantsDictionary.o BinaryIO.o
+POP_Mesh_Class.o : ModelPrecision.o ConstantsDictionary.o BinaryIO.o \
+                   ${SRCDIR}POP/POP_Mesh_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_Mesh_Class.f90 ${LIB} ${INC} -o $@
 
-POP_Regional_Class.o : ModelPrecision.o POP_Mesh_Class.o POP_AdjacencyGraph_Class.o
+POP_Regional_Class.o : ModelPrecision.o POP_Mesh_Class.o POP_AdjacencyGraph_Class.o \
+                      ${SRCDIR}POP/POP_Regional_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_Regional_Class.f90 ${LIB} ${INC} -o $@
 
 POP_FEOTS_Class.o : ModelPrecision.o ConstantsDictionary.o POP_Params_Class.o \
-                    POP_Regional_Class.o TracerStorage_Class.o POP_Mesh_Class.o POP_Native_Class.o
+                    POP_Regional_Class.o TracerStorage_Class.o POP_Mesh_Class.o POP_Native_Class.o ${SRCDIR}POP/POP_FEOTS_Class.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/POP_FEOTS_Class.f90 ${LIB} ${INC} -o $@
 
 # ---------------------------------------------------------------------- #
@@ -220,26 +227,27 @@ FEOTSDriver : ${FEOBJS}
 	${FC} ${OPT} ${FEOBJS} ${LIB} ${INC} -o $@
 
 GreedyGraphColoring.o : POP_Params_Class.o POP_Mesh_Class.o POP_Stencil_Class.o \
-                             POP_AdjacencyGraph_Class.o 
+                        POP_AdjacencyGraph_Class.o ${SRCDIR}POP/programs/GreedyGraphColoring.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/GreedyGraphColoring.f90 ${LIB} ${INC} -o $@
 
-GenerateMeshOnlyFile.o : POP_Params_Class.o POP_Mesh_Class.o
+GenerateMeshOnlyFile.o : POP_Params_Class.o POP_Mesh_Class.o \
+                        ${SRCDIR}POP/programs/GreedyGraphColoring.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/GenerateMeshOnlyFile.f90 -o $@
 
 ifdef MODDIR
-GenMask.o : POP_Params_Class.o POP_Mesh_Class.o
+GenMask.o : POP_Params_Class.o POP_Mesh_Class.o ${MODDIR}/GenMask.f90
 	${FC} ${OPT} -c ${MODDIR}/GenMask.f90 -o $@
 else
-GenMask.o : POP_Params_Class.o POP_Mesh_Class.o
+GenMask.o : POP_Params_Class.o POP_Mesh_Class.o ${SRCDIR}/POP/programs/GenMask.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/GenMask.f90 -o $@
 endif
 
 OperatorDiagnosis.o : ModelPrecision.o CRSMatrix_Class.o POP_Params_Class.o POP_Mesh_Class.o POP_Stencil_Class.o \
-                      POP_AdjacencyGraph_Class.o POP_Native_Class.o POP_GridTypeMappings.o
+                      POP_AdjacencyGraph_Class.o POP_Native_Class.o POP_GridTypeMappings.o ${SRCDIR}/POP/programs/OperatorDiagnosis.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/OperatorDiagnosis.f90 ${LIB} ${INC} -o $@
 
 RegionalExtraction.o : CRSMatrix_Class.o POP_Mesh_Class.o POP_Stencil_Class.o POP_Regional_Class.o \
-                       POP_Params_Class.o
+                       POP_Params_Class.o ${SRCDIR}/POP/programs/RegionalExtraction.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/RegionalExtraction.f90 -o $@
 
 ExtractOceanState.o : POP_Mesh_Class.o POP_FEOTS_Class.o POP_Native_Class.o \
@@ -247,14 +255,14 @@ ExtractOceanState.o : POP_Mesh_Class.o POP_FEOTS_Class.o POP_Native_Class.o \
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/ExtractOceanState.f90 -o $@
 
 ifdef MODDIR
-FEOTSInitialize.o : POP_Params_Class.o POP_Native_Class.o POP_FEOTS_Class.o
+FEOTSInitialize.o : POP_Params_Class.o POP_Native_Class.o POP_FEOTS_Class.o ${MODDIR}/FEOTSInitialize.f90
 	${FC} ${OPT} -c ${MODDIR}/FEOTSInitialize.f90 -o $@
 else
-FEOTSInitialize.o : POP_Params_Class.o POP_Native_Class.o POP_FEOTS_Class.o
+FEOTSInitialize.o : POP_Params_Class.o POP_Native_Class.o POP_FEOTS_Class.o ${SRCDIR}/POP/programs/FEOTSInitialize.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/FEOTSInitialize.f90 -o $@
 endif
 
-FEOTSDriver.o : POP_FEOTS_Class.o
+FEOTSDriver.o : POP_FEOTS_Class.o ${SRCDIR}/POP/programs/FEOTSDriver.f90
 	${FC} ${OPT} -c ${SRCDIR}POP/programs/FEOTSDriver.f90 -o $@
 
 
