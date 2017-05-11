@@ -139,7 +139,7 @@ This removes all of the \texttt{.o} and \texttt{.mod} files that were generated 
 
 If you have successfully compile all of the binaries, you can proceed to the Examples problems. Keep in mind that many of the example problems depend on a database of transport operators. If you do not have such a database, one needs to be generated, as outlined in the ``Global Operator Diagnosis'' example in Section (\ref{sec:GlobalOperatorDiagnosis}). \textit{Will we provide a public access database??}
 
-\chapter{FEOTs Workflow}
+\chapter{FEOTS Workflow and Programs}
 \begin{figure}[h!]
 \begin{center}
 \includegraphics[width=0.95\textwidth]{workflow.eps}
@@ -848,6 +848,8 @@ from an example directory will enable OpenMP accelerations during compilation. B
     \toprule
     \texttt{FEOTSInitialize.f90} & Fortran source code for setting up the initial conditions, source terms, masks, and hard-set tracer values.\\
     \midrule
+    \texttt{GenMask.f90} & An optional Fortran source code for generating a regional mask.\\
+    \midrule
     \texttt{makefile} & A local makefile that manages calls to the master makefile and assures compilation of the local FEOTSInitialize.f90 source code for the FEOTSInitialize program. \\
     \midrule
     \texttt{runtime.params} & Namelist file for configuring your model simulation\\
@@ -856,11 +858,15 @@ from an example directory will enable OpenMP accelerations during compilation. B
 }\endgroup
 \end{flushleft}
 \vspace{0.5cm}
-If you want to generate a regional mask, some included examples have source code for generating a regional mask that you can also modify.
+
+\subsection{Generating Impulse Fields for IRF Generation}
+\texttt{\textbf{Disclaimer} : Currently, FEOTS is only setup for working with the POP Tripole Grid and the Lax-Wendroff advection scheme (7 point stencil). However, adding other grids and advection schemes is quite easy. Contact schoonover.numerics@gmail.com about adding more functionality.} \\
+
+ 
 
 \subsection{Setting your File I/O Options}
 
-\subsection{Regional Simulations}
+\subsection{Regional Simulation with Lat/Lon Bounds}
 Regional domains and transport operators can be constructed using one of two strategies :
 \begin{enumerate}
 \item Specifying latitude and longitude boundaries
@@ -880,6 +886,8 @@ east     = -20.0,
 \end{verbatim}
 With this configuration, in addition to the File Options being configured properly, you can compile and run the \texttt{RegionalExtraction} program to generate the necessary files for performing a regional experiment. By default, this program will generate a NetCDF file that contains the regional mesh and will subsample all of the transport operators. If you need to fine-tune the regional extraction and temporarily avoid extracting all of the operators, you can set the \texttt{extractRegionalOperators} parameter to \texttt{.FALSE.} under the \texttt{FileOptions} namelist. In this mode, the \texttt{RegionalExtraction} program will only create the NetCDF file corresponding to the name provided in the \texttt{regionalMeshFile} parameter.
 
+\subsection{Regional Simulation with a User-provided Mask}
+
 \subsection{Initial Conditions}
 Of these three files, only FEOTSInitialize.f90 and runtime.params need to be modified to design a new example, provided you have access to an existing set of transport operators. Within FEOTSInitialize.f90, there is one subroutine that can be modified to set up the initial tracer distribution and the source and mask terms  : \texttt{InitialConditions}
 
@@ -887,11 +895,26 @@ To explain how to assign the initial conditions, a brief overview of the \texttt
  
  
 
-\subsection{Configuring runtime.params}
+\subsection{Water Mass Tagging}
+ \textit{\textbf{Disclaimer} : Currently, water mass tagging is configured to work only with regional experiments. Enabling water mass tagging on a global simulation has not been tested.}
+ 
+The development of an experiment with water mass taggging begins at the \texttt{RegionalExtraction} stage of the FEOTS workflow. If your region is chosen without providing a region mask, then all of the boundary points by default are set as prescribed boundary points. This means that water mass tagging will occur at all boundary points. Alternatively, if you provide a region mask, setting grid points to -1 corresponds to that point being a prescribed point. When performing water mass tagging experiments, it is recommended that you supply a region mask as this provides you with the most control on where to prescribe tracer injections.
 
+ 
+In addition to setting up the regional domain and performing regional operator extraction, you must compile and run the \texttt{ExtractOceanState} program to generate a database of NetCDF files that contain the temperature, salinity, and potential density output from POP for your region. Successful execution of the \texttt{ExtractOceanState} program should result in \texttt{Ocean.*.nc} files in the directory specified by \texttt{regionalOperatorDirectory} parameter in the \texttt{runtime.params} namelist file. At this point, you can run the \texttt{FEOTSInitialize} program.
 
+Before running the \texttt{FEOTSDriver} program, there are a couple options in the namelist file that need to be set. Under the \texttt{TracerModelOptions} namelist, the \texttt{WaterMassTagging} parameter must be set to \texttt{.TRUE.} . It is recommended that the \texttt{TracerModel} is set to \texttt{"DyeModel"}. If you want to tag multiple water masses, set \texttt{nTracers} to the desired number. Keep in mind that increasing the number of tracers increases memory consumption and can increase wall-time. 
 
-% \section{Adding a new tracer model}
+Last, you must create a file called \texttt{watermass.config}. The first line of this file should indicate the ocean state variable that you are using to tag water masses. Valid options include \texttt{Temperature}, \texttt{Salinity}, or \texttt{Density}. This option is not case sensitive, though incorrect spelling or any other invalid option will result in the \texttt{FEOTSDriver} stopping. The next few lines should list the lower and upper bounds of the ocean state variable for each tracer. For example, if the contents of \texttt{watermass.config} are
+\begin{verbatim}
+Temperature
+5.0 10.0
+10.0 15.0
+15.0 20.0
+\end{verbatim}
+and \texttt{nTracers = 3,} in \texttt{runtime.params}, then for each operator the \texttt{FEOTSDriver} will hard set the first dye tracer to 1 where temperature values are between 5$^\circ$ C and 10$^\circ$ C and 0 at other prescribed points, the second dye tracer to 1 where temperature values are between 10$^\circ$ C and 15$^\circ$ C and 0 at other prescribed points, etc.
+
+%\section{Adding a new tracer model}
  
 \chapter{Examples} \label{chapter:examples}
 
