@@ -1005,7 +1005,7 @@ CONTAINS
      ENDDO
 
      IF( maskProvided )THEN
-        DO i = 1, myRegional % nBCells
+        DO i = 1, myRegional % nPCells
            READ(fUnit,*)myRegional % prescribedCells(i)
         ENDDO
      ENDIF
