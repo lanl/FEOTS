@@ -489,7 +489,7 @@ USE netcdf
    INTEGER :: i, j, k, nDOF
 
       nDOF = 0
-      theGrid % tracerMask = ZERO
+      theGrid % tracerMask = 0.0_prec
 
       ! Count the number of wet-points and set the IJK to DOF mapping
       DO j = 1, theGrid % nY

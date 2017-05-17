@@ -66,6 +66,7 @@ USE ConstantsDictionary
       INTEGER    :: nStepsPerDump
       INTEGER    :: nRecordsPerfile
       LOGICAL    :: WaterMassTagging
+      INTEGER    :: nLayers
       ! OperatorOptions
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
@@ -129,6 +130,7 @@ USE ConstantsDictionary
       INTEGER        :: nStepsPerDump
       INTEGER        :: nRecordsPerFile
       LOGICAL        :: WaterMassTagging
+      INTEGER        :: nLayers
       ! OperatorOptions
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
@@ -156,7 +158,7 @@ USE ConstantsDictionary
 
       NAMELIST / POPMeshOptions / MeshType, StencilType, Regional, south, east, north, west, maskfile
       NAMELIST / TracerModelOptions / TracerModel, settlingVelocity, nTracers, RunMode, dt, iterInit, nTimeSteps, nStepsPerDump, nRecordsPerFile, &
-                                      WaterMassTagging
+                                      WaterMassTagging, nLayers
       NAMELIST / OperatorOptions / operatorPeriod, nOperatorsPerCycle
       NAMELIST / FileOptions / extractRegionalOperators, IRFListFile, IRFStart, feotsOperatorDirectory, &
                                regionalOperatorDirectory, settlingOperatorFile, nIRFFiles, operatorBaseName, &
@@ -184,6 +186,7 @@ USE ConstantsDictionary
       nStepsPerDump    = 0
       nRecordsPerFile  = 10
       WaterMassTagging = .FALSE.
+      nLayers          = 1
       ! OperatorOptions
       operatorPeriod     = 86400.0_prec
       nOperatorsPerCycle = 1
@@ -237,6 +240,7 @@ USE ConstantsDictionary
       ! TracerModelOptions
       thisParam % TracerModel      = GetFlagForChar( TRIM(TracerModel) )
       thisParam % WaterMassTagging = WaterMassTagging
+      thisParam % nLayers          = nLayers
       thisParam % settlingVelocity = settlingVelocity
       !**********************************************************!
       ! If your your model must use a fixed number of tracers,

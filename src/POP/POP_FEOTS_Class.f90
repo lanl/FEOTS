@@ -154,10 +154,10 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(out) :: this
    ! Local
    INTEGER    :: nX, nY, nZ, nTracers, nRow, nPeriods
-   INTEGER    :: nDOF
+   INTEGER    :: nDOF, iLayer, iMask, iTracer
    REAL(prec) :: opPeriod, dt
-   INTEGER :: nOps, i, j, k, m, stencilSize, fUnit
-   INTEGER :: trackingVar
+   INTEGER    :: nOps, i, j, k, m, stencilSize, fUnit
+   INTEGER    :: trackingVar
    INTEGER, ALLOCATABLE :: nEl(:)
    CHARACTER(200) :: oceanStateFile
    CHARACTER(20)  :: trackingVar_Char
@@ -219,6 +219,53 @@ CONTAINS
          nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
       ENDIF
 
+      IF( this % params % WaterMassTagging )THEN
+         
+         PRINT*, '   Enabling water mass tagging.'
+         ! Overwrite the number of tracers
+         this % params % nTracers = this % params % nLayers*this % regionalMaps % nMasks
+         ALLOCATE( this % stateLowerBound(1:this % params % nLayers), &
+                   this % stateUpperBound(1:this % params % nLayers) )
+         this % stateLowerBound = 0.0_prec
+         this % stateUpperBound = 0.0_prec
+         
+         !IF( LoadForDriver )THEN
+            OPEN( UNIT   = NewUnit( fUnit ), &
+                  FILE   = 'watermass.config', &
+                  FORM   = 'FORMATTED', &
+                  STATUS = 'OLD', &
+                  ACTION = 'READ' )
+
+            READ( fUnit, '(A20)' ) trackingVar_Char
+            PRINT*, '   Tagging water masses with '//TRIM( trackingVar_Char )
+            trackingVar = GetFlagforChar( TRIM(trackingVar_Char) ) 
+            IF( trackingVar == Temperature ) THEN
+               this % stateMask(1) = 1.0_prec
+               this % stateMask(2) = 0.0_prec
+               this % stateMask(3) = 0.0_prec
+            ELSEIF( trackingVar == Salinity ) THEN
+               this % stateMask(1) = 0.0_prec
+               this % stateMask(2) = 1.0_prec
+               this % stateMask(3) = 0.0_prec
+            ELSEIF( trackingVar == Density ) THEN
+               this % stateMask(1) = 0.0_prec
+               this % stateMask(2) = 0.0_prec
+               this % stateMask(3) = 1.0_prec
+            ELSE
+               PRINT*, 'Bad Water Mass Tracking variable.'
+               STOP 'STOPPING!'
+            ENDIF
+
+            PRINT*, '         Layer |        Lower Bound           |    Upper Bound' 
+            DO i = 1, this % params % nLayers
+               READ( fUnit, * ) this % stateLowerBound(i), this % stateUpperBound(i)
+               PRINT*, i, '   |', this % stateLowerBound(i),'   |', this % stateUpperBound(i)
+            ENDDO
+
+            CLOSE( fUnit )
+         !ENDIF
+      ENDIF
+
       ! Allocates space for the solution storage as a 1-D array and allocates
       ! space for the transport operators 
       CALL this % solution % Build( nDOF, nOps, nEl, &
@@ -245,13 +292,17 @@ CONTAINS
       this % nativeSol % mask = 1.0_prec
       IF( this % params % Regional )THEN
 
-         DO m = 1, this % regionalMaps % nBCells
-            i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % boundaryCells(m))
-            j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % boundaryCells(m))
-            k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % boundaryCells(m))
-            this % nativeSol % mask(i,j,k,:) = 0.0_prec
+         DO iMask = 1, this % regionalMaps % nMasks
+            DO iLayer = 1, this % params % nLayers
+               iTracer = iLayer + (iMask-1)*this % params % nLayers
+               DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                  i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                  j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                  k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                  this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+               ENDDO
+            ENDDO
          ENDDO
-
       ENDIF
 
 #ifdef HAVE_OPENMP
@@ -265,47 +316,6 @@ CONTAINS
 
       ! Load in the initial Ocean State
       !CALL this % nativeSol % LoadOceanState( this % mesh, thisIRFFile )
-      IF( this % params % WaterMassTagging )THEN
-         PRINT*, '   Enabling water mass tagging.'
-         ALLOCATE( this % stateLowerBound(1:this % params % nTracers), &
-                   this % stateUpperBound(1:this % params % nTracers) )
-         this % stateLowerBound = 0.0_prec
-         this % stateUpperBound = 0.0_prec
-         
-         OPEN( UNIT   = NewUnit( fUnit ), &
-               FILE   = 'watermass.config', &
-               FORM   = 'FORMATTED', &
-               STATUS = 'OLD', &
-               ACTION = 'READ' )
-
-         READ( fUnit, '(A20)' ) trackingVar_Char
-         PRINT*, '   Tagging water masses with '//TRIM( trackingVar_Char )
-         trackingVar = GetFlagforChar( TRIM(trackingVar_Char) ) 
-         IF( trackingVar == Temperature ) THEN
-            this % stateMask(1) = 1.0_prec
-            this % stateMask(2) = 0.0_prec
-            this % stateMask(3) = 0.0_prec
-         ELSEIF( trackingVar == Salinity ) THEN
-            this % stateMask(1) = 0.0_prec
-            this % stateMask(2) = 1.0_prec
-            this % stateMask(3) = 0.0_prec
-         ELSEIF( trackingVar == Density ) THEN
-            this % stateMask(1) = 0.0_prec
-            this % stateMask(2) = 0.0_prec
-            this % stateMask(3) = 1.0_prec
-         ELSE
-            PRINT*, 'Bad Water Mass Tracking variable.'
-            STOP 'STOPPING!'
-         ENDIF
-
-         PRINT*, '        Tracer |        Lower Bound           |    Upper Bound' 
-         DO i = 1, this % params % nTracers
-            READ( fUnit, * ) this % stateLowerBound(i), this % stateUpperBound(i)
-            PRINT*, i, '   |', this % stateLowerBound(i),'   |', this % stateUpperBound(i)
-         ENDDO
-
-         CLOSE( fUnit )
-      ENDIF
 
       PRINT*, 'S/R : Build_POP_FEOTS : Finish.'
 
@@ -502,7 +512,7 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
 #endif
-   INTEGER         :: i, j, k, m, iT, dof, iTracer 
+   INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
    CHARACTER(5)    :: fileIDChar
@@ -529,27 +539,33 @@ CONTAINS
             CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
 
             ! Set any prescribed cells here
-            DO m = 1, this % regionalMaps % nPCells
+            DO iMask = 1, this % regionalMaps % nMasks
+               DO iLayer = 1, this % params % nLayers
 
-               dof = this % regionalMaps % prescribedCells(m)
-               i   = this % regionalMaps % dofToLocalIJK(1,dof)
-               j   = this % regionalMaps % dofToLocalIJK(2,dof)
-               k   = this % regionalMaps % dofToLocalIJK(3,dof)
+                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
 
-               trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
-                             this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
-                             this % nativeSol % density(i,j,k)*this % statemask(3)                 
-  
-               this % nativeSol % tracer(i,j,k,:) = 0.0_prec ! Reset prescribed values
+                  DO m = 1, this % regionalMaps % bMap(iMask) % nPCells
 
-               DO iTracer = 1, this % params % nTracers
-                  IF( trackingVar > this % stateLowerBound(iTracer) .AND. &
-                      trackingVar < this % stateUpperBound(iTracer) )THEN
-                     this % solution % tracers(dof,iTracer) = 1.0_prec
-                  ENDIF
-               ENDDO
+                     dof = this % regionalMaps % bMap(iMask) % prescribedCells(m)
+                     i   = this % regionalMaps % dofToLocalIJK(1,dof)
+                     j   = this % regionalMaps % dofToLocalIJK(2,dof)
+                     k   = this % regionalMaps % dofToLocalIJK(3,dof)
 
-             ENDDO
+                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
+                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
+                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
+                  
+                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
+
+                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
+                         trackingVar < this % stateUpperBound(iLayer) )THEN
+                        this % solution % tracers(dof,iTracer) = 1.0_prec
+                     ENDIF
+
+                  ENDDO
+               ENDDO 
+            ENDDO
+
          ENDIF
 
          !$OMP END MASTER

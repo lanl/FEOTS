@@ -71,8 +71,8 @@ CONTAINS
    IMPLICIT NONE
    TYPE( POP_FEOTS ), INTENT(inout) :: myFeots
    ! Local
-   INTEGER  :: i, j, k, iTracer, m, dof
-   REAL(prec) :: x, y, z, rfMax, s, T, rho
+   INTEGER  :: i, j, k, iTracer, m, dof, iMask, iLayer
+   REAL(prec) :: x, y, z, rfMax,trackingVar
 
 
       rfMax = 1.0_prec/43200.0_prec
@@ -97,17 +97,42 @@ CONTAINS
       ENDDO
 
       ! Set any prescribed cells here
-      DO m = 1, myFeots % regionalMaps % nPCells
+      DO iMask = 1, myFeots % regionalMaps % nMasks
+         DO iLayer = 1, myFeots % params % nLayers
+            iTracer = iLayer + (iMask-1)*(myFeots % params % nLayers)
 
-         dof = myFeots % regionalMaps % prescribedCells(m)
-         i   = myFeots % regionalMaps % dofToLocalIJK(1,dof)
-         j   = myFeots % regionalMaps % dofToLocalIJK(2,dof)
-         k   = myFeots % regionalMaps % dofToLocalIJK(3,dof)
+            DO m = 1, myFeots % regionalMaps % bMap(iMask) % nPCells
+   
+               dof = myFeots % regionalMaps % bMap(iMask) % prescribedCells(m)
+               i   = myFeots % regionalMaps % dofToLocalIJK(1,dof)
+               j   = myFeots % regionalMaps % dofToLocalIJK(2,dof)
+               k   = myFeots % regionalMaps % dofToLocalIJK(3,dof)
+   
+               x = myFeots % mesh % tLon(i,j)
+               y = myFeots % mesh % tLat(i,j)
+!               myFEOTS % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
-         x = myFeots % mesh % tLon(i,j)
-         y = myFeots % mesh % tLat(i,j)
-         myFEOTS % nativeSol % tracer(i,j,k,:) = 0.0_prec
+               ! --------------------------------------------------------------------
+               !***** This section of code provides an example of the water
+               !***** mass tagging implementation. Remove this section if you're
+               !***** not doing water mass tagging. Note that when water mass
+               !***** tagging is enabled, this hard-setting is done during forward
+               !***** integration; assigning the hard set values in the initial
+               !***** condition is redundant but helpful for consistency checking.
+               !
+               ! Assign the tracer value according to the water mass layer and the
+               ! appropriate boundary mask
+               trackingVar = myFeots % nativeSol % temperature(i,j,k)*myFeots % statemask(1) +&
+                             myFeots % nativeSol % salinity(i,j,k)*myFeots % statemask(2) +&
+                             myFeots % nativeSol % density(i,j,k)*myFeots % statemask(3)
 
+               IF( trackingVar >= myFeots % stateLowerBound(iLayer) .AND. &
+                   trackingVar < myFeots % stateUpperBound(iLayer) )THEN
+                   myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+               ENDIF
+               ! -----------------------------------------------------------------
+            ENDDO
+          ENDDO
       ENDDO
 
  END SUBROUTINE InitialConditions
