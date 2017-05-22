@@ -44,11 +44,11 @@ USE POP_Mesh_Class
 
 
 IMPLICIT NONE
-
+   INTEGER, PARAMETER   :: nMasks = 2
    TYPE( POP_Params )   :: params
    TYPE( POP_Mesh )     :: mesh
-   INTEGER              :: i, j
-   INTEGER, ALLOCATABLE :: maskField(:,:)
+   INTEGER              :: i, j, iMask
+   INTEGER, ALLOCATABLE :: maskField(:,:,:)
    CHARACTER(400)       :: ncfile
    REAL(prec)           :: x, y, r
 
@@ -57,9 +57,11 @@ IMPLICIT NONE
 
       CALL mesh % Load( TRIM(params % meshFile)  )
 
-      ALLOCATE( maskField(1:mesh % nX,1:mesh % nY) )
+      ALLOCATE( maskField(1:mesh % nX,1:mesh % nY,1:nMasks) )
 
       maskField = 0
+
+      DO iMask = 1, nMasks
 
       DO j = 1, mesh % nY
          DO i = 1, mesh % nX
@@ -72,15 +74,38 @@ IMPLICIT NONE
             ENDIF
             ! Build a circular region around the Agulhas            
             r = sqrt( (x-20.0_prec)**2 + (y+40.0_prec)**2 )
-            IF( r <= 20.0_prec )THEN
-               IF( r > 19.5_prec )THEN
-                  maskfield(i,j) = -1 ! Prescribed Points
-               ELSE
-                  maskfield(i,j) = 1  ! Interior Points
+            IF( iMask == 1 )THEN
+
+               IF( r <= 20.0_prec )THEN
+                  IF( r > 19.5_prec )THEN
+                     IF( x >= 20.0_prec )THEN
+                        maskfield(i,j,iMask) = -1 ! Prescribed Points
+                     ELSE
+                        maskfield(i,j,iMask) = 1
+                     ENDIF
+                  ELSE
+                     maskfield(i,j,iMask) = 1  ! Interior Points
+                  ENDIF
+               ENDIF
+           
+            ELSE
+
+               IF( r <= 20.0_prec )THEN
+                  IF( r > 19.5_prec )THEN
+                     IF( x <= 20.0_prec )THEN
+                        maskfield(i,j,iMask) = -1 ! Prescribed Points
+                     ELSE
+                        maskfield(i,j,iMask) = 1
+                     ENDIF
+                  ELSE
+                     maskfield(i,j,iMask) = 1  ! Interior Points
+                  ENDIF
                ENDIF
             ENDIF
 
+
          ENDDO
+      ENDDO
       ENDDO
 
       CALL WriteMaskField( mesh, maskField, TRIM(params % maskFile) )
@@ -91,11 +116,12 @@ CONTAINS
 
    IMPLICIT NONE
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
-   INTEGER, INTENT(in)                  :: maskfield(1:mesh % nX, 1:mesh % nY)
+   INTEGER, INTENT(in)                  :: maskfield(1:mesh % nX, 1:mesh %nY,1:nMasks)
    CHARACTER(*), INTENT(in)             :: maskfile
    ! Local
    INTEGER :: start(1:2), recCount(1:2)
-   INTEGER :: ncid, varid, x_dimid, y_dimid
+   INTEGER :: ncid, varid(1:nMasks), nMaskid, x_dimid, y_dimid, iMask
+   CHARACTER(3) :: maskChar
 
       start    = (/1, 1/)
       recCount = (/mesh % nX, mesh % nY/)
@@ -105,22 +131,28 @@ CONTAINS
                                NCID=ncid ) )
       CALL Check( nf90_def_dim( ncid, "nlon", mesh % nX, x_dimid ) )
       CALL Check( nf90_def_dim( ncid, "nlat", mesh % nY, y_dimid ) )
-      CALL Check( nf90_def_var( ncid, "mask",NF90_INT,&
-                               (/ x_dimid, y_dimid /),&
-                                varid ) )
+      CALL Check( nf90_def_var( ncid, "nMasks",NF90_INT, nMaskid ) )
 
-      CALL Check( nf90_put_att( ncid, varid, "long_name", "Domain Mask" ) )
-      CALL Check( nf90_put_att( ncid, varid, "units", "" ) )
-!      CALL Check( nf90_put_att( ncid, varid, "_FillValue", fillValue) )
-!      CALL Check( nf90_put_att( ncid, varid, "missing_value", fillValue) )
+      DO iMask = 1, nMasks
+         WRITE( maskChar,'(I3.3)' )iMask
+         CALL Check( nf90_def_var( ncid, "mask"//maskChar,NF90_INT,&
+                               (/ x_dimid, y_dimid /),&
+                                varid(iMask) ) )
+
+         CALL Check( nf90_put_att( ncid, varid(iMask), "long_name", "Domain Mask" ) )
+         CALL Check( nf90_put_att( ncid, varid(iMask), "units", "" ) )
+      ENDDO
 
       CALL Check( nf90_enddef(ncid) )
+ 
+      CALL Check( nf90_put_var(ncid, nMaskid, nMasks ) ) 
 
-      CALL Check( nf90_put_var( ncid, &
-                                varid, &
-                                maskfield, &
+      DO iMask = 1, nMasks
+         CALL Check( nf90_put_var( ncid, &
+                                varid(iMask), &
+                                maskfield(:,:,iMask), &
                                 start, recCount ) )
-
+      ENDDO
 
       CALL Check( nf90_close( ncid ) )
 

@@ -77,16 +77,22 @@ IMPLICIT NONE
 !
 !
 
+   TYPE BoundaryMap
+      INTEGER :: nBCells, nPCells
+      INTEGER, ALLOCATABLE :: boundaryCells(:)
+      INTEGER, ALLOCATABLE :: prescribedCells(:)
+      
+   END TYPE BoundaryMap
+
    TYPE POP_Regional
       REAL(prec) :: south, north, east, west
       LOGICAL    :: crossesPrimeMeridian
-      INTEGER    :: nCells, nBCells, nPCells, nDOF
+      INTEGER    :: nCells, nDOF, nMasks
       INTEGER, ALLOCATABLE :: ijkInRegion(:,:)
       INTEGER, ALLOCATABLE :: dofInRegion(:)  
       INTEGER, ALLOCATABLE :: inverseDOFMap(:)  
-      INTEGER, ALLOCATABLE :: boundaryCells(:)
-      INTEGER, ALLOCATABLE :: prescribedCells(:)
       INTEGER, ALLOCATABLE :: dofToLocalIJK(:,:)
+      TYPE( BoundaryMap ), ALLOCATABLE  :: bMap(:)
 
       CONTAINS
 
@@ -108,21 +114,27 @@ IMPLICIT NONE
 CONTAINS
 
 
- SUBROUTINE Build_POP_Regional( myRegion, mesh, mystencil, meshType, south, north, east, west, maskfield )
+ SUBROUTINE Build_POP_Regional( myRegion, mesh, regionalMesh, mystencil, meshType, south, north, east, west, maskfile )
 
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(out) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)    :: mesh
+   TYPE( POP_Mesh ), INTENT(inout)    :: regionalMesh
    TYPE( Stencil ), INTENT(in)        :: mystencil
    INTEGER, INTENT(in)                :: meshType
    REAL(prec), INTENT(in)             :: south, north, east, west
-   INTEGER, INTENT(in), OPTIONAL   :: maskfield(1:mesh%nX,1:mesh%nY)
+   CHARACTER(*), INTENT(in)           :: maskfile
+   !INTEGER, INTENT(in), OPTIONAL      :: maskfield(1:mesh % nX,1:mesh % nY,1:myRegion % nMasks)
    ! Local
-   LOGICAL :: inputProblem
+   LOGICAL              :: inputProblem
+   INTEGER, ALLOCATABLE :: maskfield(:,:,:)
 
       inputProblem = .FALSE.
-      IF( present(maskfield) )THEN
+      IF( TRIM(maskfile) /= '' )THEN
+      !IF( present(maskfield) )THEN
 
+         CALL myRegion % LoadMaskField( mesh, maskfield, maskfile ) 
+         ALLOCATE( myRegion % bMap(1:myRegion % nMasks) )
 
          PRINT*, ' Finding cells in Region '
          CALL myRegion % FindThoseInRegion( mesh, maskfield )
@@ -130,7 +142,12 @@ CONTAINS
          PRINT*, ' Finding boundary cells'
          CALL myRegion % FindBoundaryCells( mesh, mystencil, meshType, maskfield )
 
+         CALL myRegion % GenerateRegionalMesh( mesh, regionalMesh, maskfield )
+         DEALLOCATE( maskfield )
+
       ELSE
+         myRegion % nMasks = 1
+         ALLOCATE( myRegion % bMap(1:myRegion % nMasks) )
 
          IF( north > 90.0_prec .OR. north < -90.0_prec .OR. &
              south > 90.0_prec .OR. south < -90.0_prec )THEN
@@ -178,6 +195,8 @@ CONTAINS
          PRINT*, ' Finding boundary cells'
          CALL myRegion % FindBoundaryCells( mesh, mystencil, meshType )
 
+         CALL myRegion % GenerateRegionalMesh( mesh, regionalMesh )
+
       ENDIF
 
  END SUBROUTINE Build_POP_Regional
@@ -185,11 +204,18 @@ CONTAINS
  SUBROUTINE Trash_POP_Regional( myRegion )
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
+   ! Local
+   INTEGER :: i
 
       DEALLOCATE( myRegion % ijkInRegion, &
                   myRegion % dofInRegion, &
-                  myRegion % inverseDOFMap, &
-                  myRegion % boundaryCells )
+                  myRegion % inverseDOFMap )
+
+      DO i = 1, myRegion % nMasks
+         DEALLOCATE( myRegion % bMap(i) % boundaryCells, &
+                     myRegion % bMap(i) % prescribedCells )
+      ENDDO
+      DEALLOCATE( myRegion % bMap )
 
  END SUBROUTINE Trash_POP_Regional
 !
@@ -198,22 +224,31 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
-   INTEGER, INTENT(out)                 :: maskfield(1:mesh % nX, 1:mesh % nY)
+   INTEGER, ALLOCATABLE, INTENT(out)    :: maskfield(:,:,:)
    CHARACTER(*), INTENT(in)             :: maskfile
    ! Local
-   INTEGER :: start(1:2), recCount(1:2)
-   INTEGER :: ncid, varid
+   INTEGER      :: start(1:2), recCount(1:2)
+   INTEGER      :: ncid, varid, i
+   CHARACTER(3) :: maskChar
 
       start    = (/1, 1/)
       recCount = (/mesh % nX, mesh % nY/)
 
-
       CALL Check( nf90_open( TRIM(maskfile), nf90_nowrite, ncid ) )
-      CALL Check( nf90_inq_varid( ncid, "mask", varid ) )
-      CALL Check( nf90_get_var( ncid, &
-                                varid, &
-                                maskfield, &
-                                start, recCount ) )
+
+      CALL Check( nf90_inq_varid( ncid, "nMasks", varid ) )
+      CALL Check( nf90_get_var( ncid,  varid, myRegion % nMasks ) )
+
+      ALLOCATE( maskfield(1:mesh % nX, 1:mesh % nY, 1:myRegion % nMasks) )
+
+      DO i = 1, myRegion % nMasks
+
+         WRITE( maskChar, '(I3.3)')i
+         CALL Check( nf90_inq_varid( ncid, "mask"//maskChar, varid ) )
+         CALL Check( nf90_get_var( ncid,  varid, maskfield(:,:,i), start, recCount ) )
+
+      ENDDO
+
       CALL Check( nf90_close( ncid ) )
 
 
@@ -224,7 +259,7 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
-   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY)
+   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY,1:myRegion % nMasks)
    !
    INTEGER :: i, j, k
    INTEGER :: nInRegion
@@ -243,7 +278,7 @@ CONTAINS
                DO i = 1, mesh % nX
                   DO k = 1, mesh % KMT(i,j)
    
-                     IF( maskfield(i,j) /= 0 )THEN
+                     IF( maskfield(i,j,1) /= 0 )THEN
                          nInRegion = nInRegion + 1
                          mesh % tracerMask(i,j,k) = 1.0_prec
                          logicMask(i,j) = .TRUE.
@@ -263,7 +298,7 @@ CONTAINS
                DO i = 1, mesh % nX
                   DO k = 1, mesh % KMT(i,j) 
    
-                     IF( maskfield(i,j) /= 0 )THEN
+                     IF( maskfield(i,j,1) /= 0 )THEN
                          nInRegion = nInRegion + 1
                          myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
                          myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
@@ -482,13 +517,13 @@ CONTAINS
    TYPE( POP_Mesh ), INTENT(inout)       :: mesh
    TYPE( Stencil ), INTENT(in)           :: mystencil
    INTEGER, INTENT(in)                   :: meshType
-   INTEGER, INTENT(in), OPTIONAL         :: maskfield(1:mesh % nX, 1:mesh % nY)
+   INTEGER, INTENT(in), OPTIONAL         :: maskfield(1:mesh % nX, 1:mesh % nY,1:myRegion % nMasks)
    ! Local
-   INTEGER :: i, j, k, ii, jj, this_i, this_j, m, n
+   INTEGER :: i, j, k, ii, jj, this_i, this_j, m, n, iMask
    INTEGER :: minI, maxI, minJ, maxJ
    REAL(prec) :: minL
    INTEGER :: nBCells, nPCells
-   INTEGER :: regionmask(1:mesh % nX,1:mesh % nY,1:mesh % nZ)
+   INTEGER :: regionmask(1:mesh % nX,1:mesh % nY,1:mesh % nZ,1:myRegion % nMasks)
    INTEGER :: stencilSum
       
       IF( present(maskfield) )THEN
@@ -500,12 +535,13 @@ CONTAINS
          
          ! (1) Generate the regional mask
          regionMask = 1 ! Set all values to 1 initially
+         DO iMask = 1, myRegion % nMasks
 
          DO k = 1, mesh % nZ
             DO j = 1, mesh % nY
                DO i = 1, mesh % nX
-                  IF( maskfield(i,j) /= 0 )THEN
-                     regionMask(i,j,k) = 0
+                  IF( maskfield(i,j,iMask) /= 0 )THEN
+                     regionMask(i,j,k,iMask) = 0
                   ENDIF
                ENDDO
             ENDDO
@@ -530,28 +566,28 @@ CONTAINS
                                mesh % nX, mesh % nY, &
                                this_i, this_j )
               
-               stencilSum = stencilSum + regionMask(this_i,this_j,k)
+               stencilSum = stencilSum + regionMask(this_i,this_j,k,iMask)
 
             ENDDO
 
-            IF( stencilSum > 0 .OR. maskfield(i,j) == -1 )THEN
+            IF( stencilSum > 0 .OR. maskfield(i,j,iMask) == -1 )THEN
                nBCells = nBcells + 1
-               IF( maskfield(i,j) == -1 )THEN ! In this case the user wants to prescribe a boundary condition
+               IF( maskfield(i,j,iMask) == -1 )THEN ! In this case the user wants to prescribe a boundary condition
                   nPCells = nPCells + 1
-                  mesh % tracerMask(i,j,k) = -2.0_prec ! Set the border cell tracer mask to -1
+                  mesh % tracerMask(i,j,k) = -REAL(iMask,prec)
                ELSE
-                  mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
+                  mesh % tracerMask(i,j,k) = 0.0_prec ! Set the border cell tracer mask to 0
                ENDIF
             ENDIF
 
          ENDDO
 
-         PRINT*,'  Found', nBCells,' boundary cells.' 
-         PRINT*,'  Found', nPCells,' prescribed cells.' 
-         myRegion % nBCells = nBCells
-         myRegion % nPCells = nPCells
-         ALLOCATE( myRegion % boundaryCells(1:nBCells) )
-         ALLOCATE( myRegion % prescribedCells(1:nBCells) )
+         PRINT*,'  Found', nBCells,' boundary cells for Mask ID',iMask,'.' 
+         PRINT*,'  Found', nPCells,' prescribed cells for Mask ID',iMask,'.' 
+         myRegion % bMap(iMask) % nBCells = nBCells
+         myRegion % bMap(iMask) % nPCells = nPCells
+         ALLOCATE( myRegion % bMap(iMask) % boundaryCells(1:nBCells) )
+         ALLOCATE( myRegion % bMap(iMask) % prescribedCells(1:nBCells) )
          ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
          nBCells = 0
          nPCells = 0
@@ -561,15 +597,17 @@ CONTAINS
             j = myRegion % ijkInRegion(2,m)
             k = myRegion % ijkInRegion(3,m)
 
-            IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
+            IF( mesh % tracerMask(i,j,k) == 0.0_prec )THEN
                nBCells = nBCells + 1
-               myRegion % boundaryCells(nBCells) = m
-            ELSEIF( mesh % tracerMask(i,j,k) == -2.0_prec )THEN
+               myRegion % bMap(iMask) % boundaryCells(nBCells) = m
+            ELSEIF( mesh % tracerMask(i,j,k) == -REAL(iMask,prec) )THEN
                nPCells = nPCells + 1
                nBCells = nBCells + 1
-               myRegion % boundaryCells(nBCells)   = m
-               myRegion % prescribedCells(nPCells) = m
+               myRegion % bMap(iMask) % boundaryCells(nBCells)   = m
+               myRegion % bMap(iMask) % prescribedCells(nPCells) = m
             ENDIF
+
+         ENDDO
 
          ENDDO
 
@@ -599,7 +637,7 @@ CONTAINS
             DO k = 1, mesh % nZ
                DO j = minJ, maxJ
                   DO i = 1, minI
-                     regionMask(i,j,k) = 0
+                     regionMask(i,j,k,1) = 0
                   ENDDO
                ENDDO
             ENDDO
@@ -607,7 +645,7 @@ CONTAINS
             DO k = 1, mesh % nZ
                DO j = minJ, maxJ
                   DO i = maxI, mesh % nX
-                     regionMask(i,j,k) = 0
+                     regionMask(i,j,k,1) = 0
                   ENDDO
                ENDDO
             ENDDO
@@ -617,7 +655,7 @@ CONTAINS
             DO k = 1, mesh % nZ
                DO j = minJ, maxJ
                   DO i = minI, maxI
-                     regionMask(i,j,k) = 0
+                     regionMask(i,j,k,1) = 0
                   ENDDO
                ENDDO
             ENDDO
@@ -642,20 +680,21 @@ CONTAINS
                                mesh % nX, mesh % nY, &
                                this_i, this_j )
               
-               stencilSum = stencilSum + regionMask(this_i,this_j,k)
+               stencilSum = stencilSum + regionMask(this_i,this_j,k,1)
 
             ENDDO
 
             IF( stencilSum > 0 )THEN
                nBCells = nBcells + 1
-               mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
+               mesh % tracerMask(i,j,k) = 0.0_prec ! Set the border cell tracer mask to -1
             ENDIF
 
          ENDDO
 
          PRINT*,'  Found', nBCells,' boundary cells.' 
-         myRegion % nBCells = nBCells
-         ALLOCATE( myRegion % boundaryCells(1:nBCells) )
+         myRegion % bMap(1) %  nBCells = nBCells
+         ALLOCATE( myRegion % bMap(1) % boundaryCells(1:nBCells) )
+         ALLOCATE( myRegion % bMap(1) % prescribedCells(1) )
          ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
          nBCells = 0
          DO m = 1, myRegion % nCells
@@ -664,9 +703,9 @@ CONTAINS
             j = myRegion % ijkInRegion(2,m)
             k = myRegion % ijkInRegion(3,m)
 
-            IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
+            IF( mesh % tracerMask(i,j,k) == 0.0_prec )THEN
                nBCells = nBCells + 1
-               myRegion % boundaryCells(nBCells) = m
+               myRegion % bMap(1) % boundaryCells(nBCells) = m
             ENDIF
 
          ENDDO
@@ -681,7 +720,7 @@ CONTAINS
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(in)         :: mesh
    TYPE( POP_Mesh ), INTENT(out)        :: regionalMesh
-   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY)
+   INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY,1:myRegion % nMasks)
    ! Local
    INTEGER :: minI, maxI, minJ, maxJ, i, j, k, m, ii, jj, nXr, nYr
    REAL(prec) :: minL
@@ -721,7 +760,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j) /= 0 )THEN
+                 IF( maskfield(i,j,1) /= 0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
                  ENDIF
@@ -738,7 +777,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j) /= 0 )THEN
+                 IF( maskfield(i,j,1) /= 0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF
@@ -768,7 +807,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j) /= 0 )THEN
+                 IF( maskfield(i,j,1) /= 0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF
@@ -920,7 +959,7 @@ CONTAINS
    CHARACTER(*), INTENT(in)          :: filename
    LOGICAL, INTENT(in)               :: maskProvided
    ! Local 
-   INTEGER :: fUnit, i
+   INTEGER :: fUnit, i, j
 
 
       OPEN( UNIT=NewUnit(fUnit), &
@@ -931,9 +970,9 @@ CONTAINS
             ACTION='WRITE' )
 
      IF( maskProvided )THEN
-        WRITE( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nPCells, myRegional % nDOF
+        WRITE( fUnit, * ) myRegional % nCells, myRegional % nMasks, myRegional % nDOF
      ELSE
-        WRITE( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nDOF
+        WRITE( fUnit, * ) myRegional % nCells, myRegional % bMap(1) % nBCells, myRegional % nDOF
      ENDIF    
  
      DO i = 1, myRegional % nCells
@@ -942,13 +981,19 @@ CONTAINS
                        myRegional % dofToLocalIJK(1:3,i)
      ENDDO
 
-     DO i = 1, myRegional % nBCells
-        WRITE(fUnit,*)myRegional % boundaryCells(i)
+     DO j = 1, myRegional % nMasks
+        WRITE( fUnit, * ) myRegional % bMap(j) % nBCells
+        DO i = 1, myRegional % bMap(j) % nBCells
+           WRITE(fUnit,*)myRegional % bMap(j) % boundaryCells(i)
+        ENDDO
      ENDDO
 
      IF( maskProvided )THEN
-        DO i = 1, myRegional % nPCells
-           WRITE(fUnit,*)myRegional % prescribedCells(i)
+        DO j = 1, myRegional % nMasks
+           WRITE( fUnit, * ) myRegional % bMap(j) % nPCells
+           DO i = 1, myRegional % bMap(j) % nPCells
+              WRITE(fUnit,*)myRegional % bMap(j) % prescribedCells(i)
+           ENDDO
         ENDDO
      ENDIF
 
@@ -965,7 +1010,7 @@ CONTAINS
    CHARACTER(*), INTENT(in)             :: filename
    LOGICAL, INTENT(in)                  :: maskProvided
    ! Local 
-   INTEGER :: fUnit, i, readStatus
+   INTEGER :: fUnit, i, j, readStatus
 
 
       OPEN( UNIT=NewUnit(fUnit), &
@@ -976,22 +1021,25 @@ CONTAINS
             ACTION='READ' )
 
      IF( maskProvided )THEN
-        READ( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nPCells, myRegional % nDOF
+        READ( fUnit, * ) myRegional % nCells, myRegional % nMasks, myRegional % nDOF
      
         ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
                   myRegional % dofInRegion(1:myRegional % nCells), &
                   myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
-                  myRegional % boundaryCells(1:myRegional % nBCells), &
-                  myRegional % prescribedCells(1:myRegional % nBCells), &
+                  myRegional % bMap(1:myRegional % nMasks), &
                   myRegional % inverseDOFMap(1:myRegional % nDOF) )
      ELSE
-        READ( fUnit, * ) myRegional % nCells, myRegional % nBCells, myRegional % nDOF
+
+        ALLOCATE( myRegional % bMap(1) )
+        READ( fUnit, * ) myRegional % nCells, myRegional % bMap(1) % nBCells, myRegional % nDOF
         ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
                   myRegional % dofInRegion(1:myRegional % nCells), &
                   myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
-                  myRegional % boundaryCells(1:myRegional % nBCells), &
                   myRegional % inverseDOFMap(1:myRegional % nDOF) )
-        myRegional % nPCells = 0
+        myRegional %  bMap(1) % nPCells = 0
+        myRegional % nMasks  = 1
+        ALLOCATE( myRegional % bMap(1) % boundaryCells(1:myRegional % bMap(1) % nBCells),&
+                  myRegional % bMap(1) % prescribedCells(1) )
      ENDIF    
      
      DO i = 1, myRegional % nCells
@@ -1000,13 +1048,21 @@ CONTAINS
                        myRegional % dofToLocalIJK(1:3,i)
      ENDDO
 
-     DO i = 1, myRegional % nBCells
-        READ(fUnit,*)myRegional % boundaryCells(i)
+     DO j = 1, myRegional % nMasks
+        READ( fUnit, * ) myRegional % bMap(j) % nBCells
+        ALLOCATE( myRegional % bMap(j) % boundaryCells(1:myRegional % bMap(j) % nBCells) )
+        DO i = 1, myRegional % bMap(j) % nBCells
+           READ(fUnit,*)myRegional % bMap(j) % boundaryCells(i)
+        ENDDO
      ENDDO
 
      IF( maskProvided )THEN
-        DO i = 1, myRegional % nPCells
-           READ(fUnit,*)myRegional % prescribedCells(i)
+        DO j = 1, myRegional % nMasks
+           READ( fUnit, * ) myRegional % bMap(j) % nPCells
+           ALLOCATE( myRegional % bMap(j) % prescribedCells(1:myRegional % bMap(j) % nPCells) )
+           DO i = 1, myRegional % bMap(j) % nPCells
+              READ(fUnit,*)myRegional % bMap(j) % prescribedCells(i)
+           ENDDO
         ENDDO
      ENDIF
 

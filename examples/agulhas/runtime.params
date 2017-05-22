@@ -11,7 +11,7 @@ dt               = 1080.0,
 runMode          = 'Forward',
 nStepsPerDump    = 80,
 iterInit         = 0,
-nTimeSteps       = 80,
+nTimeSteps       = 800,
 nTracers         = 1
 /
 &OperatorOptions
@@ -19,7 +19,7 @@ operatorPeriod = 432000.0,
 nOperatorsPerCycle = 73,
 /
 &FileOptions
-extractRegionalOperators  = .TRUE.,
+extractRegionalOperators  = .FALSE.,
 meshfile                  ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/POP_03deg_mesh.nc',
 regionalmeshfile          ='Agulhas_mesh.nc', 
 graphfile                 ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/pop_03_periodic-tripole_laxwendroff',
