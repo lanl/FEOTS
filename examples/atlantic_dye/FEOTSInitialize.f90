@@ -55,7 +55,7 @@ CONTAINS
 
                myFeots % nativeSol % source(i,j,k,:)   = 0.0_prec !5.0_prec
                myFeots % nativeSol % rFac(i,j,k,:)     = 0.0_prec !rFMax*(exp(
--0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
+! -0.5_prec*( (x-31.5_prec)**2 +(y+31.0_prec)**2 )/(0.25_prec) ))
 
             ENDDO
          ENDDO
@@ -75,7 +75,7 @@ CONTAINS
 
                x = myFeots % mesh % tLon(i,j)
                y = myFeots % mesh % tLat(i,j)
-!               myFEOTS % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+               myFEOTS % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
                ! --------------------------------------------------------------------
                !***** This section of code provides an example of the water
@@ -90,14 +90,14 @@ CONTAINS
                ! Assign the tracer value according to the water mass layer and
                ! the
                ! appropriate boundary mask
-               trackingVar = myFeots % nativeSol % temperature(i,j,k)*myFeots % statemask(1) +&
-                             myFeots % nativeSol % salinity(i,j,k)*myFeots % statemask(2) +&
-                             myFeots % nativeSol % density(i,j,k)*myFeots % statemask(3)
+             !  trackingVar = myFeots % nativeSol % temperature(i,j,k)*myFeots % statemask(1) +&
+             !                myFeots % nativeSol % salinity(i,j,k)*myFeots % statemask(2) +&
+             !                myFeots % nativeSol % density(i,j,k)*myFeots % statemask(3)
 
-               IF( trackingVar >= myFeots % stateLowerBound(iLayer) .AND. &
-                   trackingVar < myFeots % stateUpperBound(iLayer) )THEN
-                   myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
-               ENDIF
+             !  IF( trackingVar >= myFeots % stateLowerBound(iLayer) .AND. &
+             !      trackingVar < myFeots % stateUpperBound(iLayer) )THEN
+             !      myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+             !  ENDIF
                ! -----------------------------------------------------------------
             ENDDO
           ENDDO

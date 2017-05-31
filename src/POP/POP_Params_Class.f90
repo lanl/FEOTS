@@ -60,6 +60,7 @@ USE ConstantsDictionary
       REAL(prec) :: settlingVelocity
       INTEGER    :: nTracers
       INTEGER    :: RunMode
+      INTEGER    :: timeStepScheme
       REAL(prec) :: dt
       INTEGER    :: iterInit
       INTEGER    :: nTimeSteps
@@ -124,6 +125,7 @@ USE ConstantsDictionary
       REAL(prec)     :: settlingVelocity
       INTEGER        :: nTracers
       CHARACTER(20)  :: RunMode
+      CHARACTER(20)  :: timeStepScheme
       REAL(prec)     :: dt
       INTEGER        :: iterInit
       INTEGER        :: nTimeSteps
@@ -157,7 +159,7 @@ USE ConstantsDictionary
       REAL(prec) :: toleranceGMRES 
 
       NAMELIST / POPMeshOptions / MeshType, StencilType, Regional, south, east, north, west, maskfile
-      NAMELIST / TracerModelOptions / TracerModel, settlingVelocity, nTracers, RunMode, dt, iterInit, nTimeSteps, nStepsPerDump, nRecordsPerFile, &
+      NAMELIST / TracerModelOptions / TracerModel, settlingVelocity, nTracers, RunMode, dt, timeStepScheme, iterInit, nTimeSteps, nStepsPerDump, nRecordsPerFile, &
                                       WaterMassTagging, nLayers
       NAMELIST / OperatorOptions / operatorPeriod, nOperatorsPerCycle
       NAMELIST / FileOptions / extractRegionalOperators, IRFListFile, IRFStart, feotsOperatorDirectory, &
@@ -180,6 +182,7 @@ USE ConstantsDictionary
       settlingVelocity = 0.0_prec
       nTracers         = 1
       RunMode          = 'Forward'
+      timeStepScheme   = 'Euler'
       dt               = 10.0_prec**(-3)
       iterInit         = 0
       nTimeSteps       = 0
@@ -258,6 +261,7 @@ USE ConstantsDictionary
       !**********************************************************!
 
       thisParam % RunMode         = GetFlagForChar( TRIM(RunMode) )
+      thisParam % timeStepScheme  = GetFlagForChar( TRIM(timeStepScheme) )
       thisParam % dt              = dt
       thisParam % iterInit        = iterInit
       thisParam % nTimeSteps      = nTimeSteps

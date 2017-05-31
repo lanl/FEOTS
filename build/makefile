@@ -27,11 +27,10 @@ LIB=-L/home/${USER}/Software/netcdf/lib -lnetcdff -lnetcdf
 INC=-I/home/${USER}/Software/netcdf/include
 WFLAGS= 
 
-
 ifeq (${DEBUG},yes)
   OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace
 else
-  OPT=-cpp -O2 -ffree-line-length-none
+  OPT=-cpp -O3 -ffree-line-length-none
 endif
 
 ifeq (${OMP},yes)
@@ -41,6 +40,12 @@ endif
 ifeq (${PROFILE},yes)
   OPT+=-pg
 endif
+
+ifeq (${MPI},yes)
+   FC=mpif90
+   OPT+=-DHAVE_MPI
+endif
+
 
 #/////////////////////////////////////////////////////////////////////// #
 FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')

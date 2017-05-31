@@ -122,6 +122,11 @@
    INTEGER, PARAMETER :: forward     = 600
    INTEGER, PARAMETER :: equilibrium = 601
 
+   ! Integration schemes
+   INTEGER, PARAMETER :: Euler = 2000
+   INTEGER, PARAMETER :: AB2   = 2001
+   INTEGER, PARAMETER :: AB3   = 2002
+
    ! Stencil Flags
    INTEGER, PARAMETER :: LaxWendroff = 700
    INTEGER, PARAMETER :: LaxWendroffOverlap = 701
