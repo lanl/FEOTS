@@ -2,22 +2,21 @@
 MeshType    = 'PeriodicTripole',
 StencilType = 'LaxWendroff',
 Regional    = .TRUE.,
-south       = -60.0,
-east        = 30.0,
-west        = -100.0,
-north       = 70.0,  
+maskfile    = 'Atlantic_mask.nc',
 /
 &TracerModelOptions
-TracerModel = 'DyeModel',
-dt          = 1080.0, 
-runMode     = 'Forward',
-nStepsPerDump   = 80,
-iterInit        = 0,
-nTimeSteps      = 160,
+TracerModel 	 = 'DyeModel',
+WaterMassTagging = .FALSE.,
+dt          	 = 1080.0, 
+runMode     	 = 'Forward',
+nStepsPerDump    = 20,
+iterInit         = 73200,
+nTimeSteps       = 80,
+nTracers	 = 3,
 /
 &OperatorOptions
 operatorPeriod = 432000.0,
-nOperatorsPerCycle = 73,
+nOperatorsPerCycle = 365,
 /
 &FileOptions
 extractRegionalOperators  = .TRUE.,
