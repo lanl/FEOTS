@@ -208,10 +208,28 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
                                       tracer_varid_PN(1) ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(1), "long_name", &
+                                      "Particulate concentration "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(1), "units", "Mass/Mass" ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(1), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(1), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(1), "missing_value", &
+                                      fillValue) )
                                       
          CALL Check( nf90_def_var( ncid_PN, "Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
                                       tracer_varid_PN(2) ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(2), "long_name", &
+                                      "Activity of Radionuclide "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(2), "units", "Activity" ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(2), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(2), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(2), "missing_value", &
+                                      fillValue) )
 
          CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
@@ -220,6 +238,15 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "Source_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       source_varid_PN(1) ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(1), "long_name", &
+                                      "Fixed source of particulate concentration "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(1), "units", "Mass/Mass/Time" ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(1), "coordinates", &
+                                      "TLONG TLAT z_t" ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(1), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(1), "missing_value", &
+                                      fillValue) )
          CALL Check( nf90_def_var( ncid_PN, "rFac_Particulate", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       rFac_varid_PN(1) ) )
@@ -230,6 +257,15 @@ CONTAINS
          CALL Check( nf90_def_var( ncid_PN, "Source_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       source_varid_PN(2) ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(2), "long_name", &
+                                      "Fixed source of radionuclide activity "//tracerid ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(2), "units", "Activity/Time" ) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(2), "coordinates", &
+                                      "TLONG TLAT z_t" ) ) 
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(2), "_FillValue", &
+                                      fillValue) )
+            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(2), "missing_value", &
+                                      fillValue) )
          CALL Check( nf90_def_var( ncid_PN, "rFac_Radionuclide", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       rFac_varid_PN(2) ) )

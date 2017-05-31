@@ -201,8 +201,10 @@ MODULE TracerStorage_Class
       WRITE( periodChar, '(I5.5)' ) 1
       PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'_advect.'//periodChar
       CALL thisStorage % transportOps(1) % ReadSparseConnectivity( TRIM(fileBase)//'_advect.'//periodChar ) 
+#ifdef VERTICAL_DIFFUSION
       PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'_vdiffu.'//periodChar
       CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
+#endif
       PRINT*, '  Done!'
  
  END SUBROUTINE LoadSparseConnectivities_TracerStorage
@@ -249,9 +251,11 @@ MODULE TracerStorage_Class
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_advect.'//periodChar
          CALL thisStorage % transportOps(1) % ReadSparseConnectivity( TRIM(fileBase)//'_advect.'//periodChar ) 
          CALL thisStorage % transportOps(1) % ReadMatrixData( TRIM(fileBase)//'_advect.'//periodChar ) 
+#ifdef VERTICAL_DIFFUSION
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_vdiffu.'//periodChar
          CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
          CALL thisStorage % transportOps(2) % ReadMatrixData( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
+#endif
          opSwapped = .TRUE.
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0
@@ -334,9 +338,9 @@ MODULE TracerStorage_Class
          PRINT*,' Stopping! '
          STOP
       ENDIF
-
+#ifdef VOLUME_CORRECTION
       volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
-      
+#endif
       !$OMP DO COLLAPSE(2)
       DO itracer = 1, thisStorage % nTracers
          DO i = 1, thisStorage % nDOF
@@ -344,7 +348,7 @@ MODULE TracerStorage_Class
          ENDDO
       ENDDO
       !$OMP END DO
-
+#ifdef VOLUME_CORRECTION
       IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
          !$OMP DO
          DO i = 1, thisStorage % nDOF
@@ -360,6 +364,7 @@ MODULE TracerStorage_Class
          !$OMP ENDDO
 
       ENDIF
+#endif
 
 
  END SUBROUTINE CalculateTendency_TracerStorage
@@ -383,12 +388,12 @@ MODULE TracerStorage_Class
    ! LOCAL
    INTEGER         :: itracer, i
 
-      !!!$OMP PARALLEL
       ! Calculate the contribution from the transport operator
       DO itracer = 1, nTracers ! Only the passive tracers
 
          ! Advect the tracer (vertical diffusion is done implicitly)
          tendency(1:nDOF,itracer) = transportOperators(1) % MatVecMul( tracerfield(1:nDOF,iTracer) ) 
+         !$OMP BARRIER
 
          ! Add in the relaxation term
          !$OMP DO
@@ -400,7 +405,6 @@ MODULE TracerStorage_Class
          !$OMP END DO
 
       ENDDO
-      !!!$OMP END PARALLEL
      
  END FUNCTION PassiveDyeModel
 !
