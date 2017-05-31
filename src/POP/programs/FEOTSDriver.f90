@@ -250,7 +250,7 @@ IMPLICIT NONE
 
       CALL feots % Trash( )
 #ifdef HAVE_MPI
-      CALL MPI_FINALLIZE( mpiErr )
+      CALL MPI_FINALIZE( mpiErr )
 #endif
 
 
