@@ -9,22 +9,21 @@ settlingVelocity = 1.0D-5,
 dt               = 1080.0, 
 runMode          = 'Forward',
 nStepsPerDump    = 80,
-iterInit         = 0,
-nTimeSteps       = 8000,
+iterInit         = 15680,
+nTimeSteps       = 58400,
 /
 &OperatorOptions
-operatorPeriod = 432000.0,
+operatorPeriod = 2160000.0,
 nOperatorsPerCycle = 1,
 /
 &FileOptions
-extractRegionalOperators  = .TRUE.,
 meshfile                  ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/POP_03deg_mesh.nc',
 graphfile                 ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/pop_03_periodic-tripole_laxwendroff',
 operatorBaseName          = 'pop_03_periodic-tripole',
-feotsOperatorDirectory    ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Global/',
-IRFListFile               = 'IRFList_5dayAvg.txt',
+feotsOperatorDirectory    ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5YearAvg/Global/',
+IRFListFile               = 'IRFList_5yearAvg.txt',
 IRFStart                  = 1,
-nIRFFiles                 = 365,
+nIRFFiles                 = 1,
 /
 &JFNKOptions
 /

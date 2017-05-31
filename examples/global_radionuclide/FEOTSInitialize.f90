@@ -16,9 +16,6 @@ IMPLICIT NONE
 
       CALL InitialConditions( feots )
 
-      feots % nativeSol % tracer = feots % nativeSol % tracer*feots % nativeSol % mask + &
-                                   (1.0_prec-feots % nativeSol % mask)*feots % nativeSol % hardset
-
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                          feots % mesh, &
@@ -51,19 +48,23 @@ CONTAINS
  
                x = myFeots % mesh % tLon(i,j)
                y = myFeots % mesh % tLat(i,j)
-
-               myFeots % nativeSol % tracer(i,j,k,:) = 0.0_prec 
+               IF( k > myFeots % mesh % kmt(i,j) )THEN
+                  myFeots % nativeSol % tracer(i,j,k,:) = fillvalue
+               ELSE 
+            
+                  myFeots % nativeSol % tracer(i,j,k,:) = 0.0_prec 
  
-              ! Particulate source
-               myFeots % nativeSol % source(i,j,k,1) = 0.0_prec
-               ! Radionuclide uniform source
-               myFeots % nativeSol % source(i,j,k,2) = 1.0_prec*10.0_prec**(-6)
-               myFeots % nativeSol % rFac(i,j,k,:)   = 0.0_prec 
-
-               ! Set the Surface Tracer distribution
-               IF( k == 1 )THEN
-                  myFeots % nativeSol % mask(i,j,k,1)    = 0.0_prec
-                  myFeots % nativeSol % hardSet(i,j,k,1) = 1.0_prec
+                 ! Particulate source
+                  myFeots % nativeSol % source(i,j,k,1) = 0.0_prec
+                  ! Radionuclide uniform source
+                  myFeots % nativeSol % source(i,j,k,2) = 1.0_prec*10.0_prec**(-6)
+                  myFeots % nativeSol % rFac(i,j,k,:)   = 0.0_prec 
+ 
+                  ! Set the Surface Tracer distribution
+                  IF( k == 1 )THEN
+                     myFeots % nativeSol % mask(i,j,k,1)    = 0.0_prec
+                     myFeots % nativeSol % tracer(i,j,k,1)  = 1.0_prec
+                  ENDIF
                ENDIF
                
             ENDDO

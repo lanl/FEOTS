@@ -622,6 +622,12 @@ END FUNCTION NewUnit
          intFlag = Salinity
       ELSEIF( LowerCase( TRIM(myChar) ) == 'density') THEN
          intFlag = Density
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'euler') THEN
+         intFlag = Euler
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'ab2') THEN
+         intFlag = AB2
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'ab3') THEN
+         intFlag = AB3
       ELSE
          PRINT*, 'Unknown Character Option : '//TRIM(myChar)
       ENDIF

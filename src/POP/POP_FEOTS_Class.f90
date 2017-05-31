@@ -54,8 +54,11 @@ USE POP_Mesh_Class
 USE POP_Regional_Class
 USE POP_Native_Class
 
-
  IMPLICIT NONE
+#ifdef HAVE_MPI
+INCLUDE 'mpif.h'
+#endif
+
 
 ! ==================================== POP_FEOTS Description ====================================== !
 !
@@ -96,12 +99,23 @@ USE POP_Native_Class
 
       PROCEDURE :: SetupSettlingOperator => SetupSettlingOperator_POP_FEOTS
 
+#ifdef HAVE_MPI
+      PROCEDURE :: BroadcastOperators => BroadcastOperators_POP_FEOTS 
+      PROCEDURE :: ScatterSolution    => ScatterSolution_POP_FEOTS 
+      PROCEDURE :: GatherSolution     => GatherSolution_POP_FEOTS 
+      PROCEDURE :: ScatterMask        => ScatterMask_POP_FEOTS 
+      PROCEDURE :: ScatterSource      => ScatterSource_POP_FEOTS 
+#endif
+
       PROCEDURE :: MapAllToDOF      => MapAllToDOF_POP_FEOTS
       PROCEDURE :: MapTracerToDOF   => MapTracerToDOF_POP_FEOTS
       PROCEDURE :: MapHSetToDOF     => MapHSetToDOF_POP_FEOTS
       PROCEDURE :: MapSourceToDOF   => MapSourceToDOF_POP_FEOTS
       PROCEDURE :: MapTracerFromDOF => MapTracerFromDOF_POP_FEOTS
 
+      PROCEDURE :: ForwardStep         => ForwardStep_POP_FEOTS
+      PROCEDURE :: ForwardStepEuler    => ForwardStepEuler_POP_FEOTS
+      PROCEDURE :: ForwardStepAB2      => ForwardStepAB2_POP_FEOTS
       PROCEDURE :: ForwardStepAB3      => ForwardStepAB3_POP_FEOTS
       PROCEDURE :: CycleIntegrationAB3 => CycleIntegrationAB3_POP_FEOTS
       PROCEDURE :: DotProduct          => DotProduct_POP_FEOTS
@@ -146,12 +160,13 @@ CONTAINS
 !==================================================================================================!
 !
 !
- SUBROUTINE Build_POP_FEOTS( this ) 
+ SUBROUTINE Build_POP_FEOTS( this, myRank, nProcs ) 
  ! S/R Build
  !
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(out) :: this
+   INTEGER, INTENT(in)             :: myRank, nProcs
    ! Local
    INTEGER    :: nX, nY, nZ, nTracers, nRow, nPeriods
    INTEGER    :: nDOF, iLayer, iMask, iTracer
@@ -219,11 +234,25 @@ CONTAINS
          nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
       ENDIF
 
+      IF( myRank /= 0 )THEN
+         this % params % nTracers = 1
+      ENDIF
       IF( this % params % WaterMassTagging )THEN
          
          PRINT*, '   Enabling water mass tagging.'
          ! Overwrite the number of tracers
-         this % params % nTracers = this % params % nLayers*this % regionalMaps % nMasks
+         IF( myRank == 0 )THEN
+            this % params % nTracers = this % params % nLayers*this % regionalMaps % nMasks
+#ifdef HAVE_MPI
+            IF( this % params % nTracers /= nProcs-1 )THEN
+               PRINT *, 'Number of tracers (plus one) does not match the number of MPI Ranks.'
+               PRINT *, 'nTracers = ', this % params % nTracers
+               PRINT *, 'nRanks   = ', nProcs
+               STOP 'Stopping!'
+            ENDIF
+#endif
+         ENDIF
+
          ALLOCATE( this % stateLowerBound(1:this % params % nLayers), &
                    this % stateUpperBound(1:this % params % nLayers) )
          this % stateLowerBound = 0.0_prec
@@ -265,6 +294,21 @@ CONTAINS
             CLOSE( fUnit )
          !ENDIF
       ENDIF
+#ifdef HAVE_MPI
+      IF( this % params % TracerModel /= DyeModel )THEN
+         PRINT*, 'MPI currently only configured for Passive Dye Model.'
+         PRINT*, 'Contact Joe at schoonover.numerics@gmail.com for help if needed.'
+         STOP 'Stopping!'
+      ENDIF
+      IF( myRank == 0 )THEN
+         IF( this % params % nTracers /= nProcs-1 )THEN
+            PRINT *, 'Number of tracers does not match the number of MPI Ranks.'
+            PRINT *, 'nTracers = ', this % params % nTracers
+            PRINT *, 'nRanks   = ', nProcs
+            STOP 'Stopping!'
+         ENDIF
+      ENDIF
+#endif
 
       ! Allocates space for the solution storage as a 1-D array and allocates
       ! space for the transport operators 
@@ -273,6 +317,9 @@ CONTAINS
                                     this % params % nTracers, & 
                                     this % params % operatorPeriod, &
                                     this % params % dt )
+#ifdef HAVE_MPI
+      this % solution % nTracers = 1
+#endif
 
       IF( this % params % Regional ) THEN
          CALL this % solution % LoadSparseConnectivities( &
@@ -292,17 +339,34 @@ CONTAINS
       this % nativeSol % mask = 1.0_prec
       IF( this % params % Regional )THEN
 
-         DO iMask = 1, this % regionalMaps % nMasks
-            DO iLayer = 1, this % params % nLayers
-               iTracer = iLayer + (iMask-1)*this % params % nLayers
-               DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
-                  i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                  j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                  k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                  this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+         IF( myRank == 0 )THEN
+   
+            DO iMask = 1, this % regionalMaps % nMasks
+               DO iLayer = 1, this % params % nLayers
+                     
+                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+                  DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                     i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                     j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                     k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                     this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+                  ENDDO
                ENDDO
             ENDDO
-         ENDDO
+
+         ELSE
+            iMask   = (myRank-1)/(this % params % nLayers)+1
+            iLayer  = myRank - (iMask-1)*this % params % nLayers
+            iTracer = 1
+            DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+               i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+               j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+               k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+               this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+            ENDDO
+
+         ENDIF
+
       ENDIF
 
 #ifdef HAVE_OPENMP
@@ -313,9 +377,6 @@ CONTAINS
              dCdt(1:this % solution % nDOF, 1:this % solution % nTracers), &
              dVdt(1:this % solution % nDOF) )
 #endif
-
-      ! Load in the initial Ocean State
-      !CALL this % nativeSol % LoadOceanState( this % mesh, thisIRFFile )
 
       PRINT*, 'S/R : Build_POP_FEOTS : Finish.'
 
@@ -400,6 +461,177 @@ CONTAINS
 !==================================================================================================!
 !
 !
+#ifdef HAVE_MPI
+ SUBROUTINE BroadCastOperators_POP_FEOTS( this, myRank, nProcs )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank, nProcs
+   ! Local
+   INTEGER :: iOp
+
+      DO iOp = 1, this % solution % nOps
+  
+         CALL MPI_Bcast( this % solution % transportOps(iOp) % A, &
+                         this % solution % transportOps(iOp) % nElems, &
+                         MPI_DOUBLE, &
+                         0, MPI_COMM_WORLD )
+      ENDDO
+ 
+ END SUBROUTINE BroadcastOperators_POP_FEOTS
+!
+ SUBROUTINE ScatterSolution_POP_FEOTS( this, myRank, nProcs )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank, nProcs
+   ! Local
+   INTEGER :: mpiErr, i, theStat, recvReq
+   INTEGER :: sendReq(1:nProcs-1)
+   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+
+
+   IF( myRank == 0 )THEN
+
+      DO i = 1, this % params % nTracers
+         CALL MPI_ISEND( this % nativeSol % tracer(:,:,:,i), &
+                         this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
+                         MPI_DOUBLE, &
+                         i, 0, MPI_COMM_WORLD, &
+                         sendReq(i), mpiErr )
+      ENDDO
+      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
+   ELSE
+
+      CALL MPI_IRECV( this % nativeSol % tracer(:,:,:,1), &
+                     this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
+                     MPI_DOUBLE, &
+                     0, 0, MPI_COMM_WORLD, &
+                     recvReq, mpiErr )
+      CALL MPI_WAIT( recvReq, theStat, mpiErr )
+   ENDIF
+ 
+ 
+ END SUBROUTINE ScatterSolution_POP_FEOTS
+!
+ SUBROUTINE GatherSolution_POP_FEOTS( this, myRank, nProcs )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank, nProcs
+   ! Local
+   INTEGER :: mpiErr, i, theStat, sendReq
+   INTEGER :: recvReq(1:nProcs-1)
+   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+
+
+   !CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
+      
+   IF( myRank == 0 )THEN
+
+      DO i = 1, this % params % nTracers
+         CALL MPI_IRECV( this % nativeSol % tracer(:,:,:,i), &
+                         this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
+                         MPI_DOUBLE, &
+                         i, 0, MPI_COMM_WORLD, &
+                         recvReq(i), mpiErr )
+      ENDDO
+      CALL MPI_WAITALL( nProcs-1, recvReq, theStats, mpiErr )
+   ELSE
+
+      CALL MPI_ISEND( this % nativeSol % tracer(:,:,:,1), &
+                     this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
+                     MPI_DOUBLE, &
+                     0, 0, MPI_COMM_WORLD, &
+                     sendReq, mpiErr )
+      CALL MPI_WAIT( sendReq, theStat, mpiErr )
+   ENDIF
+ 
+ END SUBROUTINE GatherSolution_POP_FEOTS
+!
+ SUBROUTINE ScatterMask_POP_FEOTS( this, myRank, nProcs )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank, nProcs
+   ! Local
+   INTEGER :: mpiErr, i, theStat, recvReq
+   INTEGER :: sendReq(1:nProcs-1)
+   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+
+
+   IF( myRank == 0 )THEN
+
+      PRINT*, myRank, this % params % nTracers
+      DO i = 1, this % params % nTracers
+         CALL MPI_ISEND( this % solution % mask(:,i), &
+                         this % solution % nDOF, &
+                         MPI_DOUBLE, &
+                         i, 0, MPI_COMM_WORLD, &
+                         sendReq(i), mpiErr )
+      ENDDO
+      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
+   ELSE
+
+      CALL MPI_IRECV( this % solution % mask(:,1), &
+                      this % solution % nDOF, &
+                      MPI_DOUBLE, &
+                      0, 0, MPI_COMM_WORLD, &
+                      recvReq, mpiErr )
+      CALL MPI_WAIT( recvReq, theStat, mpiErr )
+   ENDIF
+
+ END SUBROUTINE ScatterMask_POP_FEOTS
+!
+ SUBROUTINE ScatterSource_POP_FEOTS( this, myRank, nProcs )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank, nProcs
+   ! Local
+   INTEGER :: mpiErr, i, theStat, recvReq
+   INTEGER :: sendReq(1:nProcs-1)
+   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+
+
+   IF( myRank == 0 )THEN
+
+      PRINT*, myRank, this % params % nTracers
+      DO i = 1, this % params % nTracers
+         CALL MPI_ISEND( this % solution % source(:,i), &
+                         this % solution % nDOF, &
+                         MPI_DOUBLE, &
+                         i, 0, MPI_COMM_WORLD, &
+                         sendReq(i), mpiErr )
+      ENDDO
+      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
+   ELSE
+
+      CALL MPI_IRECV( this % solution % source(:,1), &
+                      this % solution % nDOF, &
+                      MPI_DOUBLE, &
+                      0, 0, MPI_COMM_WORLD, &
+                      recvReq, mpiErr )
+      CALL MPI_WAIT( recvReq, theStat, mpiErr )
+   ENDIF
+   IF( myRank == 0 )THEN
+
+      PRINT*, myRank, this % params % nTracers
+      DO i = 1, this % params % nTracers
+         CALL MPI_ISEND( this % solution % rFac(:,i), &
+                         this % solution % nDOF, &
+                         MPI_DOUBLE, &
+                         i, 0, MPI_COMM_WORLD, &
+                         sendReq(i), mpiErr )
+      ENDDO
+      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
+   ELSE
+
+      CALL MPI_IRECV( this % solution % rFac(:,1), &
+                      this % solution % nDOF, &
+                      MPI_DOUBLE, &
+                      0, 0, MPI_COMM_WORLD, &
+                      recvReq, mpiErr )
+      CALL MPI_WAIT( recvReq, theStat, mpiErr )
+   ENDIF
+
+ END SUBROUTINE ScatterSource_POP_FEOTS
+#endif
  SUBROUTINE MapAllToDOF_POP_FEOTS( this )
  ! S/R MapAllToDOF
  !
@@ -493,16 +725,44 @@ CONTAINS
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
- SUBROUTINE ForwardStepAB3_POP_FEOTS( this, tn, nTimeSteps )
- ! S/R ForwardStepAB3
+ SUBROUTINE ForwardStep_POP_FEOTS( this, tn, nTimeSteps, myRank, nProcs )
+ ! S/R ForwardStep
  !
- !  Identical to "CycleIntegrationAB3", except that the operators are loaded in
+ !  Identical to "CycleIntegration", except that the operators are loaded in
  !  as a function of time
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(inout)         :: tn
-   INTEGER, INTENT(in)               :: nTimeSteps
+   INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
+
+
+      IF( this % params % timeStepScheme == Euler )THEN
+
+         CALL this % ForwardStepEuler( tn, nTimeSteps, myRank, nProcs )
+
+      ELSEIF( this % params % timeStepScheme == AB2 )THEN
+
+         CALL this % ForwardStepAB2( tn, nTimeSteps, myRank, nProcs )
+
+      ELSEIF( this % params % timeStepScheme == AB3 )THEN
+
+         CALL this % ForwardStepAB3( tn, nTimeSteps, myRank, nProcs )
+
+      ENDIF
+
+ END SUBROUTINE ForwardStep_POP_FEOTS
+!
+ SUBROUTINE ForwardStepEuler_POP_FEOTS( this, tn, nTimeSteps, myRank, nProcs )
+ ! S/R ForwardStepEuler
+ !
+ !  Identical to "CycleIntegrationEuler", except that the operators are loaded in
+ !  as a function of time
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   REAL(prec), INTENT(inout)         :: tn
+   INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
    ! Local
 #ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
@@ -539,10 +799,16 @@ CONTAINS
             CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
 
             ! Set any prescribed cells here
+#ifndef HAVE_MPI
             DO iMask = 1, this % regionalMaps % nMasks
                DO iLayer = 1, this % params % nLayers
-
+                  
                   iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+#else
+                  iMask   = (myRank-1)/(this % params % nLayers)+1
+                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
+                  iTracer = 1
+#endif
 
                   DO m = 1, this % regionalMaps % bMap(iMask) % nPCells
 
@@ -563,11 +829,145 @@ CONTAINS
                      ENDIF
 
                   ENDDO
+#ifndef HAVE_MPI
                ENDDO 
             ENDDO
+#endif
+         ENDIF
+         !$OMP END MASTER
 
+         !$OMP DO COLLAPSE(2)
+         DO m = 1, this % solution % nTracers
+            DO i = 1, this % solution % nDOF
+               weightedTracers(i,m) = this % solution % tracers(i,m)
+               trm1(i,m) = this % solution % tracers(i,m)
+            ENDDO
+         ENDDO
+         !$OMP ENDDO
+
+
+         !$OMP BARRIER
+         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
+         !$OMP BARRIER
+
+         ! Forward Step the volume 
+
+#ifdef VOLUME_CORRECTION
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+            vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
+         ENDDO
+         !$OMP ENDDO
+#endif
+
+         ! Forward step the tracers with the volume correction
+         !$OMP DO COLLAPSE(2)
+         DO m = 1, this % solution % nTracers
+            DO i = 1, this % solution % nDOF
+         !   tracers(:,m)  = (1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+               this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
+            ENDDO
+         ENDDO
+         !$OMP ENDDO
+
+         ! Store the volume
+#ifdef VOLUME_CORRECTION
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+            this % solution % volume(i) = vol(i)
+         ENDDO
+         !$OMP ENDDO
+#endif
+
+         !$OMP MASTER
+         tn = tn + this % params % dt
+         !$OMP END MASTER
+
+      ENDDO
+   
+ END SUBROUTINE ForwardStepEuler_POP_FEOTS
+!
+ SUBROUTINE ForwardStepAB2_POP_FEOTS( this, tn, nTimeSteps, myRank, nProcs )
+ ! S/R ForwardStepAB2
+ !
+ !  Identical to "CycleIntegrationAB2", except that the operators are loaded in
+ !  as a function of time
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   REAL(prec), INTENT(inout)         :: tn
+   INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
+   ! Local
+#ifndef HAVE_OPENMP
+   REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: vol(1:this % solution % nDOF)
+   REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dVdt(1:this % solution % nDOF)
+#endif
+   INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
+   LOGICAL         :: operatorsSwapped
+   CHARACTER(400)  :: oceanStateFile
+   CHARACTER(5)    :: fileIDChar
+   REAL(prec)      :: trackingVar
+
+      DO iT = 1, nTimeSteps
+
+         !$OMP MASTER
+         IF( this % params % Regional ) THEN
+            CALL this % solution % CheckForNewOperator( tn, &
+                                TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                operatorsSwapped )
+         ELSE
+            CALL this % solution % CheckForNewOperator( tn, &
+                                TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                operatorsSwapped )
          ENDIF
 
+         IF( this % params % waterMassTagging .AND. operatorsSwapped)THEN
+
+            WRITE(fileIDChar, '(I5.5)' ) this % solution % currentPeriod + 1 
+            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
+            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+
+            ! Set any prescribed cells here
+#ifndef HAVE_MPI
+            DO iMask = 1, this % regionalMaps % nMasks
+               DO iLayer = 1, this % params % nLayers
+                  
+                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+#else
+                  iMask   = (myRank-1)/(this % params % nLayers)+1
+                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
+                  iTracer = 1
+#endif
+
+                  DO m = 1, this % regionalMaps % bMap(iMask) % nPCells
+
+                     dof = this % regionalMaps % bMap(iMask) % prescribedCells(m)
+                     i   = this % regionalMaps % dofToLocalIJK(1,dof)
+                     j   = this % regionalMaps % dofToLocalIJK(2,dof)
+                     k   = this % regionalMaps % dofToLocalIJK(3,dof)
+
+                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
+                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
+                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
+                  
+                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
+
+                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
+                         trackingVar < this % stateUpperBound(iLayer) )THEN
+                        this % solution % tracers(dof,iTracer) = 1.0_prec
+                     ENDIF
+
+                  ENDDO
+#ifndef HAVE_MPI
+               ENDDO 
+            ENDDO
+#endif
+         ENDIF
          !$OMP END MASTER
 
          SELECT CASE (iT)
@@ -582,7 +982,156 @@ CONTAINS
                ENDDO
                !$OMP ENDDO
 
-            CASE(2) ! Second Order Adams Bashforth
+            CASE DEFAULT! Second Order Adams Bashforth
+               !$OMP DO COLLAPSE(2)
+               DO m = 1, this % solution % nTracers
+                  DO i = 1, this % solution % nDOF
+                     weightedTracers(i,m) = (3.0_prec*this % solution % tracers(i,m) - trm1(i,m))*0.5_prec
+                     trm2(i,m) = trm1(i,m)
+                     trm1(i,m) = this % solution % tracers(i,m)
+                  ENDDO
+               ENDDO
+               !$OMP ENDDO
+
+         END SELECT
+
+         !$OMP BARRIER
+         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
+         !$OMP BARRIER
+
+         ! Forward Step the volume 
+
+#ifdef VOLUME_CORRECTION
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+            vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
+         ENDDO
+         !$OMP ENDDO
+#endif
+
+         ! Forward step the tracers with the volume correction
+         !$OMP DO COLLAPSE(2)
+         DO m = 1, this % solution % nTracers
+            DO i = 1, this % solution % nDOF
+         !   tracers(:,m)  = (1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+               this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
+            ENDDO
+         ENDDO
+         !$OMP ENDDO
+
+         ! Store the volume
+#ifdef VOLUME_CORRECTION
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+            this % solution % volume(i) = vol(i)
+         ENDDO
+         !$OMP ENDDO
+#endif
+
+         !$OMP MASTER
+         tn = tn + this % params % dt
+         !$OMP END MASTER
+
+      ENDDO
+   
+ END SUBROUTINE ForwardStepAB2_POP_FEOTS
+!
+ SUBROUTINE ForwardStepAB3_POP_FEOTS( this, tn, nTimeSteps, myRank, nProcs )
+ ! S/R ForwardStepAB3
+ !
+ !  Identical to "CycleIntegrationAB3", except that the operators are loaded in
+ !  as a function of time
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   REAL(prec), INTENT(inout)         :: tn
+   INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
+   ! Local
+#ifndef HAVE_OPENMP
+   REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: vol(1:this % solution % nDOF)
+   REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dVdt(1:this % solution % nDOF)
+#endif
+   INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
+   LOGICAL         :: operatorsSwapped
+   CHARACTER(400)  :: oceanStateFile
+   CHARACTER(5)    :: fileIDChar
+   REAL(prec)      :: trackingVar
+
+      DO iT = 1, nTimeSteps
+
+         !$OMP MASTER
+         IF( this % params % Regional ) THEN
+            CALL this % solution % CheckForNewOperator( tn, &
+                                TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                operatorsSwapped )
+         ELSE
+            CALL this % solution % CheckForNewOperator( tn, &
+                                TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                operatorsSwapped )
+         ENDIF
+
+         IF( this % params % waterMassTagging .AND. operatorsSwapped)THEN
+
+            WRITE(fileIDChar, '(I5.5)' ) this % solution % currentPeriod + 1 
+            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
+            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+
+            ! Set any prescribed cells here
+#ifndef HAVE_MPI
+            DO iMask = 1, this % regionalMaps % nMasks
+               DO iLayer = 1, this % params % nLayers
+                  
+                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+#else
+                  iMask   = (myRank-1)/(this % params % nLayers)+1
+                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
+                  iTracer = 1
+#endif
+
+                  DO m = 1, this % regionalMaps % bMap(iMask) % nPCells
+
+                     dof = this % regionalMaps % bMap(iMask) % prescribedCells(m)
+                     i   = this % regionalMaps % dofToLocalIJK(1,dof)
+                     j   = this % regionalMaps % dofToLocalIJK(2,dof)
+                     k   = this % regionalMaps % dofToLocalIJK(3,dof)
+
+                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
+                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
+                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
+                  
+                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
+
+                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
+                         trackingVar < this % stateUpperBound(iLayer) )THEN
+                        this % solution % tracers(dof,iTracer) = 1.0_prec
+                     ENDIF
+
+                  ENDDO
+#ifndef HAVE_MPI
+               ENDDO 
+            ENDDO
+#endif
+         ENDIF
+         !$OMP END MASTER
+
+         SELECT CASE (iT)
+
+            CASE(1) ! First order Euler
+               !$OMP DO COLLAPSE(2)
+               DO m = 1, this % solution % nTracers
+                  DO i = 1, this % solution % nDOF
+                     weightedTracers(i,m) = this % solution % tracers(i,m)
+                     trm1(i,m) = this % solution % tracers(i,m)
+                  ENDDO
+               ENDDO
+               !$OMP ENDDO
+
+            CASE (2) ! Second Order Adams Bashforth
                !$OMP DO COLLAPSE(2)
                DO m = 1, this % solution % nTracers
                   DO i = 1, this % solution % nDOF
@@ -612,11 +1161,13 @@ CONTAINS
 
          ! Forward Step the volume 
 
+#ifdef VOLUME_CORRECTION
          !$OMP DO
          DO i = 1, this % solution % nDOF
             vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
          ENDDO
          !$OMP ENDDO
+#endif
 
          ! Forward step the tracers with the volume correction
          !$OMP DO COLLAPSE(2)
@@ -629,11 +1180,13 @@ CONTAINS
          !$OMP ENDDO
 
          ! Store the volume
+#ifdef VOLUME_CORRECTION
          !$OMP DO
          DO i = 1, this % solution % nDOF
             this % solution % volume(i) = vol(i)
          ENDDO
          !$OMP ENDDO
+#endif
 
          !$OMP MASTER
          tn = tn + this % params % dt
