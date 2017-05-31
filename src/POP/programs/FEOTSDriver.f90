@@ -52,7 +52,7 @@ IMPLICIT NONE
    CHARACTER(5)  :: fileIDChar
    CHARACTER(200):: thisIRFFile
    INTEGER       :: funit, recordID, fileID, i, nIODumps
-   INTEGER       :: mpiErr, myRank, nProcs
+   INTEGER       :: mpiErr, myRank, nProcs, iter
    REAL(prec)    :: tn
    REAL(prec)    :: t1, t2
    
@@ -151,11 +151,12 @@ IMPLICIT NONE
          ENDIF
 #endif 
          ! //// Forward Mode //// !
-         PRINT*, '  Starting ForwardStepAB3'
+         PRINT*, '  Starting ForwardStep'
    
         !$OMP PARALLEL
-         DO i = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
+         DO iter = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
 
+            PRINT*, myRank, iter
 #ifdef HAVE_OPENMP   
             !$OMP MASTER
             t1 = omp_get_wtime( )
@@ -178,10 +179,10 @@ IMPLICIT NONE
 #else
             CALL CPU_TIME( t2 )
 #endif
-            PRINT*, 'ForwardStepAB3 wall time :', t2-t1
 #ifdef HAVE_MPI
             IF(myRank /= 0 )THEN
 #endif
+            PRINT*, 'ForwardStep wall time :', t2-t1
             CALL feots % MapTracerFromDOF( )
 #ifdef HAVE_MPI
             ENDIF
@@ -190,7 +191,7 @@ IMPLICIT NONE
 #endif
             IF( myRank == 0 )THEN
 
-               WRITE( ncfileTag, '(I10.10)' ) i + feots % params % nStepsPerDump
+               WRITE( ncfileTag, '(I10.10)' ) iter + feots % params % nStepsPerDump
                CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                                   feots % mesh, &
                                                                  'Tracer.'//ncFileTag//'.nc' )
@@ -250,7 +251,7 @@ IMPLICIT NONE
 
       CALL feots % Trash( )
 #ifdef HAVE_MPI
-      CALL MPI_FINALLIZE( mpiErr )
+      CALL MPI_FINALIZE( mpiErr )
 #endif
 
 

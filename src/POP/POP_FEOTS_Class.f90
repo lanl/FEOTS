@@ -302,7 +302,7 @@ CONTAINS
       ENDIF
       IF( myRank == 0 )THEN
          IF( this % params % nTracers /= nProcs-1 )THEN
-            PRINT *, 'Number of tracers does not match the number of MPI Ranks.'
+            PRINT *, 'Number of tracers plus one does not match the number of MPI Ranks.'
             PRINT *, 'nTracers = ', this % params % nTracers
             PRINT *, 'nRanks   = ', nProcs
             STOP 'Stopping!'
@@ -522,7 +522,7 @@ CONTAINS
    INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
 
 
-   !CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
+   CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
       
    IF( myRank == 0 )THEN
 
@@ -558,7 +558,6 @@ CONTAINS
 
    IF( myRank == 0 )THEN
 
-      PRINT*, myRank, this % params % nTracers
       DO i = 1, this % params % nTracers
          CALL MPI_ISEND( this % solution % mask(:,i), &
                          this % solution % nDOF, &
@@ -591,7 +590,6 @@ CONTAINS
 
    IF( myRank == 0 )THEN
 
-      PRINT*, myRank, this % params % nTracers
       DO i = 1, this % params % nTracers
          CALL MPI_ISEND( this % solution % source(:,i), &
                          this % solution % nDOF, &
@@ -611,7 +609,6 @@ CONTAINS
    ENDIF
    IF( myRank == 0 )THEN
 
-      PRINT*, myRank, this % params % nTracers
       DO i = 1, this % params % nTracers
          CALL MPI_ISEND( this % solution % rFac(:,i), &
                          this % solution % nDOF, &
