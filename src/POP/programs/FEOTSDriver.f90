@@ -156,7 +156,7 @@ IMPLICIT NONE
         !$OMP PARALLEL
          DO iter = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
 
-            PRINT*, myRank, iter
+!            PRINT*, myRank, iter
 #ifdef HAVE_OPENMP   
             !$OMP MASTER
             t1 = omp_get_wtime( )
@@ -237,7 +237,7 @@ IMPLICIT NONE
 #else
             CALL CPU_TIME( t1 )
 #endif
-         CALL feots % JFNK( )
+         CALL feots % JFNK( myRank )
 
           
 #ifdef HAVE_OPENMP
