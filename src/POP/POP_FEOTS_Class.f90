@@ -113,15 +113,20 @@ INCLUDE 'mpif.h'
       PROCEDURE :: MapSourceToDOF   => MapSourceToDOF_POP_FEOTS
       PROCEDURE :: MapTracerFromDOF => MapTracerFromDOF_POP_FEOTS
 
+     
       PROCEDURE :: ForwardStep         => ForwardStep_POP_FEOTS
       PROCEDURE :: ForwardStepEuler    => ForwardStepEuler_POP_FEOTS
       PROCEDURE :: ForwardStepAB2      => ForwardStepAB2_POP_FEOTS
       PROCEDURE :: ForwardStepAB3      => ForwardStepAB3_POP_FEOTS
-      PROCEDURE :: CycleIntegrationAB3 => CycleIntegrationAB3_POP_FEOTS
-      PROCEDURE :: DotProduct          => DotProduct_POP_FEOTS
-      PROCEDURE :: JacobianAction      => JacobianAction_POP_FEOTS
-      PROCEDURE :: SolveGMRES       => SolveGMRES_POP_FEOTS
-      PROCEDURE :: JFNK             => JFNK_POP_FEOTS
+
+      PROCEDURE :: CycleIntegration      => CycleIntegration_POP_FEOTS
+      PROCEDURE :: CycleIntegrationEuler => CycleIntegrationEuler_POP_FEOTS
+      PROCEDURE :: CycleIntegrationAB2   => CycleIntegrationAB2_POP_FEOTS
+      PROCEDURE :: CycleIntegrationAB3   => CycleIntegrationAB3_POP_FEOTS
+      PROCEDURE :: DotProduct            => DotProduct_POP_FEOTS
+      PROCEDURE :: JacobianAction        => JacobianAction_POP_FEOTS
+      PROCEDURE :: SolveGMRES            => SolveGMRES_POP_FEOTS
+      PROCEDURE :: JFNK                  => JFNK_POP_FEOTS
 
    END TYPE POP_FEOTS
 
@@ -968,9 +973,7 @@ CONTAINS
 
          CALL this % LoadNewStates( )
 
-         SELECT CASE (iT)
-
-            CASE(1) ! First order Euler
+         IF( iT == 1 )THEN! First order Euler
                !$OMP DO COLLAPSE(2)
                DO m = 1, this % solution % nTracers
                   DO i = 1, this % solution % nDOF
@@ -980,7 +983,7 @@ CONTAINS
                ENDDO
                !$OMP ENDDO
 
-            CASE DEFAULT! Second Order Adams Bashforth
+         ELSE ! Second Order Adams Bashforth
                !$OMP DO COLLAPSE(2)
                DO m = 1, this % solution % nTracers
                   DO i = 1, this % solution % nDOF
@@ -990,8 +993,7 @@ CONTAINS
                   ENDDO
                ENDDO
                !$OMP ENDDO
-
-         END SELECT
+         ENDIF
 
          !$OMP BARRIER
          CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
@@ -1063,9 +1065,8 @@ CONTAINS
 
          CALL this % LoadNewStates( )
 
-         SELECT CASE (iT)
 
-            CASE(1) ! First order Euler
+         IF( iT == 1 )THEN! First order Euler
                !$OMP DO COLLAPSE(2)
                DO m = 1, this % solution % nTracers
                   DO i = 1, this % solution % nDOF
@@ -1075,7 +1076,7 @@ CONTAINS
                ENDDO
                !$OMP ENDDO
 
-            CASE (2) ! Second Order Adams Bashforth
+         ELSEIF( iT == 2 )THEN ! Second Order Adams Bashforth
                !$OMP DO COLLAPSE(2)
                DO m = 1, this % solution % nTracers
                   DO i = 1, this % solution % nDOF
@@ -1086,7 +1087,7 @@ CONTAINS
                ENDDO
                !$OMP ENDDO
 
-            CASE DEFAULT ! Third Order Adams Bashforth
+         ELSE! Third Order Adams Bashforth
                !$OMP DO COLLAPSE(2)
                DO m = 1, this % solution % nTracers
                   DO i = 1, this % solution % nDOF
@@ -1096,8 +1097,7 @@ CONTAINS
                   ENDDO
                ENDDO
                !$OMP ENDDO
-
-         END SELECT
+         ENDIF
 
          !$OMP BARRIER
          CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
@@ -1140,8 +1140,132 @@ CONTAINS
    
  END SUBROUTINE ForwardStepAB3_POP_FEOTS
 !
-SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
- ! S/R CycleIntegrationAB3
+ SUBROUTINE CycleIntegration_POP_FEOTS( this )
+ ! S/R ForwardStep
+ !
+ !  Identical to "CycleIntegration", except that the operators are loaded in
+ !  as a function of time
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+
+      IF( this % params % timeStepScheme == Euler )THEN
+
+         CALL this % CycleIntegrationEuler( tn, nTimeSteps, myRank, nProcs )
+
+      ELSEIF( this % params % timeStepScheme == AB2 )THEN
+
+         CALL this % CycleIntegrationAB2( tn, nTimeSteps, myRank, nProcs )
+
+      ELSEIF( this % params % timeStepScheme == AB3 )THEN
+
+         CALL this % CycleIntegrationAB3( tn, nTimeSteps, myRank, nProcs )
+
+      ENDIF
+
+ END SUBROUTINE CycleIntegration_POP_FEOTS
+!
+ SUBROUTINE CycleIntegrationEuler_POP_FEOTS( this )
+ ! S/R CycleIntegrationEuler
+ !
+ !    This subroutine integrates the tracer system from t=0 to t=nPeriods*opPeriod, where 
+ !    "nPeriods" is the number of transport operators we have (in time) and "opPeriod" is the period
+ !    of time associated with each operator.
+ !    For example, if we have 12 operators that each have a 1-month period, the system is integrated
+ !    over 1 year.
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ), INTENT(inout) :: this
+   ! Local
+#ifndef HAVE_OPENMP
+   REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: vol(1:this % solution % nDOF)
+   REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: dVdt(1:this % solution % nDOF)
+#endif
+   REAL(prec) :: tn, dt
+   INTEGER    :: nPeriods, nSteps, i, j, k, m 
+   CHARACTER(5) :: periodChar
+   CHARACTER(500) :: fileBase
+
+      nSteps = INT( this % solution % opPeriod/ this % solution % dt )
+
+      DO j = 1, this % params % nOperatorsPerCycle
+
+         CALL this % LoadNewStates( j )
+
+         DO i = 1, nSteps
+
+            tn = REAL(i-1,prec)*dt
+
+            !$OMP BARRIER
+            CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
+            !$OMP BARRIER
+
+#ifdef VOLUME_CORRECTION
+            ! Forward Step the volume 
+            !$OMP DO
+            DO k = 1, this % solution % nDOF 
+               vol(k) = this % solution % volume(k) + this % params % dt*dVdt(k)
+            ENDDO
+            !$OMP ENDDO
+#endif
+
+            ! Forward step the tracers with the volume correction
+            !$OMP DO COLLAPSE(2)
+            DO m = 1, this % solution % nTracers
+               DO k = 1, this % solution % nDOF
+            !   tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+                  this % solution % tracers(k,m)  = this % solution % tracers(k,m) + this % params % dt*dCdt(k,m)
+               ENDDO
+            ENDDO
+            !$OMP ENDDO
+
+#ifdef VOLUME_CORRECTION
+            ! Store the volume
+            !$OMP DO
+            DO k = 1, this % solution % nDOF
+               this % solution % volume(k) = vol(k) 
+            ENDDO
+            !$OMP ENDDO
+#endif
+         ENDDO
+
+         ! This last step ensures we end on t=tCycle
+         tn = REAL(nSteps,prec)*this % params % dt
+         dt = this % params % operatorPeriod - tn
+         CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
+#ifdef VOLUME_CORRECTION
+         !$OMP DO
+         DO k = 1, this % solution % nDOF
+            vol(k) = this % solution % volume(k) + dt*dVdt(k)
+         ENDDO
+         !$OMP ENDDO
+#endif
+
+         !$OMP DO COLLAPSE(2)
+         DO m = 1, this % solution % nTracers
+            DO k = 1, this % solution % nDOF
+           ! tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
+               this % solution % tracers(k,m)  = this % solution % tracers(k,m) + dt*dCdt(k,m)
+            ENDDO
+         ENDDO
+         !$OMP ENDDO
+#ifdef VOLUME_CORRECTION
+         !$OMP DO
+         DO k = 1, this % solution % nDOF
+            this % solution % volume(k) = vol(k)
+         ENDDO
+         !$OMP ENDDO
+#endif
+      ENDDO
+ 
+ END SUBROUTINE CycleIntegrationEuler_POP_FEOTS
+!
+ SUBROUTINE CycleIntegrationAB2_POP_FEOTS( this )
+ ! S/R CycleIntegrationAB2
  !
  !    This subroutine integrates the tracer system from t=0 to t=nPeriods*opPeriod, where 
  !    "nPeriods" is the number of transport operators we have (in time) and "opPeriod" is the period
@@ -1201,14 +1325,14 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
             !$OMP BARRIER
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
-
+#ifdef VOLUME_CORRECTION
             ! Forward Step the volume 
             !$OMP DO
             DO k = 1, this % solution % nDOF 
                vol(k) = this % solution % volume(k) + this % params % dt*dVdt(k)
             ENDDO
             !$OMP ENDDO
-
+#endif
             ! Forward step the tracers with the volume correction
             !$OMP DO COLLAPSE(2)
             DO m = 1, this % solution % nTracers
@@ -1218,27 +1342,27 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
                ENDDO
             ENDDO
             !$OMP ENDDO
-
+#ifdef VOLUME_CORRECTION
             ! Store the volume
             !$OMP DO
             DO k = 1, this % solution % nDOF
                this % solution % volume(k) = vol(k) 
             ENDDO
             !$OMP ENDDO
-
+#endif
          ENDDO
 
          ! This last step ensures we end on t=tCycle
          tn = REAL(nSteps,prec)*this % params % dt
          dt = this % params % operatorPeriod - tn
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
-         
+#ifdef VOLUME_CORRECTION         
          !$OMP DO
          DO k = 1, this % solution % nDOF
             vol(k) = this % solution % volume(k) + dt*dVdt(k)
          ENDDO
          !$OMP ENDDO
-
+#endif
          !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
             DO k = 1, this % solution % nDOF
@@ -1247,13 +1371,13 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
             ENDDO
          ENDDO
          !$OMP ENDDO
-
+#ifdef VOLUME_CORRECTION
          !$OMP DO
          DO k = 1, this % solution % nDOF
             this % solution % volume(k) = vol(k)
          ENDDO
          !$OMP ENDDO
-
+#endif
       ENDDO
  
  END SUBROUTINE CycleIntegrationAB2_POP_FEOTS
@@ -1327,14 +1451,14 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
             !$OMP BARRIER
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
-
+#ifdef VOLUME_CORRECTION
             ! Forward Step the volume 
             !$OMP DO
             DO k = 1, this % solution % nDOF 
                vol(k) = this % solution % volume(k) + this % params % dt*dVdt(k)
             ENDDO
             !$OMP ENDDO
-
+#endif
             ! Forward step the tracers with the volume correction
             !$OMP DO COLLAPSE(2)
             DO m = 1, this % solution % nTracers
@@ -1344,27 +1468,27 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
                ENDDO
             ENDDO
             !$OMP ENDDO
-
+#ifdef VOLUME_CORRECTION
             ! Store the volume
             !$OMP DO
             DO k = 1, this % solution % nDOF
                this % solution % volume(k) = vol(k) 
             ENDDO
             !$OMP ENDDO
-
+#endif
          ENDDO
 
          ! This last step ensures we end on t=tCycle
          tn = REAL(nSteps,prec)*this % params % dt
          dt = this % params % operatorPeriod - tn
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
-         
+#ifdef VOLUME_CORRECTION
          !$OMP DO
          DO k = 1, this % solution % nDOF
             vol(k) = this % solution % volume(k) + dt*dVdt(k)
          ENDDO
          !$OMP ENDDO
-
+#endif
          !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
             DO k = 1, this % solution % nDOF
@@ -1373,13 +1497,13 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
             ENDDO
          ENDDO
          !$OMP ENDDO
-
+#ifdef VOLUME_CORRECTION
          !$OMP DO
          DO k = 1, this % solution % nDOF
             this % solution % volume(k) = vol(k)
          ENDDO
          !$OMP ENDDO
-
+#endif
       ENDDO
  
  END SUBROUTINE CycleIntegrationAB3_POP_FEOTS
@@ -1632,7 +1756,7 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
             !$OMP ENDDO
             !$OMP FLUSH( this )
 
-            CALL this % CycleIntegrationAB3( )
+            CALL this % CycleIntegration( )
             !$OMP BARRIER
 
             !$OMP DO COLLAPSE(2)      
@@ -1795,7 +1919,7 @@ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
             !$OMP ENDDO
             !$OMP FLUSH( this )
 
-            CALL this % CycleIntegrationAB3( )
+            CALL this % CycleIntegration( )
             !$OMP BARRIER
 
             !$OMP DO COLLAPSE(2)      
