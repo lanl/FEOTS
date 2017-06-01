@@ -237,7 +237,7 @@ IMPLICIT NONE
 #else
             CALL CPU_TIME( t1 )
 #endif
-         CALL feots % JFNK( )
+         CALL feots % JFNK( myRank )
 
           
 #ifdef HAVE_OPENMP

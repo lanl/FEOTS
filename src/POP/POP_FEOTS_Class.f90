@@ -113,6 +113,7 @@ INCLUDE 'mpif.h'
       PROCEDURE :: MapSourceToDOF   => MapSourceToDOF_POP_FEOTS
       PROCEDURE :: MapTracerFromDOF => MapTracerFromDOF_POP_FEOTS
 
+      PROCEDURE :: LoadNewStates       => LoadNewStates_POP_FEOTS
      
       PROCEDURE :: ForwardStep         => ForwardStep_POP_FEOTS
       PROCEDURE :: ForwardStepEuler    => ForwardStepEuler_POP_FEOTS
@@ -722,14 +723,17 @@ CONTAINS
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
- SUBROUTINE LoadNewStates_POP_FEOTS( this, operatorPeriod )
+ SUBROUTINE LoadNewStates_POP_FEOTS( this, tn, myRank, operatorPeriod )
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
+   REAL(prec), INTENT(in)            :: tn
+   INTEGER, INTENT(in)               :: myRank
    INTEGER, INTENT(in), OPTIONAL     :: operatorPeriod
    ! Local
    INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
+   CHARACTER(500)  :: fileBase
    CHARACTER(5)    :: fileIDChar
    REAL(prec)      :: trackingVar
    
@@ -904,7 +908,7 @@ CONTAINS
 
       DO iT = 1, nTimeSteps
 
-         CALL this % LoadNewStates( )
+         CALL this % LoadNewStates( tn, myRank )
 
          !$OMP BARRIER
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
@@ -974,7 +978,7 @@ CONTAINS
 
       DO iT = 1, nTimeSteps
 
-         CALL this % LoadNewStates( )
+         CALL this % LoadNewStates( tn, myRank )
 
          IF( iT == 1 )THEN! First order Euler
                !$OMP DO COLLAPSE(2)
@@ -1066,7 +1070,7 @@ CONTAINS
 
       DO iT = 1, nTimeSteps
 
-         CALL this % LoadNewStates( )
+         CALL this % LoadNewStates( tn, myRank )
 
 
          IF( iT == 1 )THEN! First order Euler
@@ -1143,7 +1147,7 @@ CONTAINS
    
  END SUBROUTINE ForwardStepAB3_POP_FEOTS
 !
- SUBROUTINE CycleIntegration_POP_FEOTS( this )
+ SUBROUTINE CycleIntegration_POP_FEOTS( this, myRank )
  ! S/R ForwardStep
  !
  !  Identical to "CycleIntegration", except that the operators are loaded in
@@ -1151,24 +1155,25 @@ CONTAINS
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank
 
       IF( this % params % timeStepScheme == Euler )THEN
 
-         CALL this % CycleIntegrationEuler( tn, nTimeSteps, myRank, nProcs )
+         CALL this % CycleIntegrationEuler( myRank )
 
       ELSEIF( this % params % timeStepScheme == AB2 )THEN
 
-         CALL this % CycleIntegrationAB2( tn, nTimeSteps, myRank, nProcs )
+         CALL this % CycleIntegrationAB2( myRank )
 
       ELSEIF( this % params % timeStepScheme == AB3 )THEN
 
-         CALL this % CycleIntegrationAB3( tn, nTimeSteps, myRank, nProcs )
+         CALL this % CycleIntegrationAB3( myRank )
 
       ENDIF
 
  END SUBROUTINE CycleIntegration_POP_FEOTS
 !
- SUBROUTINE CycleIntegrationEuler_POP_FEOTS( this )
+ SUBROUTINE CycleIntegrationEuler_POP_FEOTS( this, myRank )
  ! S/R CycleIntegrationEuler
  !
  !    This subroutine integrates the tracer system from t=0 to t=nPeriods*opPeriod, where 
@@ -1179,6 +1184,7 @@ CONTAINS
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank
    ! Local
 #ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
@@ -1197,7 +1203,7 @@ CONTAINS
 
       DO j = 1, this % params % nOperatorsPerCycle
 
-         CALL this % LoadNewStates( j )
+         CALL this % LoadNewStates( tn, myRank, j )
 
          DO i = 1, nSteps
 
@@ -1267,7 +1273,7 @@ CONTAINS
  
  END SUBROUTINE CycleIntegrationEuler_POP_FEOTS
 !
- SUBROUTINE CycleIntegrationAB2_POP_FEOTS( this )
+ SUBROUTINE CycleIntegrationAB2_POP_FEOTS( this, myRank )
  ! S/R CycleIntegrationAB2
  !
  !    This subroutine integrates the tracer system from t=0 to t=nPeriods*opPeriod, where 
@@ -1278,6 +1284,7 @@ CONTAINS
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank
    ! Local
 #ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
@@ -1296,7 +1303,7 @@ CONTAINS
 
       DO j = 1, this % params % nOperatorsPerCycle
 
-         CALL this % LoadNewStates( j )
+         CALL this % LoadNewStates( tn, myRank, j )
 
          DO i = 1, nSteps
 
@@ -1322,8 +1329,6 @@ CONTAINS
                ENDDO
                !$OMP ENDDO
             ENDIF
-
-            END SELECT
 
             !$OMP BARRIER
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
@@ -1385,7 +1390,7 @@ CONTAINS
  
  END SUBROUTINE CycleIntegrationAB2_POP_FEOTS
 !
- SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this )
+ SUBROUTINE CycleIntegrationAB3_POP_FEOTS( this, myRank )
  ! S/R CycleIntegrationAB3
  !
  !    This subroutine integrates the tracer system from t=0 to t=nPeriods*opPeriod, where 
@@ -1396,6 +1401,7 @@ CONTAINS
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank
    ! Local
 #ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
@@ -1414,7 +1420,7 @@ CONTAINS
 
       DO j = 1, this % params % nOperatorsPerCycle
 
-         CALL this % LoadNewStates( j )
+         CALL this % LoadNewStates( tn, myRank, j )
 
          DO i = 1, nSteps
 
@@ -1536,7 +1542,7 @@ CONTAINS
 !                                  Equilibration Routines
 ! ================================================================================================ !
 !
- FUNCTION JacobianAction_POP_FEOTS( this, x, Gx, v ) RESULT( Jv )
+ FUNCTION JacobianAction_POP_FEOTS( this, x, Gx, v, myRank ) RESULT( Jv )
  !  JacobianAction
  !
  !    This subroutine calculates the action of the Jacobian matrix for the fixed point map
@@ -1555,6 +1561,7 @@ CONTAINS
    REAL(prec)        :: Gx(1:this % solution % nDOF,1:this % solution % nTracers)
    REAL(prec)        :: v(1:this % solution % nDOF,1:this % solution % nTracers)
    REAL(prec)        :: Jv(1:this % solution % nDOF,1:this % solution % nTracers)
+   INTEGER           :: myRank
    ! Local
    INTEGER           :: i, j
 #ifndef HAVE_OPENMP
@@ -1590,7 +1597,7 @@ CONTAINS
       !$OMP ENDDO
       !$OMP FLUSH( this )
 
-      CALL this % CycleIntegrationAB3( )
+      CALL this % CycleIntegrationAB3( myRank )
       !$OMP BARRIER
 
       !$OMP DO COLLAPSE(2)      
@@ -1604,7 +1611,7 @@ CONTAINS
 
  END FUNCTION JacobianAction_POP_FEOTS
 !
- SUBROUTINE SolveGMRES_POP_FEOTS( this, x, Gx, dx, resi, ioerr )
+ SUBROUTINE SolveGMRES_POP_FEOTS( this, x, Gx, dx, resi, ioerr, myRank )
  !  S/R SolveGMRES
  !
  !  This subroutine solves the system J(dx) = Gx using the preconditioned GMRES.
@@ -1630,6 +1637,7 @@ CONTAINS
    REAL(prec), INTENT(out)          :: dx(1:this % solution % nDOF,1:this % solution % nTracers)
    REAL(prec), INTENT(out)          :: resi(0:this % params % nResi)
    INTEGER, INTENT(out)             :: ioerr
+   INTEGER, INTENT(in)              :: myRank
    ! LOCAL
    INTEGER    :: i, j, k, l
    INTEGER    :: ii, jj
@@ -1759,7 +1767,7 @@ CONTAINS
             !$OMP ENDDO
             !$OMP FLUSH( this )
 
-            CALL this % CycleIntegration( )
+            CALL this % CycleIntegration( myRank )
             !$OMP BARRIER
 
             !$OMP DO COLLAPSE(2)      
@@ -1922,7 +1930,7 @@ CONTAINS
             !$OMP ENDDO
             !$OMP FLUSH( this )
 
-            CALL this % CycleIntegration( )
+            CALL this % CycleIntegration( myRank )
             !$OMP BARRIER
 
             !$OMP DO COLLAPSE(2)      
@@ -1957,12 +1965,13 @@ CONTAINS
 
  END SUBROUTINE SolveGMRES_POP_FEOTS
 !
- SUBROUTINE JFNK_POP_FEOTS( this )
+ SUBROUTINE JFNK_POP_FEOTS( this, myRank )
  !
  !
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
+   INTEGER, INTENT(in)               :: myRank
    ! Local 
    REAL(prec)   :: x(1:this % solution % nDOF,1:this % solution % nTracers)
    REAL(prec)   :: dx(1:this % solution % nDOF,1:this % solution % nTracers)
@@ -1991,7 +2000,7 @@ CONTAINS
             ACTION = 'WRITE' )
       WRITE( fUnit, * )'#Residual'
 
-      CALL this % CycleIntegrationAB3( )
+      CALL this % CycleIntegration( myRank )
       Gx = this % solution % tracers - x
       Gx0Mag = SQRT( this % DotProduct( Gx, Gx ) )
 
@@ -2004,7 +2013,7 @@ CONTAINS
 
          
          PRINT*, 'S/R JFNK : Call to SolveGMRES '
-         CALL this % SolveGMRES( x, Gx, dx, residual, ioerr )
+         CALL this % SolveGMRES( x, Gx, dx, residual, ioerr, myRank )
          ! Check for convergence
          dxMag = SQRT( this % DotProduct( dx, dx ) )
          xMag = SQRT( this % DotProduct( x, x ) )
@@ -2026,7 +2035,7 @@ CONTAINS
          ENDDO
 
          this % solution % tracers = x
-         CALL this % CycleIntegrationAB3( )
+         CALL this % CycleIntegration( myRank )
          Gx = this % solution % tracers - x
          GxMag = SQRT( this % DotProduct( Gx, Gx ) )
          PRINT*, xMag, dxMag, GxMag
