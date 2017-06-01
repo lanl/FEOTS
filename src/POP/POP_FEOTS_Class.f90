@@ -522,9 +522,9 @@ CONTAINS
    INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
 
 
-   CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
-      
    PRINT*, 'Rank',myRank,'Checking in at GatherSolution!'
+   !CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
+      
    IF( myRank == 0 )THEN
 
       DO i = 1, this % params % nTracers
@@ -544,6 +544,8 @@ CONTAINS
                      sendReq, mpiErr )
       CALL MPI_WAIT( sendReq, theStat, mpiErr )
    ENDIF
+
+   PRINT*, 'Rank',myRank,'Checking out from GatherSolution!'
  
  END SUBROUTINE GatherSolution_POP_FEOTS
 !
