@@ -186,7 +186,7 @@ The driver program manages the call to the “forward integrator” or the “eq
 
 \chapter{Configuring and Running FEOTS Programs}
 
-\section{Software Acceleration}
+\section{Software Acceleration with OpenMP}
 If you have access to multicore architectures and a Fortran compiler with OpenMP support, the \texttt{FEOTSDriver} can be accelerated by enabling OpenMP. To build an OpenMP accelerated binary for the \texttt{FEOTSDriver}, set the environment variable \texttt{OMP} to \texttt{yes}. In a bash shell,
 \begin{verbatim}
 export OMP=yes
@@ -202,6 +202,37 @@ make FEOTSDriver
 from an example directory will enable OpenMP accelerations during compilation. Before running the executable, you must set the environment variable \texttt{OMP\_NUM\_THREADS} to the desired number of threads.\\
 
 -- \textit{ provide scaling analysis on a few architectures and with a few additional openmp thread affinity options } ---
+
+\section{Software Acceleration MPI}
+If you have access to multicore architectures or a small computing cluster and a compiler with MPI capabilities, MPI can be used to parallelize FEOTS. It shoud be noted that currently, MPI is only function with the Passive Dye tracer and Settling Particulate models. The MPI implementation parallelizes the FEOTS routines by assigning each MPI rank to a single particulate. This is particularly useful for water-mass tagging problems over multiple boundaries, where the number of tracers can grow quickly. 
+
+To build the MPI flavor of the \texttt{FEOTSDriver}, set the environment variable \texttt{MPI} to \texttt{yes}. In a bash shell,
+\begin{verbatim}
+export MPI=yes
+\end{verbatim} 
+and in tcsh
+\begin{verbatim}
+setenv MPI yes
+\end{verbatim}
+With this variable set, executing
+\begin{verbatim}
+make FEOTSDriver
+\end{verbatim}
+from an example directory should compile the FEOTSDriver using an MPI capable compiler. If your compiler is not in your default search path, you will need to modify a section of the makefile (\texttt{FEOTS/build/makefile}), so that the variable \texttt{FC} points to the correct compiler.
+\begin{verbatim}
+ifeq (${MPI},yes)
+   FC=mpif90
+   OPT+=-DHAVE_MPI
+endif
+\end{verbatim}
+
+To run the FEOTSDriver with MPI, you must specify the number of processes to be the number of tracers plus one. This configuration is required since the master rank (rank 0) manages file I/O, while the other ranks handle computations. An incorrect configuration will cause the FEOTSDriver to stop within the initialization phase. As an example, if \texttt{nTracers=3} (and water mass tagging is turned off), then
+\begin{verbatim}
+   mpirun -np 4 ./FEOTSDriver
+\end{verbatim}
+would be the correct configuration. If water mass tagging is turned on, the number of tracers used is the number of masks multiplied by the number of layers.
+
+
 
 \section{The Namelist File}
 
@@ -446,7 +477,22 @@ from an example directory will enable OpenMP accelerations during compilation. B
 \end{tabular}
 }\endgroup
 
-%\vspace{0.5cm}
+\noindent\begingroup\setlength{\fboxsep}{0pt}
+\colorbox{lightgray}{
+\begin{tabular}{p{0.25\linewidth} p{0.725\linewidth}}
+\toprule
+\textbf{timeStepScheme} & \\
+\midrule
+\textbf{\textit{Type}} & \texttt{Character} \\
+\midrule
+\textbf{\textit{Description}} & Specifies the explicit integration scheme for any of the tracer models. Can be set to implement 1$^{st}$ Order Forward Euler, 2$^{nd}$ Order Adams-Bashforth, or 3$^{rd}$ Order Adams Bashforth. \\
+\midrule
+\textbf{\textit{Impacted Programs}} & \texttt{FEOTSDriver} \\
+\midrule
+\textbf{\textit{Valid Options}}  & ``Euler'', ``AB2'', ``AB3'' \\
+\bottomrule
+\end{tabular}
+}\endgroup
 
 
 \noindent\begingroup\setlength{\fboxsep}{0pt}
@@ -860,7 +906,7 @@ from an example directory will enable OpenMP accelerations during compilation. B
 \vspace{0.5cm}
 
 \subsection{Generating Impulse Fields for IRF Generation}
-\texttt{\textbf{Disclaimer} : Currently, FEOTS is only setup for working with the POP Tripole Grid and the Lax-Wendroff advection scheme (7 point stencil). However, adding other grids and advection schemes is quite easy. Contact schoonover.numerics@gmail.com about adding more functionality.} \\
+\textit{\textbf{Disclaimer} : Currently, FEOTS is only setup for working with the POP Tripole Grid and the Lax-Wendroff advection scheme (7 point stencil). However, adding other grids and advection schemes is quite easy. Contact \href{mailto:schoonover.numerics@gmail.com}{schoonover.numerics@gmail.com} about adding more functionality.} \\
 
  
 

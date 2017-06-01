@@ -24,16 +24,16 @@
 %  \adjustbox{valign=t}{\includegraphics[width=0.25\textwidth]{images/shallowWater.png}}
 %}
 
-\usepackage{pgfplots}
+%\usepackage{pgfplots}
 %\usetikzlibrary{pgfplots.groupplots}
-\usepackage{helvet}
-\usepackage[eulergreek]{sansmath}
-%\pgfplotsset{compat=newest,
-%  tick label style = {font=\sansmath\sffamily},
-%  every axis label = {font=\sansmath\sffamily},
-%  legend style = {font=\sansmath\sffamily},
-%  label style = {font=\sansmath\sffamily}
-%}
+%\usepackage{helvet}
+%\usepackage[eulergreek]{sansmath}
+%%\pgfplotsset{compat=newest,
+%%  tick label style = {font=\sansmath\sffamily},
+%%  every axis label = {font=\sansmath\sffamily},
+%%  legend style = {font=\sansmath\sffamily},
+%%  label style = {font=\sansmath\sffamily}
+%%}
 \usepackage{verbatim}
 
 %Bibliography and Appendices
@@ -60,25 +60,30 @@
 
 % Allow in-document and external link referencing with hyperref
 \definecolor{webred}{rgb}{0.5, 0, 0} % less intense red
-\usepackage{hyperref}
-\hypersetup{ ps2pdf,
-    bookmarks=true,         % show bookmarks bar?
-    bookmarksnumbered=false,
-    unicode=false,          % non-Latin characters in Acrobat’s bookmarks
-    pdftoolbar=true,        % show Acrobat’s toolbar?
-    pdfmenubar=true,        % show Acrobat’s menu?
-    pdffitwindow=false,     % window fit to page when opened
-    pdfstartview={FitH},    % fits the width of the page to the window
-    pdftitle={FEOTS User Guide},    % title
-    pdfauthor={Joseph Schoonover},     % author
-    pdfnewwindow=true,       % links in new PDF window
-    colorlinks=true,         % false: boxed links; true: colored links
-    linkcolor=webred,        % color of internal links (change box color with linkbordercolor)
-    citecolor=purple,        % color of links to bibliography
-    filecolor=magenta,       % color of file links
-    urlcolor=blue,           % color of external links
-    linktoc=all,
-}
+\definecolor{webblue}{rgb}{0, 0, 0.5} % less intense blue
+\usepackage[colorlinks=true,
+            linkcolor=webred,
+            urlcolor=webblue]{hyperref}
+%\usepackage{hyperref}
+%\hypersetup{ dvips,
+%    bookmarks=true,         % show bookmarks bar?
+%    bookmarksnumbered=true,
+%    unicode=false,          % non-Latin characters in Acrobat’s bookmarks
+%    pdftoolbar=true,        % show Acrobat’s toolbar?
+%    pdfmenubar=true,        % show Acrobat’s menu?
+%    pdffitwindow=false,     % window fit to page when opened
+%    pdfstartview={FitH},    % fits the width of the page to the window
+%    pdftitle={FEOTS User Guide},    % title
+%    pdfauthor={Joseph Schoonover},     % author
+%    pdfnewwindow=true,       % links in new PDF window
+%    colorlinks=true,         % false: boxed links; true: colored links
+%    linkcolor=webred,        % color of internal links (change box color with linkbordercolor)
+%    citecolor=purple,        % color of links to bibliography
+%    filecolor=magenta,       % color of file links
+%    urlcolor=blue,           % color of external links
+%    linktoc=all,
+%    hypertexnames=false,
+%}
 
 
 
