@@ -524,6 +524,7 @@ CONTAINS
 
    CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
       
+   PRINT*, 'Rank',myRank,'Checking in at GatherSolution!'
    IF( myRank == 0 )THEN
 
       DO i = 1, this % params % nTracers
