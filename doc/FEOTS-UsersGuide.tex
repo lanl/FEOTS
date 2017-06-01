@@ -233,6 +233,29 @@ To run the FEOTSDriver with MPI, you must specify the number of processes to be 
 would be the correct configuration. If water mass tagging is turned on, the number of tracers used is the number of masks multiplied by the number of layers.
 
 
+\section{Hybrid MPI-OpenMP}
+It is possible to run the \texttt{FEOTSDriver} with a hybrid MPI-OpenMP flavor. Before compilation, the environment variables \texttt{MPI} and \texttt{OMP} need to be set to \texttt{yes}. In a bash shell,
+\begin{verbatim}
+export MPI=yes
+export OMP=yes
+\end{verbatim} 
+and in tcsh
+\begin{verbatim}
+setenv MPI yes
+setenv OMP yes
+\end{verbatim}
+With this variable set, executing
+\begin{verbatim}
+make FEOTSDriver
+\end{verbatim}
+from an example directory should compile the \texttt{FEOTSDriver} using an MPI capable compiler with OpenMP enabled. Before running the executable, you must set the environment variable \texttt{OMP\_NUM\_THREADS} to the desired number of threads for each MPI rank.\\
+
+The simplest method for executing the MPI-OpenMP flavor of the \texttt{FEOTSDriver} is to use (e.g.)
+\begin{verbatim}
+mpirun -np 4 -x OMP_NUM_THREADS ./FEOTSDriver
+\end{verbatim}
+It is likely that this encantation will not yield ideal performance for any given architecture. To obtain better performance, you will want to set the layout of the ranks and threads for the specific architecture you are running on.
+
 
 \section{The Namelist File}
 
