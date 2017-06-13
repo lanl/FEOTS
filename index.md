@@ -3,7 +3,7 @@
  
    ![useful image](doc/workflow.png)
    
-The general workflow is divided into two segments : (1) Operator Diagnosis and (2) Offline modeling.
+The general workflow is divided into two segments : (1) Operator Construction and (2) Offline modeling.
 
 FEOTS offers tools for diagnosing the sparse matrices associated with discrete advection and diffusion operations consistent with a parent GCM. In this first stage of the workflow, the user constructs impulse fields using FEOTS that can be used in an appropriately configured GCM to obtain impulse response functions. Together, these two fields can be used to build a database of transport operators for driving offline tracer simulations. Currently, FEOTS has the capability of working with the Parallel Ocean Program (POP), and plans are in place to interface with the MIT General Circulation Model (MITgcm)
 
