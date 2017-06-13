@@ -10,9 +10,9 @@ WaterMassTagging = .FALSE.,
 dt          	 = 1080.0, 
 timeStepScheme   = 'AB2',
 runMode     	 = 'Forward',
-nStepsPerDump    = 80,
-iterInit         = 73200,
-nTimeSteps       = 80,
+nStepsPerDump    = 2400,
+iterInit         = 1375600,
+nTimeSteps       = 668400,
 nTracers	 = 3,
 /
 &OperatorOptions
