@@ -928,7 +928,7 @@ CONTAINS
    REAL(prec)      :: trackingVar
 
 #ifdef TIME_AVG
-      this % tAvgSolution % tracers = 0.0_prec
+      this % tAvgSolution % tracers = this % solution % tracers
 #endif
       DO iT = 1, nTimeSteps
 
@@ -1004,7 +1004,7 @@ CONTAINS
    REAL(prec)      :: trackingVar
 
 #ifdef TIME_AVG
-      this % tAvgSolution % tracers = 0.0_prec
+      this % tAvgSolution % tracers = this % solution % tracers
 #endif
       DO iT = 1, nTimeSteps
 
@@ -1102,7 +1102,7 @@ CONTAINS
    REAL(prec)      :: trackingVar
 
 #ifdef TIME_AVG
-      this % tAvgSolution % tracers = 0.0_prec
+      this % tAvgSolution % tracers = this % solution % tracers
 #endif
       DO iT = 1, nTimeSteps
 
