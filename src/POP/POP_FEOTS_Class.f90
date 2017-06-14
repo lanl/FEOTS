@@ -2092,7 +2092,8 @@ CONTAINS
             CALL this % MapTracerFromDOF( ) ! Map from DOF to native storage
             CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
                                                               this % mesh, &
-                                                              'Tracer.pickup.nc' )
+                                                              'Tracer.pickup.nc', &
+                                                              .false. )
             CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
             CALL this % nativeSol % FinalizeNetCDF( )
          ENDIF
@@ -2107,7 +2108,8 @@ CONTAINS
          CALL this % MapTracerFromDOF( ) ! Map from DOF to native storage
          CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
                                                            this % mesh, &
-                                                           'Tracer.equilibrium.nc' )
+                                                           'Tracer.equilibrium.nc', &
+                                                           .false. )
          CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
          CALL this % nativeSol % FinalizeNetCDF( )
          CLOSE(fUnit)
@@ -2119,7 +2121,8 @@ CONTAINS
          !
          CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
                                                            this % mesh, &
-                                                           'Tracer.pickup.nc' )
+                                                           'Tracer.pickup.nc', &
+                                                           .false. )
          CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
          CALL this % nativeSol % FinalizeNetCDF( )
 

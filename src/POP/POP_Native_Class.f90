@@ -158,12 +158,13 @@ CONTAINS
 
  END SUBROUTINE Trash_POP_Native
 !
- SUBROUTINE InitializeForNetCDFWrite_POP_Native( this, modelType, mesh, filename )
+ SUBROUTINE InitializeForNetCDFWrite_POP_Native( this, modelType, mesh, filename, initOn )
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(in) :: this
    INTEGER, INTENT(in)             :: modelType
    TYPE( POP_Mesh ),  INTENT(in)   :: mesh
    CHARACTER(*), INTENT(in)        :: filename
+   LOGICAL, INTENT(in)             :: initOn
    ! Local
    INTEGER :: i
    CHARACTER(2) :: tracerid
@@ -274,63 +275,85 @@ CONTAINS
                                       mask_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
-      
-         DO i = 1, this % nTracers
-            WRITE( tracerid, '(I2.2)') i
-            CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
-                                      tracer_varid_PN(i) ) )
-            CALL Check( nf90_def_var( ncid_PN, "Source_"//tracerid, NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      source_varid_PN(i) ) )
-            CALL Check( nf90_def_var( ncid_PN, "rFac_"//tracerid, NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      rFac_varid_PN(i) ) )
-            CALL Check( nf90_def_var( ncid_PN, "mask_"//tracerid, NF90_DOUBLE, &
-                                      (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
-                                      mask_varid_PN(i) ) )
+ 
+         IF( initOn ) THEN     
 
-            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "long_name", &
-                                      "Dye tracer concentration of tracer "//tracerid ) )
-            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "units", "" ) )
-            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "coordinates", &
-                                      "TLONG TLAT z_t" ) )
-            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "_FillValue", &
-                                      fillValue) )
-            CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "missing_value", &
-                                      fillValue) )
+            DO i = 1, this % nTracers
+               WRITE( tracerid, '(I2.2)') i
+               CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
+                                         (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
+                                         tracer_varid_PN(i) ) )
+               CALL Check( nf90_def_var( ncid_PN, "Source_"//tracerid, NF90_DOUBLE, &
+                                         (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
+                                         source_varid_PN(i) ) )
+               CALL Check( nf90_def_var( ncid_PN, "rFac_"//tracerid, NF90_DOUBLE, &
+                                         (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
+                                         rFac_varid_PN(i) ) )
+               CALL Check( nf90_def_var( ncid_PN, "mask_"//tracerid, NF90_DOUBLE, &
+                                         (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
+                                         mask_varid_PN(i) ) )
+   
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "long_name", &
+                                         "Dye tracer concentration of tracer "//tracerid ) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "units", "" ) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "coordinates", &
+                                         "TLONG TLAT z_t" ) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "_FillValue", &
+                                         fillValue) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "missing_value", &
+                                         fillValue) )
+   
+               CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "long_name", &
+                                         "Relaxation field of tracer "//tracerid ) )
+               CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "units", "" ) )
+               CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "coordinates", &
+                                         "TLONG TLAT z_t" ) )
+               CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "_FillValue", &
+                                         fillValue) )
+               CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "missing_value", &
+                                         fillValue) )
+   
+               CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "long_name", &
+                                         "Relaxation frequency of tracer "//tracerid ) )
+               CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "units", "" ) )
+               CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "coordinates", &
+                                         "TLONG TLAT z_t" ) )
+               CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "_FillValue", &
+                                         fillValue) )
+               CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "missing_value", &
+                                         fillValue) )
+   
+               CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "long_name", &
+                                         "Source-region mask of tracer "//tracerid ) )
+               CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "units", "" ) )
+               CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "coordinates", &
+                                         "TLONG TLAT z_t" ) )
+               CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "_FillValue", &
+                                         fillValue) )
+               CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "missing_value", &
+                                         fillValue) )
+            ENDDO
 
-            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "long_name", &
-                                      "Relaxation field of tracer "//tracerid ) )
-            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "units", "" ) )
-            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "coordinates", &
-                                      "TLONG TLAT z_t" ) )
-            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "_FillValue", &
-                                      fillValue) )
-            CALL Check( nf90_put_att( ncid_PN, source_varid_PN(i), "missing_value", &
-                                      fillValue) )
+         ELSE
 
-            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "long_name", &
-                                      "Relaxation frequency of tracer "//tracerid ) )
-            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "units", "" ) )
-            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "coordinates", &
-                                      "TLONG TLAT z_t" ) )
-            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "_FillValue", &
-                                      fillValue) )
-            CALL Check( nf90_put_att( ncid_PN, rFac_varid_PN(i), "missing_value", &
-                                      fillValue) )
+            DO i = 1, this % nTracers
+               WRITE( tracerid, '(I2.2)') i
+               CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
+                                         (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
+                                         tracer_varid_PN(i) ) )
+   
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "long_name", &
+                                         "Dye tracer concentration of tracer "//tracerid ) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "units", "" ) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "coordinates", &
+                                         "TLONG TLAT z_t" ) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "_FillValue", &
+                                         fillValue) )
+               CALL Check( nf90_put_att( ncid_PN, tracer_varid_PN(i), "missing_value", &
+                                         fillValue) )
+            ENDDO
 
-            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "long_name", &
-                                      "Source-region mask of tracer "//tracerid ) )
-            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "units", "" ) )
-            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "coordinates", &
-                                      "TLONG TLAT z_t" ) )
-            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "_FillValue", &
-                                      fillValue) )
-            CALL Check( nf90_put_att( ncid_PN, mask_varid_PN(i), "missing_value", &
-                                      fillValue) )
-
-         ENDDO
+         ENDIF              
       
             CALL Check( nf90_def_var( ncid_PN, "VolumeCorrection", NF90_DOUBLE, &
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
@@ -376,11 +399,12 @@ CONTAINS
 
  END SUBROUTINE InitializeForNetCDFWrite_POP_Native
 ! 
- SUBROUTINE InitializeForNetCDFRead_POP_Native( this, modelType, filename )
+ SUBROUTINE InitializeForNetCDFRead_POP_Native( this, modelType, filename, initOn )
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(in) :: this
    INTEGER, INTENT(in)             :: modelType
    CHARACTER(*), INTENT(in)        :: filename
+   LOGICAL, INTENT(in)             :: initOn
    ! Local
    INTEGER :: i
    CHARACTER(2) :: tracerid
@@ -446,18 +470,31 @@ CONTAINS
                                       mask_varid_PN(2) ) )
 
       ELSEIF( modelType == DyeModel .OR. modelType == SettlingModel )THEN
+
+         IF( initOn )THEN
       
-         DO i = 1, this % nTracers
-            WRITE( tracerid, '(I2.2)') i
-            CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
-                                      tracer_varid_PN(i) ) )
-            CALL Check( nf90_inq_varid( ncid_PN, "Source_"//tracerid, &
-                                      source_varid_PN(i) ) )
-            CALL Check( nf90_inq_varid( ncid_PN, "rFac_"//tracerid, &
-                                      rFac_varid_PN(i) ) )
-            CALL Check( nf90_inq_varid( ncid_PN, "mask_"//tracerid, &
-                                      mask_varid_PN(i) ) )
-         ENDDO
+            DO i = 1, this % nTracers
+               WRITE( tracerid, '(I2.2)') i
+               CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
+                                         tracer_varid_PN(i) ) )
+               CALL Check( nf90_inq_varid( ncid_PN, "Source_"//tracerid, &
+                                         source_varid_PN(i) ) )
+               CALL Check( nf90_inq_varid( ncid_PN, "rFac_"//tracerid, &
+                                         rFac_varid_PN(i) ) )
+               CALL Check( nf90_inq_varid( ncid_PN, "mask_"//tracerid, &
+                                         mask_varid_PN(i) ) )
+            ENDDO
+
+         ELSE
+
+            DO i = 1, this % nTracers
+               WRITE( tracerid, '(I2.2)') i
+               CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
+                                         tracer_varid_PN(i) ) )
+            ENDDO
+         
+         ENDIF 
+
             CALL Check( nf90_inq_varid( ncid_PN, "VolumeCorrection", &
                                       volume_varid_PN ) )
       

@@ -142,7 +142,8 @@ IMPLICIT NONE
          ! Initialize the NetCDF file
          PRINT*, 'Initialize for reading...'//TRIM( thisIRFFile )
          CALL irfFields % InitializeForNetCDFRead( modelType=ImpulseResponseField, &
-                                                   filename=TRIM(thisIRFFile) )
+                                                   filename=TRIM(thisIRFFile), &
+                                                   initOn=.TRUE. )
   
          ! Read in all of the impulse response fields
          PRINT*, 'Loading Impulse Response Functions.'

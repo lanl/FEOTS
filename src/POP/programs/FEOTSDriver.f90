@@ -79,7 +79,7 @@ IMPLICIT NONE
             ! and the number of records per netcdf file
             
            ! Tracer.init.nc is read for the mask and source terms
-            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.init.nc' )
+            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.init.nc', .TRUE. )
             CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
             CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
             CALL feots % nativeSol % FinalizeNetCDF( )
@@ -127,7 +127,7 @@ IMPLICIT NONE
 
             IF( myRank == 0 )THEN 
                ! This pickup file is read for the correct "initial condition"
-               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//ncFileTag//'.nc' )
+               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//ncFileTag//'.nc', .FALSE. )
                CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
             ENDIF
@@ -194,7 +194,8 @@ IMPLICIT NONE
                WRITE( ncfileTag, '(I10.10)' ) iter + feots % params % nStepsPerDump
                CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                                   feots % mesh, &
-                                                                 'Tracer.'//ncFileTag//'.nc' )
+                                                                 'Tracer.'//ncFileTag//'.nc', &
+                                                                  .FALSE. )
                CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
             ENDIF
@@ -206,14 +207,14 @@ IMPLICIT NONE
 
          IF( myRank == 0 )THEN
            ! Tracer.init.nc is read for the mask and source terms
-            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.init.nc' )
+            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.init.nc', .TRUE. )
             CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
             CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
             CALL feots % nativeSol % FinalizeNetCDF( )
    
   
             IF( feots % params % isPickupRun )THEN  
-               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.pickup.nc' )
+               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.pickup.nc', .FALSE. )
                CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
                tn = REAL(feots % params % iterInit,prec)*feots % params % dt
