@@ -50,7 +50,7 @@ IMPLICIT NONE
    CHARACTER(200)    :: thisIRFFile
    INTEGER           :: fUnit
 
-      CALL feots % Build( )
+      CALL feots % Build( myRank = 0, nProcs = 1 )
 
       CALL InitialConditions( feots )
 
