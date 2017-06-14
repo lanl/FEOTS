@@ -76,7 +76,11 @@ The Fast Equilibration of Ocean Tracers Software (FEOTS) is a set of Fortran mod
 \pagestyle{myheadings}
 \part{Users Guide}
 \chapter{Getting Started}
-
+\section{Overview}
+ The Fast Equilibration of Ocean Tracers Software (FEOTS) is a General Circulation Model (GCM) post-processing tool for running offline passive tracer simulations. Offline passive tracer simulations are particularly attractive because they can be run on fewer computational resources than a full-fledged GCM. FEOTS operates in either forward mode or equilibration mode for performing transient simulations or for obtaining equilibrium solutions.  For large biogeochemical tracer systems, FEOTS offers a hybrid MPI-OpenMP parallelization strategy for maintaining reasonable throughput. There are also packages for tagging water masses based on ocean state variables (e.g. potential temperature, salinity, etc.) and location, for studying ocean mixing and water mass pathways.
+ 
+% By providing interfaces for working with common GCM's (POP,MITgcm) our aim is provide a common framework for running offline tracer simulations quickly and accurately. Our future vision of the FEOTS code is to provide an online repository of transport operators diagnosed from state-of-the-art GCM's for researchers to access. For many researchers, having access to transport operators from already validated GCM simulatons reduces the startup cost for running their own tracer simulations and may also provide another level of validation..
+ 
 \section{System Requirements and Software Dependencies}
 At a minimum, you will need 750 KB of space for the FEOTS source code and a Fortran compiler. At present, FEOTS has been tested with the GNU Fortran compiler, version 4.9.3.
 
@@ -87,6 +91,8 @@ At a minimum, you will need 750 KB of space for the FEOTS source code and a Fort
  \end{center}
 for more information.
   
+  \subsection{POP}
+  Although compiling and running FEOTS does not depend on the Parallel Ocean Program (POP), FEOTS does depend on output that is generate by POP. Current efforts
 \section{Installation}
   Currently, an online repository for FEOTS is hosted through Los Alamos National Laboratory's internally facing gitlab site ( https://gitlab.lanl.gov/schoonover/FEOTS ). To gain access to the repository, send an e-mail to either Joseph Schoonover ( jschoonover@lanl.gov ) to be given access and downloading instructions. Currently, we are in the process of open-sourcing FEOTS, at which point it will be made publicly available on GitHub.
   
@@ -97,9 +103,10 @@ git clone git@gitlab.lanl.gov:schoonover/FEOTS.git
 This creates a directory called FEOTS that has the following subdirectories :
 
 \vspace{0.5cm}
+\hspace{-1.0cm}
 \begingroup\setlength{\fboxsep}{0pt}
   \colorbox{lightgray}{
-    \begin{tabular}{p{0.15\linewidth} | p{0.825\linewidth}}
+    \begin{tabular}{p{0.15\textwidth} | p{0.825\textwidth}}
     \toprule
     \texttt{build/} & Contains the master makefile for FEOTS.\\
     \midrule
@@ -132,14 +139,14 @@ This removes all of the \texttt{.o} and \texttt{.mod} files that were generated 
   %  \toprule
     \textbf{\textit{Important!}}\\
     \midrule
-    If you experience any issues with compiling the binaries, contact Joe Schoonover at \textcolor{blue}{jschoonover@lanl.gov} or \textcolor{blue}{schoonover.numerics@gmail.com} . With your e-mail include your makefile and any output from running \texttt{make all}. \\
+    If you experience any issues with compiling the binaries, contact Joe Schoonover at \textcolor{blue}{schoonover.numerics@gmail.com} . With your e-mail include your makefile and any output from running \texttt{make all}. \\
     \bottomrule
 \end{tabular}
 }\endgroup
 \end{flushleft}
 \vspace{0.5cm}
 
-If you have successfully compile all of the binaries, you can proceed to the Examples problems. Keep in mind that many of the example problems depend on a database of transport operators. If you do not have such a database, one needs to be generated, as outlined in the ``Global Operator Diagnosis'' example in Section (\ref{sec:GlobalOperatorDiagnosis}). \textit{Will we provide a public access database??}
+If you have successfully compiled all of the binaries, you can proceed to the example problems. Keep in mind that many of the example problems depend on a database of transport operators. If you do not have such a database, one needs to be generated, as outlined in the ``Global Operator Diagnosis'' example in Section (\ref{sec:GlobalOperatorDiagnosis}). Alternatively, you can contact Joe Schoonover (\textcolor{blue}{schoonover.numerics@gmail.com}), Jiaxu Zhang (\textcolor{blue}{jiaxu@lanl.gov}), or Wilber Weijer (\textcolor{blue}{wilbert@lanl.gov}) to see if a database currently exists for a problem you are interested in.
 
 \chapter{FEOTS Workflow and Programs}
 \begin{figure}[h!]
@@ -159,23 +166,34 @@ FEOTS views the workflow for running an offline tracer model in two stages
 
 For each stage, FEOTS provides three programs that divide the workflow into incremental steps. This division of steps is purposeful and is meant to provide stopping points for the user to check for any mistakes before proceeding through the workflow.
 
-In this section, a summary of the function of each program within the FEOTS workflow is given. Additionally, suggestions are given for 
-\section{GenerateMeshOnlyFile}
+\section{Transport Operator Construction}
+
+Transport operator construction is a process that diagnoses sparse matrices that are associated with advection and diffusion, consistent with a parent models formulation. In this process, a set of impulse fields are generated and should be passed through a parent models advection and diffusion routines. The impulse fields are generated by solving a graph coloring problem.  Using the impulse and impulse response fields, the sparse matrix representative of the transport operator can be diagnosed.
+
+
+
+The graph is determined by the sparsity pattern of the advection-diffusion operators of the parent model. Currently, FEOTS has support for the Parallel Ocean Program (POP) with a tripole grid and Lax-Wendroff advection operators. If you're interested in using a  dipole grid and/or other advection schemes, contact Joe Schoonover (\textcolor{blue}{schoonover.numerics@gmail.com}). There are plans in place to offer support for transport operator construction in the MITgcm
+\subsection{GenerateMeshOnlyFile}
 This program will take a netcdf file, output by POP, extract only the mesh information and write a the mesh to a netcdf file with an additional ``mask'' field needed for the GreedyColoring.
 
-\section{GreedyColoring}
+\subsection{GreedyColoring}
 Generates the impulse fields given a mesh and a stencil name. Currently, only the Lax Wendroff stencil is included. The impulse fields are then written to a netcdf file for use in POP. Additionally, the adjacency graph and its coloring are written to a binary file for later use.
 
-\section{IRF Generation with POP}
+\subsection{IRF Generation}
+\subsubsection{ POP }
 
-\section{OperatorDiagnosis}
+\subsection{OperatorDiagnosis}
 Uses the Adjacency graph and its coloring (generated by GreedyColoring) in addition to impulse response fields to extract the sparse matrix representation of the transport operators. Before calling this program, GreedyColoring must be called to generate impulse fields, and the impulse fields need to be passed through POP to generate the impulse response fields 
 
 
-\section{GenMask}
+
+\section{Running the Offline Model}
+
+The offline FEOTS model can be run using the ``global'' transport operators or ``regional'' transport operators. Additionally, FEOTS has a package for tagging water masses based on locations and ocean state variables such as potential temperature, salinity, or potential density. When running in regional mode, a database of regional operators need to be extracted from the global operators
+\subsection{GenMask}
 This program can be used to generate a mask for picking out a domain for a regional simulation. It is likely that you will need to get a copy of the source code ( \texttt{src/POP/programs/GenMask.f90} ) and modify it to suit your particular application. This source code can be placed in any example directory that you create.
 
-\section{RegionalExtraction}
+\subsection{RegionalExtraction}
 Given latitudinal and longitudinal boundaries, this program constructs a data structure that maps between the global mesh and a regional mesh. Masks and mappings are constructed that are used to extract the appropriate rows and columns of the sparse transport matrices. These mappings are written to a binary file for later usage. A regional POP mesh is constructed and a “tracermask” field is filled in to indicate boundary cells; the regional POP mesh is written to a netcdf file for user inspection. Care was taken to ensure a correct mapping occurs for regions that cross the prime-meridian. Currently the regional extraction tool has not been tested on regions around the tripole centers.
 
 \section{ExtractOceanState}
@@ -206,7 +224,7 @@ from an example directory will enable OpenMP accelerations during compilation. B
 -- \textit{ provide scaling analysis on a few architectures and with a few additional openmp thread affinity options } ---
 
 \section{Software Acceleration MPI}
-If you have access to multicore architectures or a small computing cluster and a compiler with MPI capabilities, MPI can be used to parallelize FEOTS. It shoud be noted that currently, MPI is only function with the Passive Dye tracer and Settling Particulate models. The MPI implementation parallelizes the FEOTS routines by assigning each MPI rank to a single particulate. This is particularly useful for water-mass tagging problems over multiple boundaries, where the number of tracers can grow quickly. 
+If you have access to multicore architectures or a small computing cluster and a compiler with MPI capabilities, MPI can be used to parallelize FEOTS. It shoud be noted that currently, MPI is only function with the Passive Dye tracer and Settling Particulate models. The MPI implementation parallelizes the FEOTS routines by assigning each MPI rank to a single tracer and is only useful if you have multiple tracers. This is particularly useful for water-mass tagging problems over multiple boundaries, where the number of tracers can grow quickly. 
 
 To build the MPI flavor of the \texttt{FEOTSDriver}, set the environment variable \texttt{MPI} to \texttt{yes}. In a bash shell,
 \begin{verbatim}
@@ -1216,6 +1234,14 @@ In general, the mapping function $\vec{M}$ is nonlinear in the tracer state. In 
 
 \section{Operator Diagnosis}
 
+ If $\mathbb{A}$ is the $N \times N$ sparse matrix for the transport operator, and $\mathbb{V}$ is an $N \times M$ matrix whose columns are each of the impulse fields, then
+\begin{equation}
+\mathbb{A}\mathbb{V} = \mathbb{R}
+\end{equation}
+where $\mathbb{R}$ is an $N\times M$ matrix whose columns are the impulse response fields. In our formulation the columns of $\mathbb{V}$ are orthogonal so that the transport operator can be diagnosed as
+\begin{equation}
+\mathbb{A} = \mathbb{R} \mathbb{V}^T ( \mathbb{V}\mathbb{V}^T )^{-1}
+\end{equation}
 
 \chapter{Supported Tracer Models}
 

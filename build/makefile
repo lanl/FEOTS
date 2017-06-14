@@ -46,6 +46,10 @@ ifeq (${MPI},yes)
    OPT+=-DHAVE_MPI
 endif
 
+ifeq (${TIME_AVG},yes)
+   OPT+=-DTIME_AVG
+endif
+
 
 #/////////////////////////////////////////////////////////////////////// #
 FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')
