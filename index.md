@@ -13,6 +13,10 @@ FEOTS offers tools for diagnosing the sparse matrices associated with discrete a
 
 ### Offline Modeling
 Once a database is constructed, the user can configure an offline simulation using the global operators, or a regional subset. FEOTS currently supports passive dye tracers, a radionuclide-particulate scavenging model, and settling particulates; it is trivial to add additional tracer models. The offline model also offers a package for tagging water masses by location and an ocean state variable, such as temperature, salinity, or potential density. FEOTS is accelerated with OpenMP and can leverage MPI for problems with a large number of tracers.
+
+
+|-------------:|
+LA-UR-17-24872
  
 
  
