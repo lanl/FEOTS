@@ -177,6 +177,7 @@ CONTAINS
    INTEGER, ALLOCATABLE :: nEl(:)
    CHARACTER(200) :: oceanStateFile
    CHARACTER(20)  :: trackingVar_Char
+   CHARACTER(5)   :: fileIDChar
    
 
       PRINT*, 'S/R : Build_POP_FEOTS : Start...'
@@ -377,6 +378,15 @@ CONTAINS
          ENDIF
 
       ENDIF
+
+   IF( this % params % waterMassTagging )THEN
+
+      WRITE(fileIDChar, '(I5.5)' ) 1
+      oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+      PRINT*, 'Loading initial ocean state : ', TRIM(oceanStateFile)
+      CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+
+   ENDIF
 
 #ifdef HAVE_OPENMP
    ALLOCATE( trm1(1:this % solution % nDOF, 1:this % solution % nTracers), &
