@@ -202,6 +202,7 @@ IMPLICIT NONE
             !$OMP END MASTER   
          ENDDO
          !$OMP END PARALLEL 
+         CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
 
       ELSEIF( feots % params % runMode == EQUILIBRIUM )THEN
 
