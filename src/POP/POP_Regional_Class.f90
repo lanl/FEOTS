@@ -572,10 +572,13 @@ CONTAINS
 
             IF( stencilSum > 0 .OR. maskfield(i,j,iMask) == -1 )THEN
                nBCells = nBcells + 1
-               mesh % tracerMask(i,j,k) = 0.0_prec ! Set the border cell tracer mask to 0
                IF( maskfield(i,j,iMask) == -1 )THEN ! In this case the user wants to prescribe a boundary condition
                   nPCells = nPCells + 1
                   mesh % tracerMask(i,j,k) = -REAL(iMask,prec)
+               ELSE
+                  IF( mesh % tracerMask(i,j,k) > 0.0_prec )THEN
+                     mesh % tracerMask(i,j,k) = 0.0_prec
+                  ENDIF
                ENDIF
             ENDIF
 
