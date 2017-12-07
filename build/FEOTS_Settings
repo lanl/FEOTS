@@ -1,0 +1,17 @@
+
+
+
+export DEBUG=no
+export PROFILE=no
+
+
+# Parallel setting
+export OMP=no
+export MPI=no
+
+
+# Model Settings
+export TIME_AVG=no
+export VERTICAL_DIFFUSION=no
+export VOLUME_CORRECTION=no
+

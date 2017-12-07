@@ -50,6 +50,13 @@ ifeq (${TIME_AVG},yes)
    OPT+=-DTIME_AVG
 endif
 
+ifeq (${VERTICAL_DIFFUSION},yes)
+  OPT+=-DVERTICAL_DIFFUSION
+endif
+
+ifeq (${VOLUME_CORRECTION},yes)
+  OPT+=-DVOLUME_CORRECTION
+endif
 
 #/////////////////////////////////////////////////////////////////////// #
 FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')
