@@ -338,9 +338,6 @@ MODULE TracerStorage_Class
          PRINT*,' Stopping! '
          STOP
       ENDIF
-#ifdef VOLUME_CORRECTION
-      volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
-#endif
       !$OMP DO COLLAPSE(2)
       DO itracer = 1, thisStorage % nTracers
          DO i = 1, thisStorage % nDOF
@@ -348,7 +345,9 @@ MODULE TracerStorage_Class
          ENDDO
       ENDDO
       !$OMP END DO
+
 #ifdef VOLUME_CORRECTION
+      volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
       IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
          !$OMP DO
          DO i = 1, thisStorage % nDOF
@@ -369,6 +368,7 @@ MODULE TracerStorage_Class
 
  END SUBROUTINE CalculateTendency_TracerStorage
 !
+#ifdef VERTICAL_DIFFUSION
  FUNCTION DiffusiveAction( diffusiveOperator, tracerField, volume, dt, nDOF ) RESULT( diffAction )
    IMPLICIT NONE
    TYPE(CRSMatrix) :: diffusiveOperator
@@ -385,8 +385,8 @@ MODULE TracerStorage_Class
 
      diffAction = diffAction - dt*diffusiveOperators % MatVecMul( tracerField(1:nDOF) )
 
-
  END FUNCTION DiffusiveAction
+#endif
 !
  FUNCTION PassiveDyeModel( nOperators, nTracers, nDOF,transportOperators, source, rfac, tracerfield ) RESULT( tendency )
  ! PassiveDyeModel

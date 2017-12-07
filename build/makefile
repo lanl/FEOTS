@@ -27,6 +27,7 @@ LIB=-L/home/${USER}/Software/netcdf/lib -lnetcdff -lnetcdf
 INC=-I/home/${USER}/Software/netcdf/include
 WFLAGS= 
 
+
 ifeq (${DEBUG},yes)
   OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace
 else
