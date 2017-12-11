@@ -918,6 +918,9 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(in)            :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec), INTENT(in)            :: dVdt(1:this % solution % nDOF)
+   ! Local
+   INTEGER    :: m, i
+   REAL(prec) :: vol(1:this % solution % nDOF)
 
 
 
@@ -950,7 +953,7 @@ CONTAINS
          DO m = 1, this % solution % nTracers
             DO i = 1, this % solution % nDOF
 
-              this % solution % tracers(i,m)  = this % solution % tracers(i,m) + dt*dCdt(i,m)
+              this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
 
             ENDDO
          ENDDO
@@ -1422,7 +1425,7 @@ CONTAINS
          CALL this % StepForward( dCdt, dVdt )
 
          this % params % dt = dt
-#endif
+
       ENDDO
  
  END SUBROUTINE CycleIntegrationAB3_POP_FEOTS

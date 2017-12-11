@@ -202,7 +202,9 @@ IMPLICIT NONE
             !$OMP END MASTER   
          ENDDO
          !$OMP END PARALLEL 
+#ifdef HAVE_MPI
          CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
+#endif
 
       ELSEIF( feots % params % runMode == EQUILIBRIUM )THEN
 
