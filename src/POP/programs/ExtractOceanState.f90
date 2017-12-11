@@ -54,7 +54,7 @@ IMPLICIT NONE
    CHARACTER(200) :: thisIRFFile
    CHARACTER(200) :: oceanStateFile
 
-      CALL feots % Build( )
+      CALL feots % Build( 0, 1 )
 
       CALL globalMesh % Load( TRIM( feots % params % meshFile ) )
 
