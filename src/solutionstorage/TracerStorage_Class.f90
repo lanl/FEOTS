@@ -346,7 +346,6 @@ MODULE TracerStorage_Class
       ENDDO
       !$OMP END DO
 
-#ifdef VOLUME_CORRECTION
       volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
       IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
          !$OMP DO
@@ -363,7 +362,6 @@ MODULE TracerStorage_Class
          !$OMP ENDDO
 
       ENDIF
-#endif
 
 
  END SUBROUTINE CalculateTendency_TracerStorage

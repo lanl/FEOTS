@@ -118,6 +118,7 @@ INCLUDE 'mpif.h'
 
       PROCEDURE :: LoadNewStates       => LoadNewStates_POP_FEOTS
      
+      PROCEDURE :: StepForward
       PROCEDURE :: ForwardStep         => ForwardStep_POP_FEOTS
       PROCEDURE :: ForwardStepEuler    => ForwardStepEuler_POP_FEOTS
       PROCEDURE :: ForwardStepAB2      => ForwardStepAB2_POP_FEOTS
@@ -969,13 +970,11 @@ CONTAINS
          !$OMP ENDDO
 #endif
 
-#ifdef VOLUME_CORRECTION
          !$OMP DO
          DO i = 1, this % solution % nDOF
             this % solution % volume(i) = vol(i)
          ENDDO
          !$OMP ENDDO
-#endif
 
 
  END SUBROUTINE StepForward
