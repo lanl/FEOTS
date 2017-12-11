@@ -1319,59 +1319,21 @@ CONTAINS
             !$OMP BARRIER
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
-#ifdef VOLUME_CORRECTION
-            ! Forward Step the volume 
-            !$OMP DO
-            DO k = 1, this % solution % nDOF 
-               vol(k) = this % solution % volume(k) + this % params % dt*dVdt(k)
-            ENDDO
-            !$OMP ENDDO
-#endif
-            ! Forward step the tracers with the volume correction
-            !$OMP DO COLLAPSE(2)
-            DO m = 1, this % solution % nTracers
-               DO k = 1, this % solution % nDOF
-            !   tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
-                  this % solution % tracers(k,m)  = this % solution % tracers(k,m) + this % params % dt*dCdt(k,m)
-               ENDDO
-            ENDDO
-            !$OMP ENDDO
-#ifdef VOLUME_CORRECTION
-            ! Store the volume
-            !$OMP DO
-            DO k = 1, this % solution % nDOF
-               this % solution % volume(k) = vol(k) 
-            ENDDO
-            !$OMP ENDDO
-#endif
+
+            CALL this % StepForward( dCdt, dVdt )
+            
          ENDDO
 
          ! This last step ensures we end on t=tCycle
          tn = REAL(nSteps,prec)*this % params % dt
-         dt = this % params % operatorPeriod - tn
+         dt = this % params % dt
+         this % params % dt = this % params % operatorPeriod -tn
+
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
-#ifdef VOLUME_CORRECTION         
-         !$OMP DO
-         DO k = 1, this % solution % nDOF
-            vol(k) = this % solution % volume(k) + dt*dVdt(k)
-         ENDDO
-         !$OMP ENDDO
-#endif
-         !$OMP DO COLLAPSE(2)
-         DO m = 1, this % solution % nTracers
-            DO k = 1, this % solution % nDOF
-           ! tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
-               this % solution % tracers(k,m)  = this % solution % tracers(k,m) + dt*dCdt(k,m)
-            ENDDO
-         ENDDO
-         !$OMP ENDDO
-#ifdef VOLUME_CORRECTION
-         !$OMP DO
-         DO k = 1, this % solution % nDOF
-            this % solution % volume(k) = vol(k)
-         ENDDO
-         !$OMP ENDDO
-#endif
+
+         CALL this % StepForward( dCdt, dVdt )
+
+         this % params % dt = dt
       ENDDO
  
  END SUBROUTINE CycleIntegrationAB2_POP_FEOTS
@@ -1446,58 +1408,21 @@ CONTAINS
             !$OMP BARRIER
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
-#ifdef VOLUME_CORRECTION
-            ! Forward Step the volume 
-            !$OMP DO
-            DO k = 1, this % solution % nDOF 
-               vol(k) = this % solution % volume(k) + this % params % dt*dVdt(k)
-            ENDDO
-            !$OMP ENDDO
-#endif
-            ! Forward step the tracers with the volume correction
-            !$OMP DO COLLAPSE(2)
-            DO m = 1, this % solution % nTracers
-               DO k = 1, this % solution % nDOF
-            !   tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
-                  this % solution % tracers(k,m)  = this % solution % tracers(k,m) + this % params % dt*dCdt(k,m)
-               ENDDO
-            ENDDO
-            !$OMP ENDDO
-#ifdef VOLUME_CORRECTION
-            ! Store the volume
-            !$OMP DO
-            DO k = 1, this % solution % nDOF
-               this % solution % volume(k) = vol(k) 
-            ENDDO
-            !$OMP ENDDO
-#endif
+            
+            CALL this % StepForward( dCdt, dVdt )
+            
          ENDDO
 
          ! This last step ensures we end on t=tCycle
          tn = REAL(nSteps,prec)*this % params % dt
-         dt = this % params % operatorPeriod - tn
+         dt = this % params % dt
+         this % params % dt = this % params % operatorPeriod -tn
+
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
-#ifdef VOLUME_CORRECTION
-         !$OMP DO
-         DO k = 1, this % solution % nDOF
-            vol(k) = this % solution % volume(k) + dt*dVdt(k)
-         ENDDO
-         !$OMP ENDDO
-#endif
-         !$OMP DO COLLAPSE(2)
-         DO m = 1, this % solution % nTracers
-            DO k = 1, this % solution % nDOF
-           ! tracers(:,m)  =(1.0_prec/(1.0_prec+vol))*( (1.0_prec + this % solution % volume )*tracers(:,m) + dt*dCdt(:,m) )
-               this % solution % tracers(k,m)  = this % solution % tracers(k,m) + dt*dCdt(k,m)
-            ENDDO
-         ENDDO
-         !$OMP ENDDO
-#ifdef VOLUME_CORRECTION
-         !$OMP DO
-         DO k = 1, this % solution % nDOF
-            this % solution % volume(k) = vol(k)
-         ENDDO
-         !$OMP ENDDO
+
+         CALL this % StepForward( dCdt, dVdt )
+
+         this % params % dt = dt
 #endif
       ENDDO
  

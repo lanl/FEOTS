@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export FC=gfortran
 
 export DEBUG=no
 export PROFILE=no
