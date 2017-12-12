@@ -1052,10 +1052,15 @@ CONTAINS
 
      DO j = 1, myRegional % nMasks
         READ( fUnit, * ) myRegional % bMap(j) % nBCells
-        ALLOCATE( myRegional % bMap(j) % boundaryCells(1:myRegional % bMap(j) % nBCells) )
+ 
+        IF( .NOT. ALLOCATED( myRegional % bMap(j) % boundaryCells ) )THEN
+          ALLOCATE( myRegional % bMap(j) % boundaryCells(1:myRegional % bMap(j) % nBCells) )
+        ENDIF
+
         DO i = 1, myRegional % bMap(j) % nBCells
            READ(fUnit,*)myRegional % bMap(j) % boundaryCells(i)
         ENDDO
+
      ENDDO
 
      IF( maskProvided )THEN
