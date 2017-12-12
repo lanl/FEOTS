@@ -19,7 +19,8 @@ IMPLICIT NONE
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                          feots % mesh, &
-                                                         TRIM(feots % params % outputDirectory)//'Tracer.init.nc' )
+                                                         TRIM(feots % params % outputDirectory)//'Tracer.init.nc', &
+                                                         .TRUE. )
       CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, 1 )
       CALL feots % nativeSol % WriteSourceEtcNetCDF( feots % mesh )
 
