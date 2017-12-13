@@ -694,9 +694,10 @@ CONTAINS
          ENDDO
 
          PRINT*,'  Found', nBCells,' boundary cells.' 
+         nPCells = nBCells
          myRegion % bMap(1) %  nBCells = nBCells
          ALLOCATE( myRegion % bMap(1) % boundaryCells(1:nBCells) )
-         ALLOCATE( myRegion % bMap(1) % prescribedCells(1) )
+         ALLOCATE( myRegion % bMap(1) % prescribedCells(1:nPCells) )
          ! (3) Use the mesh tracermask to fill in the borderCells attribute of the POP_Regional data structure
          nBCells = 0
          DO m = 1, myRegion % nCells
@@ -708,6 +709,7 @@ CONTAINS
             IF( mesh % tracerMask(i,j,k) == 0.0_prec )THEN
                nBCells = nBCells + 1
                myRegion % bMap(1) % boundaryCells(nBCells) = m
+               myRegion % bMap(1) % prescribedCells(nBCells) = m
             ENDIF
 
          ENDDO
