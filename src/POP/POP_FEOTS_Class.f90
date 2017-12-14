@@ -356,7 +356,7 @@ CONTAINS
      
                  DO iTracer = 1, this % params % nTracers
                        
-                    DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                    DO m = 1, this % regionalMaps % bMap(1) % nBCells
                        i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(1) % boundaryCells(m))
                        j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(1) % boundaryCells(m))
                        k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(1) % boundaryCells(m))
@@ -366,7 +366,7 @@ CONTAINS
   
            ELSE
               iTracer = 1
-              DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+              DO m = 1, this % regionalMaps % bMap(1) % nBCells
                  i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(1) % boundaryCells(m))
                  j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(1) % boundaryCells(m))
                  k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(1) % boundaryCells(m))
