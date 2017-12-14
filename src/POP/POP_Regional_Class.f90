@@ -688,7 +688,7 @@ CONTAINS
 
             IF( stencilSum > 0 )THEN
                nBCells = nBcells + 1
-               mesh % tracerMask(i,j,k) = 0.0_prec ! Set the border cell tracer mask to -1
+               mesh % tracerMask(i,j,k) = -1.0_prec ! Set the border cell tracer mask to -1
             ENDIF
 
          ENDDO
@@ -705,7 +705,7 @@ CONTAINS
             j = myRegion % ijkInRegion(2,m)
             k = myRegion % ijkInRegion(3,m)
 
-            IF( mesh % tracerMask(i,j,k) == 0.0_prec )THEN
+            IF( mesh % tracerMask(i,j,k) == -1.0_prec )THEN
                nBCells = nBCells + 1
                myRegion % bMap(1) % boundaryCells(nBCells) = m
             ENDIF
@@ -809,7 +809,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j,1) /= 0 )THEN
+                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF
