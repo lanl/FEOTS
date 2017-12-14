@@ -939,11 +939,12 @@ CONTAINS
 
  END SUBROUTINE ForwardStep_POP_FEOTS
 !
- SUBROUTINE StepForward( this, dCdt, dVdt ) 
+ SUBROUTINE StepForward( this, dCdt, dVdt, nTimeSteps ) 
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(in)            :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec), INTENT(in)            :: dVdt(1:this % solution % nDOF)
+   INTEGER, INTENT(in)               :: nTimeSteps
    ! Local
    INTEGER    :: m, i
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1044,7 +1045,7 @@ CONTAINS
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
          !$OMP BARRIER
 
-         CALL this % StepForward( dCdt, dVdt )
+         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          !$OMP MASTER
          tn = tn + this % params % dt
@@ -1112,7 +1113,7 @@ CONTAINS
          CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
          !$OMP BARRIER
 
-         CALL this % StepForward( dCdt, dVdt )
+         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          !$OMP MASTER
          tn = tn + this % params % dt
@@ -1192,7 +1193,7 @@ CONTAINS
          CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
          !$OMP BARRIER
 
-         CALL this % StepForward( dCdt, dVdt )
+         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          !$OMP MASTER
          tn = tn + this % params % dt
@@ -1268,7 +1269,7 @@ CONTAINS
             CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
          
-            CALL this % StepForward( dCdt, dVdt )
+            CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          ENDDO
 
@@ -1279,7 +1280,7 @@ CONTAINS
 
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
 
-         CALL this % StepForward( dCdt, dVdt )
+         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          this % params % dt = dt
 
@@ -1348,7 +1349,7 @@ CONTAINS
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
 
-            CALL this % StepForward( dCdt, dVdt )
+            CALL this % StepForward( dCdt, dVdt, nTimeSteps )
             
          ENDDO
 
@@ -1359,7 +1360,7 @@ CONTAINS
 
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
 
-         CALL this % StepForward( dCdt, dVdt )
+         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          this % params % dt = dt
       ENDDO
@@ -1437,7 +1438,7 @@ CONTAINS
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
             
-            CALL this % StepForward( dCdt, dVdt )
+            CALL this % StepForward( dCdt, dVdt, nTimeSteps )
             
          ENDDO
 
@@ -1448,7 +1449,7 @@ CONTAINS
 
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
 
-         CALL this % StepForward( dCdt, dVdt )
+         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          this % params % dt = dt
 
