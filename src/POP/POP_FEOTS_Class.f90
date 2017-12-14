@@ -350,7 +350,7 @@ CONTAINS
       this % nativeSol % mask = 1.0_prec
       IF( this % params % Regional )THEN
 
-         IF( this % params % maskFile = '' )THEN
+         IF( this % params % maskFile == '' )THEN
 
            IF( myRank == 0 )THEN
      
