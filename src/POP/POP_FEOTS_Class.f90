@@ -350,32 +350,58 @@ CONTAINS
       this % nativeSol % mask = 1.0_prec
       IF( this % params % Regional )THEN
 
-         IF( myRank == 0 )THEN
-   
-            DO iMask = 1, this % regionalMaps % nMasks
-               DO iLayer = 1, this % params % nLayers
-                     
-                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
-                  DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
-                     i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                     j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                     k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                     this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
-                  ENDDO
-               ENDDO
-            ENDDO
+         IF( this % params % maskFile = '' )THEN
 
+           IF( myRank == 0 )THEN
+     
+                 DO iTracer = 1, this % params % nTracers
+                       
+                    DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                       i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(1) % boundaryCells(m))
+                       j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(1) % boundaryCells(m))
+                       k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(1) % boundaryCells(m))
+                       this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+                    ENDDO
+              ENDDO
+  
+           ELSE
+              iTracer = 1
+              DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                 i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(1) % boundaryCells(m))
+                 j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(1) % boundaryCells(m))
+                 k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(1) % boundaryCells(m))
+                 this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+              ENDDO
+  
+           ENDIF
          ELSE
-            iMask   = (myRank-1)/(this % params % nLayers)+1
-            iLayer  = myRank - (iMask-1)*this % params % nLayers
-            iTracer = 1
-            DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
-               i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-               j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-               k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-               this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
-            ENDDO
-
+           IF( myRank == 0 )THEN
+     
+              DO iMask = 1, this % regionalMaps % nMasks
+                 DO iLayer = 1, this % params % nLayers
+                       
+                    iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+                    DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                       i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                       j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                       k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                       this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+                    ENDDO
+                 ENDDO
+              ENDDO
+  
+           ELSE
+              iMask   = (myRank-1)/(this % params % nLayers)+1
+              iLayer  = myRank - (iMask-1)*this % params % nLayers
+              iTracer = 1
+              DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
+                 i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                 j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                 k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
+                 this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+              ENDDO
+  
+           ENDIF
          ENDIF
 
       ENDIF
