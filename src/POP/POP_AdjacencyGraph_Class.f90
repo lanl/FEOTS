@@ -430,8 +430,9 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
-   INTEGER :: ndof, maxvalence, ncolors, i, j, k, fUnit, datalength, reclength
-   INTEGER :: nIntPerChunk, nChunks, adr1, adr2
+   INTEGER :: ndof, maxvalence, ncolors, i, j, fUnit, reclength
+   INTEGER(KIND=8) :: datalength, k, adr1, adr2
+   INTEGER :: nIntPerChunk, nChunks
    INTEGER, ALLOCATABLE :: localIOarray(:)
 
       OPEN( UNIT = NewUnit(fUnit), &
@@ -469,7 +470,7 @@ CONTAINS
 
       ELSEIF( SIZEOF(i) == 8)THEN
 
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
+         ! Make sure that datalength is an integer multiple of nInt8PerChunk 
          nChunks    = (datalength/nInt8PerChunk)
          IF( nChunks*nInt8PerChunk < datalength )THEN
             nChunks = nChunks+1
