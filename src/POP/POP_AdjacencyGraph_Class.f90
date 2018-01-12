@@ -50,12 +50,12 @@ USE POP_GridTypeMappings
 IMPLICIT NONE
 
    TYPE POP_AdjacencyGraph
-      INTEGER              :: nDOF
+      INTEGER(KIND=8)      :: nDOF
       INTEGER              :: maxValence
       INTEGER              :: nColors
       INTEGER, ALLOCATABLE :: valence(:)
       INTEGER, ALLOCATABLE :: color(:)
-      INTEGER, ALLOCATABLE :: neighbors(:,:)
+      INTEGER(KIND=8), ALLOCATABLE :: neighbors(:,:)
 
       CONTAINS
 
@@ -431,8 +431,8 @@ CONTAINS
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
    INTEGER :: ndof, maxvalence, ncolors, i, j, fUnit, reclength
-   INTEGER(KIND=8) :: datalength, k, adr1, adr2
-   INTEGER :: nIntPerChunk, nChunks
+   INTEGER(KIND=8) :: datalength, k, adr1, adr2, nChunks
+   INTEGER :: nIntPerChunk
    INTEGER, ALLOCATABLE :: localIOarray(:)
 
       OPEN( UNIT = NewUnit(fUnit), &
@@ -484,7 +484,7 @@ CONTAINS
          PRINT*, '     Invalid INTEGER SIZE. STOPPING'
          STOP
       ENDIF
-     
+      PRINT*, 'READ THIS LINE : ', nChunks, myGraph % ndof, datalength
       ALLOCATE( localIOarray(1:datalength) )
       localIOarray = 0   
    
