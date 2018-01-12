@@ -430,9 +430,8 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
-   INTEGER :: ndof, maxvalence, ncolors, i, j, fUnit, reclength
-   INTEGER(KIND=8) :: datalength, k, adr1, adr2, nChunks
-   INTEGER :: nIntPerChunk
+   INTEGER :: ndof, maxvalence, ncolors, j, fUnit, reclength
+   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
    INTEGER, ALLOCATABLE :: localIOarray(:)
 
       OPEN( UNIT = NewUnit(fUnit), &
@@ -513,6 +512,7 @@ CONTAINS
 
       PRINT*, TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
       DO i = 1, nChunks
+         PRINT*, "i , adr1, adr2 :", i, adr1, adr2
          adr1 = 1 + (i-1)*(nIntPerChunk)
          adr2 = adr1 + nIntPerChunk - 1
          WRITE( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)
