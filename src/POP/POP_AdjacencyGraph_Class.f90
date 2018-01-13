@@ -50,12 +50,12 @@ USE POP_GridTypeMappings
 IMPLICIT NONE
 
    TYPE POP_AdjacencyGraph
-      INTEGER              :: nDOF
+      INTEGER(KIND=8)      :: nDOF
       INTEGER              :: maxValence
       INTEGER              :: nColors
       INTEGER, ALLOCATABLE :: valence(:)
       INTEGER, ALLOCATABLE :: color(:)
-      INTEGER, ALLOCATABLE :: neighbors(:,:)
+      INTEGER(KIND=8), ALLOCATABLE :: neighbors(:,:)
 
       CONTAINS
 
@@ -430,8 +430,8 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
-   INTEGER :: ndof, maxvalence, ncolors, i, j, k, fUnit, datalength, reclength
-   INTEGER :: nIntPerChunk, nChunks, adr1, adr2
+   INTEGER :: ndof, maxvalence, ncolors, j, fUnit, reclength
+   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
    INTEGER, ALLOCATABLE :: localIOarray(:)
 
       OPEN( UNIT = NewUnit(fUnit), &
@@ -469,7 +469,7 @@ CONTAINS
 
       ELSEIF( SIZEOF(i) == 8)THEN
 
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
+         ! Make sure that datalength is an integer multiple of nInt8PerChunk 
          nChunks    = (datalength/nInt8PerChunk)
          IF( nChunks*nInt8PerChunk < datalength )THEN
             nChunks = nChunks+1
@@ -483,7 +483,7 @@ CONTAINS
          PRINT*, '     Invalid INTEGER SIZE. STOPPING'
          STOP
       ENDIF
-     
+      PRINT*, 'READ THIS LINE : ', nChunks, myGraph % ndof, datalength
       ALLOCATE( localIOarray(1:datalength) )
       localIOarray = 0   
    
@@ -512,6 +512,7 @@ CONTAINS
 
       PRINT*, TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
       DO i = 1, nChunks
+         PRINT*, "i , adr1, adr2 :", i, adr1, adr2
          adr1 = 1 + (i-1)*(nIntPerChunk)
          adr2 = adr1 + nIntPerChunk - 1
          WRITE( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)
