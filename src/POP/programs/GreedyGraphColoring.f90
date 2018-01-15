@@ -43,6 +43,7 @@ USE POP_Params_Class
 USE POP_Mesh_Class
 USE POP_Stencil_Class
 USE POP_AdjacencyGraph_Class
+USE POP_Native_Class
 
 IMPLICIT NONE
 
@@ -51,6 +52,7 @@ IMPLICIT NONE
    TYPE( POP_Mesh )           :: mesh
    TYPE( Stencil )            :: overlapStencil
    TYPE( POP_AdjacencyGraph ) :: graph
+   TYPE( POP_Native )         :: impulseFields
 
       CALL params % Build( )
 
@@ -76,8 +78,20 @@ IMPLICIT NONE
       ! scheme.
       CALL graph % GreedyColoring( )
 
+
+      CALL impulseFields % Build( mesh, graph % nColors )
+      CALL impulseFields % InitializeForNetCDFWrite( ImpulseField, &
+                                                     mesh, &
+                                                     'ImpulseFields.nc', &
+                                                     .TRUE. )
+
+      CALL GraphToImpulse( graph, impulseFields, mesh )
+
+      CALL impulseFields % WriteTracerToNetCDF( mesh )
+ 
+      CALL impulseFields % FinalizeNetCDF( )
+
       ! Write the graph to file for later use
-      !CALL graph % WriteGraphFile( 'laxwendroff.pop.ptgrid.graph' )
       CALL graph % WriteGraphBinFile( TRIM(params % GraphFile) )
 
 
@@ -85,6 +99,36 @@ IMPLICIT NONE
       CALL overlapStencil % Trash( )
       CALL graph % Trash( )
       CALL mesh % Trash( )
+
+CONTAINS
+
+  SUBROUTINE GraphToImpulse( graph, impulse, mesh )
+    IMPLICIT NONE
+    TYPE( POP_AdjacencyGraph ), INTENT(in) :: graph
+    TYPE( POP_Native ), INTENT(out)        :: impulse
+    TYPE( POP_Mesh ), INTENT(in)           :: mesh
+    ! Local
+    INTEGER :: irf_id, col, i, j, k
+
+
+      DO irf_id = 1, graph % nColors
+        DO col = 1, mesh % nDOF
+
+          IF( graph % color(col) == irf_id )THEN
+
+            i = mesh % dofToIJK(1,col)
+            j = mesh % dofToIJK(2,col)
+            k = mesh % dofToIJK(3,col)
+
+            impulse % tracer(i,j,k,irf_id) = 1.0_prec
+
+          ENDIF
+
+        ENDDO
+      ENDDO
+
+
+  END SUBROUTINE GraphToImpulse
 
 END PROGRAM GreedyGraphColoring
 

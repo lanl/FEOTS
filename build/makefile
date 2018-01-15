@@ -22,8 +22,6 @@
 #    
 
 SHELL=/bin/bash
-LIB=-L/home/${USER}/Software/netcdf/lib -lnetcdff -lnetcdf
-INC=-I/home/${USER}/Software/netcdf/include
 WFLAGS= 
 
 
@@ -57,6 +55,10 @@ endif
 ifeq (${VOLUME_CORRECTION},yes)
   OPT+=-DVOLUME_CORRECTION
 endif
+
+
+LIB+=${NCLIB}
+INC+=${NCINC}
 
 #/////////////////////////////////////////////////////////////////////// #
 FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')
@@ -190,6 +192,7 @@ GCOBJS = ModelPrecision.o \
        POP_Params_Class.o \
        POP_Mesh_Class.o \
        POP_AdjacencyGraph_Class.o \
+       POP_Native_Class.o \
        GreedyGraphColoring.o 
 
 GMOBJS= ModelPrecision.o \

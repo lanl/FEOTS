@@ -74,6 +74,7 @@ USE netcdf
       PROCEDURE :: WriteSourceEtcNetCDF     => WriteSourceEtcNetCDF_POP_Native
       PROCEDURE :: ReadSourceEtcNetCDF      => ReadSourceEtcNetCDF_POP_Native
       PROCEDURE :: LoadTracerFromNetCDF     => LoadTracerFromNetCDF_POP_Native
+      PROCEDURE :: WriteTracerToNetCDF      => WriteTracerToNetCDF_POP_Native
 
       PROCEDURE :: LoadOceanState           => LoadOceanState_POP_Native
       PROCEDURE :: WriteOceanState          => WriteOceanState_POP_Native
@@ -756,5 +757,25 @@ CONTAINS
          ENDDO
 
  END SUBROUTINE LoadTracerFromNetCDF_POP_Native
+!
+ SUBROUTINE WriteTracerToNetCDF_POP_Native( this, mesh )
+   IMPLICIT NONE
+   CLASS( POP_Native ), INTENT(inout) :: this
+   TYPE( POP_Mesh ), INTENT(in)       :: mesh
+   ! Local
+   INTEGER :: start(1:3), recCount(1:3)
+   INTEGER :: i
+
+         start    = (/1, 1, 1/)
+         recCount = (/mesh % nX, mesh % nY, mesh % nZ/)
+
+         DO i = 1, this % nTracers
+            CALL Check( nf90_put_var( ncid_PN, &
+                                      tracer_varid_pn(i), &
+                                      this % tracer(:,:,:,i), &
+                                      start, recCount ) )
+         ENDDO
+
+ END SUBROUTINE WriteTracerToNetCDF_POP_Native
 
 END MODULE POP_Native_Class
