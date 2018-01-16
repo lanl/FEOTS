@@ -105,7 +105,7 @@ CONTAINS
   SUBROUTINE GraphToImpulse( graph, impulse, mesh )
     IMPLICIT NONE
     TYPE( POP_AdjacencyGraph ), INTENT(in) :: graph
-    TYPE( POP_Native ), INTENT(out)        :: impulse
+    TYPE( POP_Native ), INTENT(inout)      :: impulse
     TYPE( POP_Mesh ), INTENT(in)           :: mesh
     ! Local
     INTEGER :: irf_id, col, i, j, k
