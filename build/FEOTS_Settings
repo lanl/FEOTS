@@ -5,6 +5,9 @@ export FC=gfortran
 export DEBUG=no
 export PROFILE=no
 
+# NetCDF
+export NCLIB=
+export NCINC=
 
 # Parallel setting
 export OMP=no
