@@ -238,6 +238,10 @@ FEOBJS = ModelPrecision.o \
          FEOTSDriver.o 
          
 GreedyColoring : ${GCOBJS}
+	echo "NCLIB ="${NCLIB}
+	echo "NCINC ="${NCINC}
+	echo "LIB ="${LIB}
+	echo "INC ="${INC}
 	${FC} ${OPT} ${GCOBJS} ${LIB} ${INC} -o $@ 
 
 GenerateMeshOnlyFile : ${GMOBJS}
