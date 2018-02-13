@@ -964,12 +964,20 @@ CONTAINS
 
 #ifdef VOLUME_CORRECTION
          ! No vertical diffusion, but volume correction is on
+         !$OMP DO
+         DO i = 1, this % solution % nDOF
+
+           vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
+           !PRINT*, (1.0_prec + this % solution % volume(i))/(1.0_prec + vol(i))
+ 
+         ENDDO
+         !$OMP ENDDO
          !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
             DO i = 1, this % solution % nDOF
 
-              vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
-              this % solution % tracers(i,m)  = (1.0_prec/(1.0_prec+vol(i)))*( (1.0_prec + this % solution % volume(i) )*this % solution % tracers(i,m) + dt*dCdt(i,m) )
+              this % solution % tracers(i,m)  = (1.0_prec/(1.0_prec+vol(i)))*( (1.0_prec + this % solution % volume(i) )*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
+            !  this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
 
             ENDDO
          ENDDO
@@ -1269,7 +1277,7 @@ CONTAINS
             CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
          
-            CALL this % StepForward( dCdt, dVdt, nTimeSteps )
+            CALL this % StepForward( dCdt, dVdt, 1 )
 
          ENDDO
 
@@ -1280,7 +1288,7 @@ CONTAINS
 
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
 
-         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
+         CALL this % StepForward( dCdt, dVdt, 1 )
 
          this % params % dt = dt
 
@@ -1349,7 +1357,7 @@ CONTAINS
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
 
-            CALL this % StepForward( dCdt, dVdt, nTimeSteps )
+            CALL this % StepForward( dCdt, dVdt, 1 )
             
          ENDDO
 
@@ -1360,7 +1368,7 @@ CONTAINS
 
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
 
-         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
+         CALL this % StepForward( dCdt, dVdt, 1 )
 
          this % params % dt = dt
       ENDDO
@@ -1438,7 +1446,7 @@ CONTAINS
             CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
             !$OMP BARRIER
             
-            CALL this % StepForward( dCdt, dVdt, nTimeSteps )
+            CALL this % StepForward( dCdt, dVdt, 1 )
             
          ENDDO
 
@@ -1449,7 +1457,7 @@ CONTAINS
 
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
 
-         CALL this % StepForward( dCdt, dVdt, nTimeSteps )
+         CALL this % StepForward( dCdt, dVdt, 1 )
 
          this % params % dt = dt
 

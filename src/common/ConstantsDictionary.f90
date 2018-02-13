@@ -130,6 +130,8 @@
    ! Stencil Flags
    INTEGER, PARAMETER :: LaxWendroff = 700
    INTEGER, PARAMETER :: LaxWendroffOverlap = 701
+   INTEGER, PARAMETER :: LaxWendroff27 = 702
+   INTEGER, PARAMETER :: LaxWendroff27Overlap = 703
    
    INTEGER, PARAMETER :: PeriodicTripole = 800
    INTEGER, PARAMETER :: Dipole = 801
