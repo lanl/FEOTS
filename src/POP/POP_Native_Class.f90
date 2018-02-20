@@ -199,7 +199,7 @@ CONTAINS
          ! convention for reporting the impulse fields.
          DO i = 1, this % nTracers
             WRITE( tracerid, '(I2.2)') i
-            CALL Check( nf90_def_var( ncid_PN, "ADV_3D_IRF_"//tracerid, NF90_DOUBLE,&
+            CALL Check( nf90_def_var( ncid_PN, "IRF_"//tracerid, NF90_BYTE,&
                                       (/ x_dimid_PN, y_dimid_PN, z_dimid_PN /), &
                                       tracer_varid_PN(i) ) )
          ENDDO
