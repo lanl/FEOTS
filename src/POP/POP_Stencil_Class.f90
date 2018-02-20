@@ -155,7 +155,39 @@ CONTAINS
          myStencil % relativeNeighbors(2,iStencil) = 0  ! y
          myStencil % relativeNeighbors(3,iStencil) = k  ! z
 
+      ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == Overlap )THEN
+         
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Overlap flavor.'
+         myStencil % nPoints = 125
+         ALLOCATE( myStencil % relativeNeighbors(1:3,1:125) )
 
+         DO k = -2, 2 ! Vertical Level
+           DO j = -2, 2
+             DO i = -2, 2
+
+               iStencil = iStencil + 1
+               myStencil % relativeNeighbors(1:3,iStencil) = (/ i,j,k /)
+              
+             ENDDO
+           ENDDO
+         ENDDO
+
+      ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == Normal )THEN
+         
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Normal flavor.'
+         myStencil % nPoints = 27
+         ALLOCATE( myStencil % relativeNeighbors(1:3,1:27) )
+
+         DO k = -1, 1 ! Vertical Level
+           DO j = -1, 1
+             DO i = -1, 1
+
+               iStencil = iStencil + 1
+               myStencil % relativeNeighbors(1:3,iStencil) = (/ i,j,k /)
+              
+             ENDDO
+           ENDDO
+         ENDDO
       ELSEIF( stencilFlag == LaxWendroff .AND. flavor == Lateral )THEN
          
          PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Lateral flavor.'
@@ -173,6 +205,22 @@ CONTAINS
            ENDDO
          ENDDO
 
+      ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == Lateral )THEN
+         
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Lateral flavor.'
+         myStencil % nPoints = 9
+         ALLOCATE( myStencil % relativeNeighbors(1:3,1:9) )
+
+         iStencil = 0
+         k = 0 ! Vertical Level
+         DO j = -1, 1
+           DO i = -1, 1
+
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,j,k /)
+            
+           ENDDO
+         ENDDO
       ELSEIF( stencilFlag == LaxWendroff .AND. flavor == LateralPlusCorners )THEN
          
          PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with LateralPlusCorners flavor.'
