@@ -616,6 +616,10 @@ END FUNCTION NewUnit
          intFlag = LaxWendroff27Overlap
       ELSEIF( LowerCase( TRIM(myChar) ) == 'laxwendroff27' )THEN
          intFlag = LaxWendroff27
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'upwind3overlap' )THEN
+         intFlag = Upwind3Overlap
+      ELSEIF( LowerCase( TRIM(myChar) ) == 'upwind3' )THEN
+         intFlag = Upwind3
       ELSEIF( LowerCase( TRIM(myChar) ) == 'periodictripole') THEN
          intFlag = PeriodicTripole
       ELSEIF( LowerCase( TRIM(myChar) ) == 'dipole') THEN

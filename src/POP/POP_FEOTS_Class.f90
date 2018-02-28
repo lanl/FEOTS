@@ -186,7 +186,11 @@ CONTAINS
       CALL this % params  % Build( )
 
       IF( this % params % StencilType == LaxWendroff )THEN
-         stencilSize = 7
+         stencilSize = 9
+      ELSEIF( this % params % StencilType == LaxWendroff27 )THEN
+         stencilSize = 27
+      ELSEIF( this % params % StencilType == Upwind3 )THEN
+         stencilSize = 13
       ELSE
          STOP 'Bad Stencil!'
       ENDIF
