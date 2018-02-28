@@ -80,13 +80,10 @@ CONTAINS
          myStencil % nPoints = 45
          ALLOCATE( myStencil % relativeNeighbors(1:3,1:45) )
 
-         k = -2 ! Vertical Level
-
          iStencil = 1
-         ! 
-         myStencil % relativeNeighbors(1,iStencil) = 0 ! x
-         myStencil % relativeNeighbors(2,iStencil) = 0  ! y
-         myStencil % relativeNeighbors(3,iStencil) = k  ! z
+
+         k = -2 ! Vertical Level
+         myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
 
          k = -1 ! Vertical Level
          DO j = -1, 1
@@ -120,10 +117,7 @@ CONTAINS
 
          k = 2 ! Vertical Level
          iStencil = iStencil + 1
-         ! 
-         myStencil % relativeNeighbors(1,iStencil) = 0 ! x
-         myStencil % relativeNeighbors(2,iStencil) = 0  ! y
-         myStencil % relativeNeighbors(3,iStencil) = k  ! z
+         myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
 
       ELSEIF( stencilFlag == LaxWendroff .AND. flavor == Normal )THEN
          
@@ -131,12 +125,10 @@ CONTAINS
          myStencil % nPoints = 11
          ALLOCATE( myStencil % relativeNeighbors(1:3,1:11) )
 
-         k = -1 ! Vertical Level
          iStencil = 1
-         ! 
-         myStencil % relativeNeighbors(1,iStencil) = 0 ! x
-         myStencil % relativeNeighbors(2,iStencil) = 0  ! y
-         myStencil % relativeNeighbors(3,iStencil) = k  ! z
+
+         k = -1 ! Vertical Level
+         myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
 
          k = 0 ! Vertical Level
          DO j = -1, 1
@@ -150,16 +142,15 @@ CONTAINS
 
          k = 1 ! Vertical Level
          iStencil = iStencil + 1
-         ! 
-         myStencil % relativeNeighbors(1,iStencil) = 0 ! x
-         myStencil % relativeNeighbors(2,iStencil) = 0  ! y
-         myStencil % relativeNeighbors(3,iStencil) = k  ! z
+         myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
 
       ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == Overlap )THEN
          
-         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Overlap flavor.'
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff 27-point stencil with Overlap flavor.'
          myStencil % nPoints = 125
          ALLOCATE( myStencil % relativeNeighbors(1:3,1:125) )
+
+         iStencil = 0
 
          DO k = -2, 2 ! Vertical Level
            DO j = -2, 2
@@ -174,9 +165,11 @@ CONTAINS
 
       ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == Normal )THEN
          
-         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Normal flavor.'
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff 27-point stencil with Normal flavor.'
          myStencil % nPoints = 27
          ALLOCATE( myStencil % relativeNeighbors(1:3,1:27) )
+
+         iStencil = 0
 
          DO k = -1, 1 ! Vertical Level
            DO j = -1, 1
@@ -188,6 +181,111 @@ CONTAINS
              ENDDO
            ENDDO
          ENDDO
+
+      ELSEIF( stencilFlag == Upwind3 .AND. flavor == Overlap )THEN
+         
+         PRINT*, 'S/R : Build_Stencil : Constructing 3rd-order upwind stencil with Overlap flavor.'
+         myStencil % nPoints = 73
+         ALLOCATE( myStencil % relativeNeighbors(1:3,1:73) )
+
+         iStencil = 0
+
+         DO k = -4, -3 ! Vertical Level
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
+         ENDDO
+
+         DO k = -2, -1 ! Vertical Level
+           DO j = -2, 2
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,j,k /)
+           ENDDO
+           DO i = -2, -1
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+           ENDDO
+           DO i = 1, 2
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+           ENDDO
+         ENDDO
+
+         k = 0 ! Vertical Level
+         DO j = -4, -3
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,j,k /)
+         ENDDO
+         DO i = -4, -3
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+         ENDDO
+         DO j = -2, 2
+           DO i = -2, 2
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,j,k /)
+           ENDDO
+         ENDDO
+         DO j = 3, 4
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,j,k /)
+         ENDDO
+         DO i = 3, 4
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+         ENDDO
+
+         DO k = 1, 2 ! Vertical Level
+           DO j = -2, 2
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,j,k /)
+           ENDDO
+           DO i = -2, -1
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+           ENDDO
+           DO i = 1, 2
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+           ENDDO
+         ENDDO
+
+         DO k = 3, 4 ! Vertical Level
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
+         ENDDO
+
+      ELSEIF( stencilFlag == Upwind3 .AND. flavor == Normal )THEN
+         
+         PRINT*, 'S/R : Build_Stencil : Constructing 3rd-order upwind stencil with Normal flavor.'
+         myStencil % nPoints = 13
+         ALLOCATE( myStencil % relativeNeighbors(1:3,1:13) )
+
+         iStencil = 0
+
+         DO k = -2, -1 ! Vertical Level
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
+         ENDDO
+
+         k = 0 ! Vertical Level
+         DO j = -2, 2
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,j,k /)
+         ENDDO
+         DO i = -2, -1
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+         ENDDO
+         DO i = 1, 2
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ i,0,k /)
+         ENDDO
+
+         DO k = 1, 2 ! Vertical Level
+           iStencil = iStencil + 1
+           myStencil % relativeNeighbors(1:3,iStencil) = (/ 0,0,k /)
+         ENDDO
+
       ELSEIF( stencilFlag == LaxWendroff .AND. flavor == Lateral )THEN
          
          PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Lateral flavor.'
