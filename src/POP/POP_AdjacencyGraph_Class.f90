@@ -89,7 +89,7 @@ CONTAINS
  ! ============================================================================ !
    IMPLICIT NONE
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   INTEGER, INTENT(in)                        :: nDOF
+   INTEGER(KIND=8), INTENT(in)                :: nDOF
    INTEGER, INTENT(in)                        :: maxValence
    
       myGraph % nDOF       = nDOF
@@ -139,7 +139,7 @@ CONTAINS
        CALL CPU_TIME( t1 )
 
        IF( .NOT.( ALLOCATED( myGraph % valence ) ) )THEN
-          CALL myGraph % Build( mesh % nDOF, relStencil % nPoints ) 
+          CALL myGraph % Build( INT(mesh % nDOF,8), relStencil % nPoints ) 
        ENDIF
 
 
@@ -195,7 +195,8 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    ! Local
-   INTEGER :: e1, e2, i, j
+   INTEGER(KIND=8) :: e1, e2
+   INTEGER :: i, j
    INTEGER :: c2(1:myGraph % maxValence)
    LOGICAL :: neednewcolor, colorfound
    REAL(prec) :: t1, t2
@@ -260,7 +261,8 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
-   INTEGER :: ndof, maxvalence, ncolors, i, j, fUnit
+   INTEGER(KIND=8) :: i, ndof
+   INTEGER         ::  maxvalence, ncolors, j, fUnit
 
       OPEN( UNIT = NewUnit(fUnit), &
             FILE = TRIM(filename), &
@@ -295,7 +297,8 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(in) :: myGraph
    CHARACTER(*), INTENT(in)                :: filename
    ! Local
-   INTEGER :: i, j, fUnit
+   INTEGER(KIND=8) :: i
+   INTEGER         :: j, fUnit
 
       OPEN( UNIT = NewUnit(fUnit), &
             FILE = TRIM(filename), &
@@ -329,9 +332,10 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
-   INTEGER :: ndof, maxvalence, ncolors, i, j, k, fUnit, datalength, reclength
-   INTEGER :: nIntPerChunk, nChunks, adr1, adr2
-   INTEGER, ALLOCATABLE :: localIOarray(:)
+   INTEGER(KIND=8) :: ndof
+   INTEGER         :: maxvalence, ncolors, j, reclength, fUnit
+   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
+   INTEGER(KIND=8), ALLOCATABLE :: localIOarray(:)
 
       OPEN( UNIT = NewUnit(fUnit), &
             FILE = TRIM(filename)//'.graph.hdr', &
@@ -430,9 +434,9 @@ CONTAINS
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    CHARACTER(*), INTENT(in)                   :: filename
    ! Local
-   INTEGER :: ndof, maxvalence, ncolors, j, fUnit, reclength
+   INTEGER :: j, fUnit, reclength
    INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
-   INTEGER, ALLOCATABLE :: localIOarray(:)
+   INTEGER(KIND=8), ALLOCATABLE :: localIOarray(:)
 
       OPEN( UNIT = NewUnit(fUnit), &
             FILE = TRIM(filename)//'.graph.hdr', &
@@ -483,7 +487,6 @@ CONTAINS
          PRINT*, '     Invalid INTEGER SIZE. STOPPING'
          STOP
       ENDIF
-      PRINT*, 'READ THIS LINE : ', nChunks, myGraph % ndof, datalength
       ALLOCATE( localIOarray(1:datalength) )
       localIOarray = 0   
    
@@ -512,7 +515,6 @@ CONTAINS
 
       PRINT*, TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
       DO i = 1, nChunks
-         PRINT*, "i , adr1, adr2 :", i, adr1, adr2
          adr1 = 1 + (i-1)*(nIntPerChunk)
          adr2 = adr1 + nIntPerChunk - 1
          WRITE( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)

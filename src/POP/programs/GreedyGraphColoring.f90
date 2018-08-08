@@ -79,17 +79,17 @@ IMPLICIT NONE
       CALL graph % GreedyColoring( )
 
 
-      CALL impulseFields % Build( mesh, graph % nColors )
-      CALL impulseFields % InitializeForNetCDFWrite( ImpulseField, &
-                                                     mesh, &
-                                                     'ImpulseFields.nc', &
-                                                     .TRUE. )
+    !  CALL impulseFields % Build( mesh, graph % nColors )
+    !  CALL impulseFields % InitializeForNetCDFWrite( ImpulseField, &
+    !                                                 mesh, &
+    !                                                 'ImpulseFields.nc', &
+    !                                                 .TRUE. )
 
-      CALL GraphToImpulse( graph, impulseFields, mesh )
+    !  CALL GraphToImpulse( graph, impulseFields, mesh )
 
-      CALL impulseFields % WriteTracerToNetCDF( mesh )
+    !  CALL impulseFields % WriteTracerToNetCDF( mesh )
  
-      CALL impulseFields % FinalizeNetCDF( )
+    !  CALL impulseFields % FinalizeNetCDF( )
 
       ! Write the graph to file for later use
       CALL graph % WriteGraphBinFile( TRIM(params % GraphFile) )
