@@ -207,15 +207,17 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DEALLOCATE( myRegion % ijkInRegion, &
-                  myRegion % dofInRegion, &
-                  myRegion % inverseDOFMap )
+      IF( ALLOCATED( myRegion % ijkInRegion ) ) DEALLOCATE( myRegion % ijkInRegion)
+      IF( ALLOCATED( myRegion % dofInRegion ) ) DEALLOCATE( myRegion % dofInRegion )
+      IF( ALLOCATED( myRegion % dofInRegion ) ) DEALLOCATE( myRegion % inverseDOFMap )
 
-      DO i = 1, myRegion % nMasks
-         DEALLOCATE( myRegion % bMap(i) % boundaryCells, &
-                     myRegion % bMap(i) % prescribedCells )
-      ENDDO
-      DEALLOCATE( myRegion % bMap )
+      IF( ALLOCATED( myRegion % bMap ) )THEN
+         DO i = 1, myRegion % nMasks
+            IF( ALLOCATED( myRegion % bMap(i) % boundaryCells ) ) DEALLOCATE( myRegion % bMap(i) % boundaryCells )
+            IF( ALLOCATED( myRegion % bMap(i) % prescribedCells ) )DEALLOCATE( myRegion % bMap(i) % prescribedCells )
+         ENDDO
+         DEALLOCATE( myRegion % bMap )
+      ENDIF
 
  END SUBROUTINE Trash_POP_Regional
 !
