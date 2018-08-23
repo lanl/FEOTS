@@ -336,6 +336,22 @@ CONTAINS
            ENDDO
          ENDDO
 
+      ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == LateralPlusCorners )THEN
+         
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with LateralPlusCorners flavor.'
+         myStencil % nPoints = 9
+         ALLOCATE( myStencil % relativeNeighbors(1:3,1:9) )
+
+         iStencil = 0
+         k = 0 ! Vertical Level
+         DO j = -1, 1
+           DO i = -1, 1
+
+             iStencil = iStencil + 1
+             myStencil % relativeNeighbors(1:3,iStencil) = (/ i,j,k /)
+            
+           ENDDO
+         ENDDO
 
       ELSE
          PRINT*, 'S/R : Build_Stencil : Invalid Stencil Flag! Stopping'
