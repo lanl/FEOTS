@@ -222,7 +222,8 @@ MODULE BinaryIO
    INTEGER, INTENT(out)     :: var(1:,1:)
    INTEGER, INTENT(out)     :: ioFlag
    ! Local
-   INTEGER :: fUnit, fileLength
+   INTEGER :: fUnit
+   INTEGER(KIND=8) :: fileLength
 
      fileLength = SIZEOF( var )
 

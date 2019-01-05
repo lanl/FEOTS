@@ -131,7 +131,6 @@ CONTAINS
 
       inputProblem = .FALSE.
       IF( TRIM(maskfile) /= '' )THEN
-      !IF( present(maskfield) )THEN
 
          CALL myRegion % LoadMaskField( mesh, maskfield, maskfile ) 
          ALLOCATE( myRegion % bMap(1:myRegion % nMasks) )
@@ -146,6 +145,7 @@ CONTAINS
          DEALLOCATE( maskfield )
 
       ELSE
+
          myRegion % nMasks = 1
          ALLOCATE( myRegion % bMap(1:myRegion % nMasks) )
 
@@ -764,7 +764,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j,1) /= 0 )THEN
+                 IF( mesh % tracerMask(i,j,k) == 1.0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
                  ENDIF
@@ -781,7 +781,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j,1) /= 0 )THEN
+                 IF( mesh % tracerMask(i,j,k) == 1.0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF
@@ -811,7 +811,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                 IF( mesh % tracerMask(i,j,k) == 1.0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF
@@ -875,7 +875,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                 IF( mesh % tracerMask(i,j,1) == 1.0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
                  ENDIF
@@ -892,7 +892,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                 IF( mesh % tracerMask(i,j,1) == 1.0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF
@@ -923,7 +923,7 @@ CONTAINS
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( mesh % tracerMask(i,j,k) /= 0.0_prec )THEN
+                 IF( mesh % tracerMask(i,j,1) == 1.0 )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
                  ENDIF

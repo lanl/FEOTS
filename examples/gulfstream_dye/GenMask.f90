@@ -62,6 +62,9 @@ IMPLICIT NONE
       ALLOCATE( maskField(1:mesh % nX,1:mesh % nY,1:nMasks) )
       ALLOCATE( regionMask(1:mesh % nX,1:mesh % nY) )
 
+      maskField  = 0
+      regionMask = 0
+
       OPEN( UNIT=NewUnit(fUnit),&
             FILE=TRIM(params % IRFListFile), &
             FORM='FORMATTED',&
@@ -84,23 +87,13 @@ IMPLICIT NONE
               
                IF( y >= params % south .AND. y <= params % north )THEN
 
-                  IF( regionMask(i,j) == 6  .OR. mesh % kmt(i,j) == 0 )THEN
+                  IF( regionMask(i,j) == 6 .OR. mesh % kmt(i,j) == 0 )THEN
  
-                  IF( iMask == 1 )THEN
-                      IF( y > params % north - 0.5_prec )THEN
+                      IF( y > params % north - 0.5_prec .OR. y < params % south + 0.5_prec)THEN
                          maskfield(i,j,iMask) = -1 ! Prescribed Points
                       ELSE
                          maskfield(i,j,iMask) = 1
                       ENDIF
-
-                  ELSE
-                      IF( ABS(x-279.5_prec) < 0.4_prec .AND. y >=22.0_prec .AND. y < 26.0_prec )THEN
-                         maskField(i,j,iMask) = -1
-                      ELSE
-                         maskField(i,j,iMask) = 1
-                      ENDIF
-
-                  ENDIF
 
                   ENDIF
 

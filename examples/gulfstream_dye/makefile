@@ -13,6 +13,17 @@ INITDIR=$(shell pwd)
         FEOTSInitialize \
         FEOTSDriver
 
+all :
+	make GreedyColoring
+	make GenerateMeshOnlyFile
+	make GenMask
+	make OperatorDiagnosis
+	make RegionalExtraction
+	make ExtractOceanState
+	make FEOTSInitialize
+	make FEOTSDriver
+
+
 GreedyColoring :
 	make --directory=${FEOTSDIR}/build/ GreedyColoring
 	mv ${FEOTSDIR}/build/GreedyColoring ./
@@ -44,6 +55,7 @@ FEOTSInitialize :
 FEOTSDriver :
 	make --directory=${FEOTSDIR}/build/ FEOTSDriver
 	mv ${FEOTSDIR}/build/FEOTSDriver ./
+
 
 clean :
 	make --directory=${FEOTSDIR}/build/ clean

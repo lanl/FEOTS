@@ -305,7 +305,7 @@ CONTAINS
 
       ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == Lateral )THEN
          
-         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with Lateral flavor.'
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff 27 point stencil with Lateral flavor.'
          myStencil % nPoints = 9
          ALLOCATE( myStencil % relativeNeighbors(1:3,1:9) )
 
@@ -338,7 +338,7 @@ CONTAINS
 
       ELSEIF( stencilFlag == LaxWendroff27 .AND. flavor == LateralPlusCorners )THEN
          
-         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff stencil with LateralPlusCorners flavor.'
+         PRINT*, 'S/R : Build_Stencil : Constructing Lax-Wendroff 27-point stencil with LateralPlusCorners flavor.'
          myStencil % nPoints = 9
          ALLOCATE( myStencil % relativeNeighbors(1:3,1:9) )
 

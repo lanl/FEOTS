@@ -1,6 +1,6 @@
 &POPMeshOptions
 MeshType    = 'PeriodicTripole',
-StencilType = 'LaxWendroff',
+StencilType = 'LaxWendroff27',
 Regional    = .TRUE.,
 MaskFile    = 'NorthAtlantic_mask.nc',
 south       = 0.0,
@@ -23,15 +23,15 @@ nOperatorsPerCycle = 1,
 /
 &FileOptions
 extractRegionalOperators  = .FALSE.,
-meshfile                  ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/POP_03deg_mesh.nc',
+meshfile                  ='/home/joe_fluidnumerics_com/feots_data/pop/POP_03deg_mesh.nc',
 regionalmeshfile          ='NorthAtlantic_mesh.nc', 
-graphfile                 ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/pop_03_periodic-tripole_laxwendroff',
-operatorBaseName          = 'pop_03_periodic-tripole',
-feotsOperatorDirectory    ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/Global/',
-regionalOperatorDirectory ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg/NorthAtlantic/',
-IRFListFile               = 'IRFList_5dayAvg.txt',
+graphfile                 ='/home/joe_fluidnumerics_com/feots_data/graph/pop_03_periodic-tripole_laxwendroff_27point',
+operatorBaseName          ='pop_03_periodic-tripole',
+feotsOperatorDirectory    ='/home/joe_fluidnumerics_com/feots_data/operators/Global/',
+regionalOperatorDirectory ='/home/joe_fluidnumerics_com/feots_data/operators/GulfStream/',
+IRFListFile               = 'IRF_FileList.txt',
 IRFStart                  = 1,
-nIRFFiles                 = 73,
+nIRFFiles                 = 1,
 /
 &JFNKOptions
 /
