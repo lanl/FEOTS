@@ -209,6 +209,7 @@ CONTAINS
             i = this % regionalMaps % dofToLocalIJK(1,m)
             j = this % regionalMaps % dofToLocalIJK(2,m)
             k = this % regionalMaps % dofToLocalIJK(3,m)
+            !PRINT*, m, i, j, k
             this % mesh % IJKtoDOF(i,j,k) = m
             this % mesh % DOFtoIJK(1,m)   = i
             this % mesh % DOFtoIJK(2,m)   = j
