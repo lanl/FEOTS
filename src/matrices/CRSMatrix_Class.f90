@@ -327,7 +327,7 @@ MODULE CRSMatrix_Class
    ! Local
    INTEGER :: regionMask(1:inputMatrix % nRows)
    INTEGER :: i, j, iEl, row, col, nInRow, e1, e2, jlocal
-   REAL(prec) :: rowdata(1:20)
+   REAL(prec) :: rowdata(1:40)
 
       IF( .NOT. ALLOCATED( subMatrix % A ) )THEN
          ! Allocate space for the submatrix
