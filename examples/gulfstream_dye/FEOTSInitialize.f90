@@ -10,9 +10,18 @@ USE POP_Params_Class
 IMPLICIT NONE
 
    TYPE( POP_FEOTS ) :: feots
+   INTEGER :: mpiErr, myRank, nProcs
 
+#ifdef HAVE_MPI
+      CALL MPI_INIT( mpiErr )
+      CALL MPI_COMM_RANK( MPI_COMM_WORLD, myRank, mpiErr )
+      CALL MPI_COMM_SIZE( MPI_COMM_WORLD, nProcs, mpiErr )
+#else
+      myRank = 0
+      nProcs = 1
+#endif
 
-      CALL feots % Build( myRank = 0, nProcs = 1 )
+      CALL feots % Build( myRank, nProcs )
 
       CALL InitialConditions( feots )
 
@@ -28,6 +37,9 @@ IMPLICIT NONE
       ! //////////////////////////////////////////////////////////////////////////////////////////////////////////////// !
 
       CALL feots % Trash( )
+#ifdef HAVE_MPI
+      CALL MPI_FINALIZE( mpiErr )
+#endif
 
 CONTAINS
 
@@ -61,13 +73,11 @@ CONTAINS
       ENDDO
 
       ! Set any prescribed cells here
-      DO iMask = 1, myFeots % regionalMaps % nMasks
-         DO iLayer = 1, myFeots % params % nLayers
-            iTracer = iLayer + (iMask-1)*(myFeots % params % nLayers)
+      DO iTracer = 1, myFeots % params % nTracers
 
-            DO m = 1, myFeots % regionalMaps % bMap(iMask) % nPCells
+            DO m = 1, myFeots % regionalMaps % bMap(iTracer) % nPCells
 
-               dof = myFeots % regionalMaps % bMap(iMask) % prescribedCells(m)
+               dof = myFeots % regionalMaps % bMap(iTracer) % prescribedCells(m)
                i   = myFeots % regionalMaps % dofToLocalIJK(1,dof)
                j   = myFeots % regionalMaps % dofToLocalIJK(2,dof)
                k   = myFeots % regionalMaps % dofToLocalIJK(3,dof)
@@ -99,7 +109,6 @@ CONTAINS
              !  ENDIF
                ! -----------------------------------------------------------------
             ENDDO
-          ENDDO
       ENDDO
 
  END SUBROUTINE InitialConditions
