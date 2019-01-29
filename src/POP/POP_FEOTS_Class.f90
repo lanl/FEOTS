@@ -351,6 +351,7 @@ CONTAINS
       ENDIF
 
       ! Allocates space for the solution storage on the native mesh 
+      PRINT*, 'nTracers ', this % params % nTracers
       CALL this % nativeSol % Build( this % mesh, this % params % nTracers )
       this % nativeSol % mask = 1.0_prec
       IF( this % params % Regional )THEN
@@ -539,9 +540,10 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank, nProcs
    ! Local
-   INTEGER :: mpiErr, i, theStat, recvReq
+   INTEGER :: mpiErr, i, recvReq
    INTEGER :: sendReq(1:nProcs-1)
    INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+   INTEGER :: theStat(MPI_STATUS_SIZE)
 
 
    IF( myRank == 0 )THEN
@@ -572,9 +574,10 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank, nProcs
    ! Local
-   INTEGER :: mpiErr, i, theStat, sendReq
+   INTEGER :: mpiErr, i, sendReq
    INTEGER :: recvReq(1:nProcs-1)
    INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+   INTEGER :: theStat(MPI_STATUS_SIZE)
 
 
    PRINT*, 'Rank',myRank,'Checking in at GatherSolution!'
@@ -609,9 +612,10 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank, nProcs
    ! Local
-   INTEGER :: mpiErr, i, theStat, recvReq
+   INTEGER :: mpiErr, i, recvReq
    INTEGER :: sendReq(1:nProcs-1)
    INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+   INTEGER :: theStat(MPI_STATUS_SIZE)
 
 
    IF( myRank == 0 )THEN
@@ -641,9 +645,10 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank, nProcs
    ! Local
-   INTEGER :: mpiErr, i, theStat, recvReq
+   INTEGER :: mpiErr, i, recvReq
    INTEGER :: sendReq(1:nProcs-1)
    INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+   INTEGER :: theStat(MPI_STATUS_SIZE)
 
 
    IF( myRank == 0 )THEN
