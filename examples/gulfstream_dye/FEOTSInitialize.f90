@@ -26,14 +26,16 @@ IMPLICIT NONE
       CALL InitialConditions( feots )
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
-      CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
-                                                         feots % mesh, &
-                                                         TRIM(feots % params % outputDirectory)//'Tracer.init.nc', &
-                                                         .TRUE. )
-      CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, 1 )
-      CALL feots % nativeSol % WriteSourceEtcNetCDF( feots % mesh )
-
-      CALL feots % nativeSol % FinalizeNetCDF( )
+      IF( myRank == 0 )THEN
+        CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
+                                                           feots % mesh, &
+                                                           TRIM(feots % params % outputDirectory)//'Tracer.init.nc', &
+                                                           .TRUE. )
+        CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, 1 )
+        CALL feots % nativeSol % WriteSourceEtcNetCDF( feots % mesh )
+  
+        CALL feots % nativeSol % FinalizeNetCDF( )
+      ENDIF
       ! //////////////////////////////////////////////////////////////////////////////////////////////////////////////// !
 
       CALL feots % Trash( )
