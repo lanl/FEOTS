@@ -961,33 +961,20 @@ CONTAINS
 
 
 
-#ifdef VERTICAL_DIFFUSION
-         !$OMP DO COLLAPSE(2)
-         DO m = 1, this % solution % nTracers
-            DO i = 1, this % solution % nDOF
-               this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
-            ENDDO
-         ENDDO
-         !$OMP ENDDO
-         CALL this % solution % VerticalDiffusion( this % params % dt )
-#else
-
-#ifdef VOLUME_CORRECTION
-         ! No vertical diffusion, but volume correction is on
          !$OMP DO
          DO i = 1, this % solution % nDOF
 
            vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
-           !PRINT*, (1.0_prec + this % solution % volume(i))/(1.0_prec + vol(i))
  
          ENDDO
          !$OMP ENDDO
+
+#ifdef VOLUME_CORRECTION
          !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
             DO i = 1, this % solution % nDOF
 
               this % solution % tracers(i,m)  = (1.0_prec/(1.0_prec+vol(i)))*( (1.0_prec + this % solution % volume(i) )*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
-            !  this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
 
             ENDDO
          ENDDO
@@ -1006,6 +993,8 @@ CONTAINS
 
 #endif
 
+#ifdef VERTICAL_DIFFUSION
+         CALL this % solution % VerticalDiffusion( this % params % dt )
 #endif
 
 #ifdef TIME_AVG
