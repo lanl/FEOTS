@@ -156,37 +156,16 @@ IMPLICIT NONE
         !$OMP PARALLEL
          DO iter = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
 
-!            PRINT*, myRank, iter
-#ifdef HAVE_OPENMP   
-            !$OMP MASTER
-            t1 = omp_get_wtime( )
-            !$OMP END MASTER
-#else
-            CALL CPU_TIME( t1 )
-#endif
-
-#ifdef HAVE_MPI
-         IF( myRank /= 0 )THEN
-#endif
-            CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
-#ifdef HAVE_MPI
-         ENDIF
-#endif
-            !$OMP MASTER
-
-#ifdef HAVE_OPENMP
-            t2 = omp_get_wtime( )
-#else
-            CALL CPU_TIME( t2 )
-#endif
-#ifdef HAVE_MPI
-            IF(myRank /= 0 )THEN
-#endif
-            PRINT*, 'ForwardStep wall time :', t2-t1
-            CALL feots % MapTracerFromDOF( )
-#ifdef HAVE_MPI
+            IF( myRank /= 0 .OR. nProcs == 0)THEN
+               CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
             ENDIF
 
+            !$OMP MASTER
+            IF(myRank /= 0  .OR. nProcs == 0)THEN
+               CALL feots % MapTracerFromDOF( )
+            ENDIF
+
+#ifdef HAVE_MPI
             CALL feots % GatherSolution( myRank, nProcs )
 #endif
             IF( myRank == 0 )THEN
@@ -200,6 +179,7 @@ IMPLICIT NONE
                CALL feots % nativeSol % FinalizeNetCDF( )
             ENDIF
             !$OMP END MASTER   
+
          ENDDO
          !$OMP END PARALLEL 
 #ifdef HAVE_MPI

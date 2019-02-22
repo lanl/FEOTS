@@ -89,7 +89,11 @@ IMPLICIT NONE
 
                   IF( regionMask(i,j) == 6 .OR. mesh % kmt(i,j) == 0 )THEN
  
-                      IF( y > params % north - 0.5_prec .OR. y < params % south + 0.5_prec)THEN
+
+                     
+                      IF( y > params % north - 0.5_prec .AND. iMask == 1 )THEN
+                         maskfield(i,j,iMask) = -1 ! Prescribed Points
+                      ELSEIF( y < params % south + 0.5_prec .AND. iMask == 2)THEN
                          maskfield(i,j,iMask) = -1 ! Prescribed Points
                       ELSE
                          maskfield(i,j,iMask) = 1
@@ -110,6 +114,7 @@ IMPLICIT NONE
       DEALLOCATE( regionMask, maskField )
 
 CONTAINS
+
  SUBROUTINE WriteMaskField( mesh, maskfield, maskfile )
 
    IMPLICIT NONE

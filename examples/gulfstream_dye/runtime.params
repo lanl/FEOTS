@@ -10,11 +10,11 @@ north       = 50.0,
 TracerModel      = 'DyeModel',
 WaterMassTagging = .FALSE.,
 dt               = 1080.0,
-timeStepScheme   = 'AB2', 
+timeStepScheme   = 'Euler', 
 runMode          = 'Forward',
-nStepsPerDump    = 1,
+nStepsPerDump    = 160,
 iterInit         = 0,
-nTimeSteps       = 1,
+nTimeSteps       = 40000,
 nTracers         = 2,
 /
 &OperatorOptions
@@ -22,7 +22,7 @@ operatorPeriod = 432000.0,
 nOperatorsPerCycle = 1,
 /
 &FileOptions
-extractRegionalOperators  = .FALSE.,
+extractRegionalOperators  = .TRUE.,
 meshfile                  ='/home/joe_fluidnumerics_com/feots_data/pop/POP_03deg_mesh.nc',
 regionalmeshfile          ='NorthAtlantic_mesh.nc', 
 graphfile                 ='/home/joe_fluidnumerics_com/feots_data/graph/pop_03_periodic-tripole_laxwendroff_27point',
@@ -31,7 +31,7 @@ feotsOperatorDirectory    ='/home/joe_fluidnumerics_com/feots_data/operators/Glo
 regionalOperatorDirectory ='/home/joe_fluidnumerics_com/feots_data/operators/GulfStream/',
 IRFListFile               = 'IRF_FileList.txt',
 IRFStart                  = 1,
-nIRFFiles                 = 1,
+nIRFFiles                 = 18,
 /
 &JFNKOptions
 /
