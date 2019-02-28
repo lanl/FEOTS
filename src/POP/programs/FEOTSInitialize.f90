@@ -50,8 +50,16 @@ IMPLICIT NONE
    CHARACTER(200)    :: thisIRFFile
    INTEGER           :: fUnit
 
+#ifdef HAVE_MPI
+      CALL MPI_INIT( mpiErr )
+      CALL MPI_COMM_RANK( MPI_COMM_WORLD, myRank, mpiErr )
+      CALL MPI_COMM_SIZE( MPI_COMM_WORLD, nProcs, mpiErr )
+#else
+      myRank = 0
+      nProcs = 1
+#endif
       !CALL feots % Build( myRank == 0, nProcs == 1 )
-      CALL feots % Build( 0, 1 )
+      CALL feots % Build( myRank, nProcs )
 
       CALL InitialConditions( feots )
 
@@ -67,6 +75,9 @@ IMPLICIT NONE
       ! //////////////////////////////////////////////////////////////////////////////////////////////////////////////// !
 
       CALL feots % Trash( )
+#ifdef HAVE_MPI
+      CALL MPI_FINALIZE( mpiErr )
+#endif
 
 CONTAINS
 

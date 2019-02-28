@@ -243,8 +243,10 @@ CONTAINS
       ENDIF
 
       IF( myRank /= 0 )THEN
+         ! Each rank is only responsible for one tracer
          this % params % nTracers = 1
       ENDIF
+
       IF( this % params % WaterMassTagging )THEN
          
          PRINT*, '   Enabling water mass tagging.'
@@ -302,10 +304,10 @@ CONTAINS
             CLOSE( fUnit )
          !ENDIF
       ENDIF
+
 #ifdef HAVE_MPI
       IF( this % params % TracerModel /= DyeModel )THEN
          PRINT*, 'MPI currently only configured for Passive Dye Model.'
-         PRINT*, 'Contact Joe at schoonover.numerics@gmail.com for help if needed.'
          STOP 'Stopping!'
       ENDIF
       IF( myRank == 0 )THEN
@@ -351,9 +353,9 @@ CONTAINS
       ENDIF
 
       ! Allocates space for the solution storage on the native mesh 
-      PRINT*, 'nTracers ', this % params % nTracers
       CALL this % nativeSol % Build( this % mesh, this % params % nTracers )
       this % nativeSol % mask = 1.0_prec
+
       IF( this % params % Regional )THEN
 
          IF( this % params % maskFile == '' )THEN
@@ -362,25 +364,27 @@ CONTAINS
      
                  DO iTracer = 1, this % params % nTracers
                        
-                    DO m = 1, this % regionalMaps % bMap(1) % nBCells
-                       i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(1) % boundaryCells(m))
-                       j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(1) % boundaryCells(m))
-                       k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(1) % boundaryCells(m))
+                    DO m = 1, this % regionalMaps % bMap(iTracer) % nBCells
+                       i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
+                       j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
+                       k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
                        this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
                     ENDDO
               ENDDO
   
            ELSE
-              iTracer = 1
-              DO m = 1, this % regionalMaps % bMap(1) % nBCells
-                 i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(1) % boundaryCells(m))
-                 j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(1) % boundaryCells(m))
-                 k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(1) % boundaryCells(m))
+              iTracer = myRank 
+              DO m = 1, this % regionalMaps % bMap(iTracer) % nBCells
+                 i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
+                 j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
+                 k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
                  this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
               ENDDO
   
            ENDIF
+
          ELSE
+
            IF( myRank == 0 )THEN
      
               DO iMask = 1, this % regionalMaps % nMasks
