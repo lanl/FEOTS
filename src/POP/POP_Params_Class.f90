@@ -225,12 +225,6 @@ USE ConstantsDictionary
          READ( UNIT = nUnit, NML = JFNKOptions )
       CLOSE( UNIT = nUnit ) 
 
-      ! Sanity check - PRINT the results of the namelist READ to screen
-     ! WRITE( UNIT = *, NML = POPMeshOptions )
-     ! WRITE( UNIT = *, NML = TracerModelOptions )
-     ! WRITE( UNIT = *, NML = FileOptions )
-     ! WRITE( UNIT = *, NML = JFNKOptions )
-
       ! Fill in the data structure
       thisParam % MeshType       = GetFlagForChar( TRIM(MeshType) )
       thisParam % StencilType    = GetFlagForChar( TRIM(StencilType) )

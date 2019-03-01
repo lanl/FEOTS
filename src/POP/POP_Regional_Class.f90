@@ -279,9 +279,17 @@ CONTAINS
             nInRegion = 0
             DO j = 1, mesh % nY
                DO i = 1, mesh % nX
+
+                  inRegion = .FALSE.
+                  DO m = 1, myRegion % nMasks
+                    IF( maskfield(i,j,m) /= 0 )THEN
+                      inRegion = .TRUE.
+                    ENDIF
+                  ENDDO
+
                   DO k = 1, mesh % KMT(i,j)
    
-                     IF( maskfield(i,j,1) /= 0 )THEN
+                     IF( inRegion )THEN
                          nInRegion = nInRegion + 1
                          mesh % tracerMask(i,j,k) = 1.0_prec
                          logicMask(i,j) = .TRUE.
@@ -299,9 +307,17 @@ CONTAINS
             nInRegion = 0 
             DO j = 1, mesh % nY
                DO i = 1, mesh % nX
+
+                  inRegion = .FALSE.
+                  DO m = 1, myRegion % nMasks
+                    IF( maskfield(i,j,m) /= 0 )THEN
+                      inRegion = .TRUE.
+                    ENDIF
+                  ENDDO
+
                   DO k = 1, mesh % KMT(i,j) 
    
-                     IF( maskfield(i,j,1) /= 0 )THEN
+                     IF( inRegion )THEN
                          nInRegion = nInRegion + 1
                          myRegion % ijkInRegion(1:3,nInRegion) = (/i, j, k/)
                          myRegion % dofInRegion(nInRegion) = mesh % ijkToDOF(i,j,k)
@@ -316,8 +332,8 @@ CONTAINS
    
          ! Determine the inverse map
          DO m = 1, myRegion % nCells
-            ! k is the local DOF, dofInRegion(k) is the globalDOF
-            myRegion % inverseDOFMap( myRegion % dofInRegion(k) ) = m
+            ! m is the local DOF, dofInRegion(m) is the globalDOF
+            myRegion % inverseDOFMap( myRegion % dofInRegion(m) ) = m
          ENDDO
          
          myRegion % south = MINVAL( mesh % tLat, logicMask )
@@ -506,7 +522,7 @@ CONTAINS
          ! Determine the inverse map
          DO m = 1, myRegion % nCells
             ! k is the local DOF, dofInRegion(k) is the globalDOF
-            myRegion % inverseDOFMap( myRegion % dofInRegion(k) ) = m
+            myRegion % inverseDOFMap( myRegion % dofInRegion(m) ) = m
          ENDDO
 
       ENDIF
@@ -743,8 +759,9 @@ CONTAINS
    INTEGER, INTENT(in), OPTIONAL        :: maskfield(1:mesh % nX, 1:mesh % nY,1:myRegion % nMasks)
    ! Local
    INTEGER :: minI, maxI, minJ, maxJ, i, j, k, m, ii, jj
-   INTEGER:: nXr, nYr
+   INTEGER:: nXr, nYr, maskid
    REAL(prec) :: minL
+   LOGICAL :: inRegion
 
       IF( present(maskfield) )THEN
          minI = MINVAL( myRegion % ijkInRegion(1,:) ) 
@@ -779,9 +796,17 @@ CONTAINS
                  regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
                  regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+
+                 inRegion = .FALSE.
+                 DO maskid = 1, myRegion % nMasks
+                    IF( maskfield(i,j,maskid) /= 0 )THEN
+                      inRegion = .TRUE.
+                    ENDIF
+                 ENDDO
+
                  DO k = 1, mesh % KMT(i,j)
                  regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j,1) /= 0 )THEN
+                 IF( inRegion )THEN
                     m = m+1
                     myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
                  ENDIF
@@ -796,12 +821,19 @@ CONTAINS
                  regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
                  regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+
+                 inRegion = .FALSE.
+                 DO maskid = 1, myRegion % nMasks
+                   IF( maskfield(i,j,maskid) /= 0 )THEN
+                     inRegion = .TRUE.
+                   ENDIF
+                 ENDDO
                  DO k = 1, mesh % KMT(i,j)
-                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j,1) /= 0 )THEN
-                    m = m+1
-                    myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
-                 ENDIF
+                   regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                   IF( inRegion )THEN
+                      m = m+1
+                      myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
+                   ENDIF
                  ENDDO
               ENDDO
    
@@ -826,12 +858,18 @@ CONTAINS
                  regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
                  regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+                 inRegion = .FALSE.
+                 DO maskid = 1, myRegion % nMasks
+                   IF( maskfield(i,j,maskid) /= 0 )THEN
+                     inRegion = .TRUE.
+                   ENDIF
+                 ENDDO
                  DO k = 1, mesh % KMT(i,j)
-                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( maskfield(i,j,1) /= 0 )THEN
-                    m = m+1
-                    myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
-                 ENDIF
+                   regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                   IF( inRegion )THEN
+                     m = m+1
+                     myRegion % dofToLocalIJK(1:3,m) = (/ ii,jj,k /)
+                   ENDIF
                  ENDDO
               ENDDO
    
@@ -890,12 +928,14 @@ CONTAINS
                  regionalMesh % dYt(ii,jj)   = mesh % dYt(i,j)
                  regionalMesh % tArea(ii,jj) = mesh % tArea(i,j)
                  regionalMesh % KMT(ii,jj)   = mesh % KMT(i,j)
+
+
                  DO k = 1, mesh % KMT(i,j)
-                 regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
-                 IF( mesh % tracerMask(i,j,1) /= 0.0_prec )THEN
-                    m = m+1
-                    myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
-                 ENDIF
+                   regionalMesh % tracerMask(ii,jj,k)  = mesh % tracerMask(i,j,k)
+                   IF( mesh % tracerMask(i,j,1) /= 0.0_prec )THEN
+                      m = m+1
+                      myRegion % dofToLocalIJK(1:3,m) = (/ ii, jj, k /)
+                   ENDIF
                  ENDDO
               ENDDO
    

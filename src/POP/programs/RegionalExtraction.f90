@@ -56,7 +56,8 @@ IMPLICIT NONE
    TYPE( Stencil )      :: modelstencil, advStencil
    TYPE( POP_Regional ) :: region
    
-   INTEGER        :: fileID, nGentries, nRentries
+   INTEGER        :: fileID
+   INTEGER     ::  nGentries, nRentries
    !INTEGER, ALLOCATABLE :: maskfield(:,:)
    CHARACTER(5)   :: fileIDChar
    CHARACTER(400) :: crsFile
@@ -65,25 +66,12 @@ IMPLICIT NONE
 
       CALL globalMesh % Load( TRIM( params % meshFile ) )
 
-     ! ALLOCATE( maskfield(1:globalmesh % nX, 1:globalmesh % nY) )
       CALL modelstencil % Build( stencilFlag = params % stencilType, &
                                  flavor      = LateralPlusCorners )
 
-     ! IF( TRIM(params % maskfile) == '' )THEN
-         CALL region % Build( globalMesh, regionalMesh, modelstencil, params % meshType, &
-                              params % south, params % north, &
-                              params % east, params % west, params % maskfile ) 
-!         CALL region % GenerateRegionalMesh( globalMesh, regionalMesh, params % maskfile )
-     ! ELSE
-
-     !    PRINT*, ' Using Mask file ', TRIM(params % maskFile)
-     !    CALL region % LoadMaskField( globalmesh, maskfield, params % maskfile )
-
-     !    CALL region % Build( globalMesh, modelstencil, params % meshType, &
-     !                         params % south, params % north, &
-     !                         params % east, params % west, maskfield ) 
-     !    CALL region % GenerateRegionalMesh( globalMesh, regionalMesh, maskfield )
-     ! ENDIF
+      CALL region % Build( globalMesh, regionalMesh, modelstencil, params % meshType, &
+                           params % south, params % north, &
+                           params % east, params % west, params % maskfile ) 
 
       CALL regionalMesh % WriteNetCDF( TRIM(params % regionalMeshFile) )
       ! Write the regional data structure to a pickup file for later use

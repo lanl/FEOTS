@@ -366,7 +366,6 @@ MODULE TracerStorage_Class
 
  END SUBROUTINE CalculateTendency_TracerStorage
 !
-#ifdef VERTICAL_DIFFUSION
  FUNCTION DiffusiveAction( diffusiveOperator, tracerField, volume, dt, nDOF ) RESULT( diffAction )
    IMPLICIT NONE
    TYPE(CRSMatrix) :: diffusiveOperator
@@ -374,6 +373,7 @@ MODULE TracerStorage_Class
    REAL(prec)      :: tracerField(1:nDOF)
    REAL(prec)      :: volume(1:nDOF)
    REAL(prec)      :: dt
+   REAL(prec)      :: diffAction(1:nDOF)
    ! Local 
    INTEGER :: i
 
@@ -381,10 +381,9 @@ MODULE TracerStorage_Class
         diffAction(i) = ( 1.0_prec - volume(i) )*tracerField(i)
      ENDDO
 
-     diffAction = diffAction - dt*diffusiveOperators % MatVecMul( tracerField(1:nDOF) )
+     diffAction = diffAction - dt*diffusiveOperator % MatVecMul( tracerField(1:nDOF) )
 
  END FUNCTION DiffusiveAction
-#endif
 !
  FUNCTION PassiveDyeModel( nOperators, nTracers, nDOF,transportOperators, source, rfac, tracerfield ) RESULT( tendency )
  ! PassiveDyeModel
@@ -512,7 +511,7 @@ MODULE TracerStorage_Class
    REAL(prec)        :: fieldOfOnes(1:nDOF)
 
       fieldOfOnes = 1.0_prec
-      tendency = advectiveOperator % MatVecMul( fieldOfOnes )
+      tendency = -advectiveOperator % MatVecMul( fieldOfOnes )
 
  END FUNCTION VolumeCorrectionTendency
 

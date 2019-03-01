@@ -76,6 +76,7 @@ IMPLICIT NONE
       CLOSE(fUnit)
       CALL LoadRegionMask( mesh, regionMask, TRIM(irfFile) )
 
+
       DO iMask = 1, nMasks
 
          DO j = 1, mesh % nY
@@ -87,16 +88,24 @@ IMPLICIT NONE
               
                IF( y >= params % south .AND. y <= params % north )THEN
 
+                  ! We set kmt=0 points inside the mask so that points
+                  ! that abut topography are not accidentally set as boundary
+                  ! points
                   IF( regionMask(i,j) == 6 .OR. mesh % kmt(i,j) == 0 )THEN
  
+                      maskfield(i,j,iMask) = 1
+                      IF( iMask == 1 )THEN
+  
+                        IF( y >= params % north - 1.0_prec )THEN
+                          maskfield(i,j,iMask) = -1 ! Prescribed Points
+                        ENDIF
+ 
+                      ELSEIF( iMask == 2 )THEN
 
-                     
-                      IF( y > params % north - 0.5_prec .AND. iMask == 1 )THEN
-                         maskfield(i,j,iMask) = -1 ! Prescribed Points
-                      ELSEIF( y < params % south + 0.5_prec .AND. iMask == 2)THEN
-                         maskfield(i,j,iMask) = -1 ! Prescribed Points
-                      ELSE
-                         maskfield(i,j,iMask) = 1
+                        IF( y <= params % south + 1.0_prec)THEN
+                          maskfield(i,j,iMask) = -1 ! Prescribed Points
+                        ENDIF
+
                       ENDIF
 
                   ENDIF
