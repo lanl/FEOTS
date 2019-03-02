@@ -17,5 +17,5 @@ export MPI=yes
 # Model Settings
 export TIME_AVG=no
 export VERTICAL_DIFFUSION=no
-export VOLUME_CORRECTION=no
+export VOLUME_CORRECTION=yes
 
