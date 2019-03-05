@@ -6,16 +6,16 @@ export DEBUG=no
 export PROFILE=no
 
 # NetCDF
-export NCLIB=
-export NCINC=
+export NCLIB="-L/apps/packages//hdf5/1.10.3/parallel/openmpi/3.1.2/gcc/7.4.0/lib -lhdf5_fortran -lhdf5 -lhdf5_hl -L/apps/packages//netcdf/4.6.1/parallel/openmpi/3.1.2/gcc/7.4.0/lib -lnetcdff -lnetcdf -lcurl"
+export NCINC="-I/apps/packages//hdf5/1.10.3/parallel/openmpi/3.1.2/gcc/7.4.0/include -I/apps/packages//netcdf/4.6.1/parallel/openmpi/3.1.2/gcc/7.4.0/include"
 
 # Parallel setting
-export OMP=no
-export MPI=no
+export OMP=yes
+export MPI=yes
 
 
 # Model Settings
 export TIME_AVG=no
 export VERTICAL_DIFFUSION=no
-export VOLUME_CORRECTION=no
+export VOLUME_CORRECTION=yes
 
