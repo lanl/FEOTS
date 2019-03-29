@@ -347,21 +347,21 @@ MODULE TracerStorage_Class
       !$OMP END DO
 
       volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
-      IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
-         !$OMP DO
-         DO i = 1, thisStorage % nDOF
-            volcorrection(i) = volcorrection(i)*thisStorage % mask(i,1)
-         ENDDO
-         !$OMP ENDDO
-      ELSEIF( modelflag == RadioNuclideModel )THEN
+     ! IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
+     !    !$OMP DO
+     !    DO i = 1, thisStorage % nDOF
+     !       volcorrection(i) = volcorrection(i)*thisStorage % mask(i,1)
+     !    ENDDO
+     !    !$OMP ENDDO
+     ! ELSEIF( modelflag == RadioNuclideModel )THEN
 
-         !$OMP DO
-         DO i = 1, thisStorage % nDOF
-            volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
-         ENDDO
-         !$OMP ENDDO
+     !    !$OMP DO
+     !    DO i = 1, thisStorage % nDOF
+     !       volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
+     !    ENDDO
+     !    !$OMP ENDDO
 
-      ENDIF
+     ! ENDIF
 
 
  END SUBROUTINE CalculateTendency_TracerStorage
