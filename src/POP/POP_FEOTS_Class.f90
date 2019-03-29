@@ -579,8 +579,8 @@ CONTAINS
    INTEGER, INTENT(in)               :: myRank, nProcs
    ! Local
    INTEGER :: mpiErr, i, sendReq
-   INTEGER :: recvReq(1:nProcs-1)
-   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
+   INTEGER :: recvReq(1:nProcs)
+   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs)
    INTEGER :: theStat(MPI_STATUS_SIZE)
 
 
@@ -594,7 +594,12 @@ CONTAINS
                          i, 0, MPI_COMM_WORLD, &
                          recvReq(i), mpiErr )
       ENDDO
-      CALL MPI_WAITALL( nProcs-1, recvReq, theStats, mpiErr )
+      CALL MPI_IRECV( this % nativeSol % volume, &
+                         this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
+                         MPI_DOUBLE, &
+                         1, 1, MPI_COMM_WORLD, &
+                         recvReq(this % params % nTracers+1), mpiErr )
+      CALL MPI_WAITALL( nProcs, recvReq, theStats, mpiErr )
    ELSE
 
       CALL MPI_ISEND( this % nativeSol % tracer(:,:,:,1), &
@@ -603,6 +608,15 @@ CONTAINS
                      0, 0, MPI_COMM_WORLD, &
                      sendReq, mpiErr )
       CALL MPI_WAIT( sendReq, theStat, mpiErr )
+
+      IF( myRank == 1 )THEN
+        CALL MPI_ISEND( this % nativeSol % volume, &
+                       this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
+                       MPI_DOUBLE, &
+                       0, 1, MPI_COMM_WORLD, &
+                       sendReq, mpiErr )
+        CALL MPI_WAIT( sendReq, theStat, mpiErr )
+      ENDIF
    ENDIF
 
  
@@ -789,6 +803,8 @@ CONTAINS
       ENDDO
 #endif
       this % nativeSol % volume = this % mesh % MapFromDOFtoIJK( this % solution % volume )
+      PRINT*, 'MINMAX NATIVE VOL', MINVAL( this % nativeSol % volume ), MAXVAL( this % nativeSol % volume )
+      PRINT*, 'MINMAX VOL', MINVAL( this % solution % volume ), MAXVAL( this % solution % volume )
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
@@ -970,12 +986,19 @@ CONTAINS
          ENDDO
          !$OMP ENDDO
 
+         !$OMP BARRIER
+
 #ifdef VOLUME_CORRECTION
+
          !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
             DO i = 1, this % solution % nDOF
 
-              this % solution % tracers(i,m)  = (1.0_prec/(1.0_prec+vol(i)))*( (1.0_prec + this % solution % volume(i) )*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
+              this % solution % tracers(i,m)  = (1.0_prec-this % solution % mask(i,m))*this % solution % tracers(i,m)+&
+                                                this % solution % mask(i,m)*&
+                                                  (1.0_prec/(1.0_prec+vol(i)))*( &
+                                                    (1.0_prec + this % solution % volume(i) )*this % solution % tracers(i,m) +&
+                                                    this % params % dt*dCdt(i,m) )
 
             ENDDO
          ENDDO
@@ -993,6 +1016,7 @@ CONTAINS
          !$OMP ENDDO
 
 #endif
+         !$OMP BARRIER
 
 #ifdef VERTICAL_DIFFUSION
          CALL this % solution % VerticalDiffusion( this % params % dt )
@@ -1007,12 +1031,15 @@ CONTAINS
          ENDDO
          !$OMP ENDDO
 #endif
+         !$OMP BARRIER
 
          !$OMP DO
          DO i = 1, this % solution % nDOF
             this % solution % volume(i) = vol(i)
          ENDDO
          !$OMP ENDDO
+
+         !$OMP BARRIER
 
 
  END SUBROUTINE StepForward

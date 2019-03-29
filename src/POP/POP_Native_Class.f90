@@ -682,6 +682,7 @@ CONTAINS
                                    volume_varid_pn, &
                                    this % volume, &
                                    start, recCount ) )      
+      PRINT*, 'MINMAX NATIVE VOL -NETCDF', MINVAL( this % volume ), MAXVAL( this % volume )
 
  END SUBROUTINE WriteNETCDFRecord_POP_Native
 !

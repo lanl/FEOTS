@@ -153,14 +153,14 @@ IMPLICIT NONE
          ! //// Forward Mode //// !
          PRINT*, '  Starting ForwardStep'
    
-        !$OMP PARALLEL
          DO iter = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
 
+            !$OMP PARALLEL
             IF( myRank /= 0 .OR. nProcs == 0)THEN
                CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
             ENDIF
+            !$OMP END PARALLEL 
 
-            !$OMP MASTER
             IF(myRank /= 0  .OR. nProcs == 0)THEN
                CALL feots % MapTracerFromDOF( )
             ENDIF
@@ -178,10 +178,8 @@ IMPLICIT NONE
                CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
             ENDIF
-            !$OMP END MASTER   
 
          ENDDO
-         !$OMP END PARALLEL 
 #ifdef HAVE_MPI
          CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
 #endif
