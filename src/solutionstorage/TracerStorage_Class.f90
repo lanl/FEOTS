@@ -302,7 +302,8 @@ MODULE TracerStorage_Class
    REAL(prec), INTENT(in)             :: t
    INTEGER, INTENT(in)                :: modelflag
    ! Local
-   INTEGER :: itracer, i
+   INTEGER    :: itracer, i
+   REAL(prec) :: fieldOfOnes(1:thisStorage % nDOF)
 
 
       IF( modelflag == DyeModel )THEN
@@ -345,24 +346,36 @@ MODULE TracerStorage_Class
          ENDDO
       ENDDO
       !$OMP END DO
+      
+      !$OMP BARRIER
 
+
+      ! Calculate the cell volume update
       volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
-     ! IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
-     !    !$OMP DO
-     !    DO i = 1, thisStorage % nDOF
-     !       volcorrection(i) = volcorrection(i)*thisStorage % mask(i,1)
-     !    ENDDO
-     !    !$OMP ENDDO
-     ! ELSEIF( modelflag == RadioNuclideModel )THEN
 
-     !    !$OMP DO
-     !    DO i = 1, thisStorage % nDOF
-     !       volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
-     !    ENDDO
-     !    !$OMP ENDDO
+      fieldOfOnes    = 1.0_prec
+      volCorrection  = -thisStorage % transportOps(1) % MatVecMul( fieldOfOnes )
+      !$OMP BARRIER
 
-     ! ENDIF
+      IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
+         !$OMP DO
+         DO iTracer = 1, thisStorage % nTracers
+           DO i = 1, thisStorage % nDOF
+            volcorrection(i) = volcorrection(i)*thisStorage % mask(i,iTracer)
+           ENDDO
+         ENDDO
+         !$OMP ENDDO
+      ELSEIF( modelflag == RadioNuclideModel )THEN
 
+         !$OMP DO
+         DO i = 1, thisStorage % nDOF
+            volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
+         ENDDO
+         !$OMP ENDDO
+
+      ENDIF
+
+      !$OMP BARRIER
 
  END SUBROUTINE CalculateTendency_TracerStorage
 !

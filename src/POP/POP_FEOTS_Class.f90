@@ -584,6 +584,7 @@ CONTAINS
    INTEGER :: theStat(MPI_STATUS_SIZE)
 
 
+   PRINT*, 'RANK Checking in :',myRank
       
    IF( myRank == 0 )THEN
 
@@ -618,6 +619,8 @@ CONTAINS
         CALL MPI_WAIT( sendReq, theStat, mpiErr )
       ENDIF
    ENDIF
+
+   PRINT*, 'RANK Checking out :',myRank
 
  
  END SUBROUTINE GatherSolution_POP_FEOTS

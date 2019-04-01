@@ -179,10 +179,11 @@ IMPLICIT NONE
                CALL feots % nativeSol % FinalizeNetCDF( )
             ENDIF
 
-         ENDDO
 #ifdef HAVE_MPI
-         CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
+            CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
 #endif
+
+         ENDDO
 
       ELSEIF( feots % params % runMode == EQUILIBRIUM )THEN
 
