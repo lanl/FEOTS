@@ -302,7 +302,7 @@ MODULE TracerStorage_Class
    REAL(prec), INTENT(in)             :: t
    INTEGER, INTENT(in)                :: modelflag
    ! Local
-   INTEGER    :: itracer, i
+   INTEGER    :: itracer, i, row, iel
    REAL(prec) :: fieldOfOnes(1:thisStorage % nDOF)
 
 
@@ -339,43 +339,41 @@ MODULE TracerStorage_Class
          PRINT*,' Stopping! '
          STOP
       ENDIF
-      !$OMP DO COLLAPSE(2)
       DO itracer = 1, thisStorage % nTracers
+         !$OMP DO
          DO i = 1, thisStorage % nDOF
             tendency(i,itracer) = tendency(i,itracer)*thisStorage % mask(i,itracer)
          ENDDO
+         !$OMP ENDDO
+      ENDDO
+      ! Calculate the cell volume update
+      !$OMP DO  
+      DO row = 1, thisStorage % transportOps(1) % nRows
+         volCorrection(row) = 0.0_prec
+         DO iel = thisStorage % transportOps(1) % rowBounds(1,row), thisStorage % transportOps(1) % rowBounds(2,row)
+            volCorrection(row) = volCorrection(row) + thisStorage % transportOps(1) % A(iel)
+         ENDDO
       ENDDO
       !$OMP END DO
-      
-      !$OMP BARRIER
-
-
-      ! Calculate the cell volume update
-      volCorrection = VolumeCorrectionTendency( thisStorage % nDOF, thisStorage % transportOps(1) )
-
-      fieldOfOnes    = 1.0_prec
-      volCorrection  = -thisStorage % transportOps(1) % MatVecMul( fieldOfOnes )
-      !$OMP BARRIER
 
       IF( modelflag == DyeModel .OR. modelflag == SettlingModel )THEN
-         !$OMP DO
          DO iTracer = 1, thisStorage % nTracers
+           !$OMP DO  
            DO i = 1, thisStorage % nDOF
             volcorrection(i) = volcorrection(i)*thisStorage % mask(i,iTracer)
            ENDDO
+           !$OMP END DO
          ENDDO
-         !$OMP ENDDO
       ELSEIF( modelflag == RadioNuclideModel )THEN
 
-         !$OMP DO
+         !$OMP DO  
          DO i = 1, thisStorage % nDOF
             volcorrection(i) = volcorrection(i)*thisStorage % mask(i,2)
          ENDDO
-         !$OMP ENDDO
+         !$OMP END DO
 
       ENDIF
 
-      !$OMP BARRIER
 
  END SUBROUTINE CalculateTendency_TracerStorage
 !
@@ -394,7 +392,9 @@ MODULE TracerStorage_Class
         diffAction(i) = ( 1.0_prec - volume(i) )*tracerField(i)
      ENDDO
 
+     !$OMP PARALLEL
      diffAction = diffAction - dt*diffusiveOperator % MatVecMul( tracerField(1:nDOF) )
+     !$OMP END PARALLEL
 
  END FUNCTION DiffusiveAction
 !
@@ -415,14 +415,20 @@ MODULE TracerStorage_Class
    REAL(prec)      :: rfac(1:nDOF, 1:nTracers)
    REAL(prec)      :: tendency(1:nDOF, 1:nTracers)
    ! LOCAL
-   INTEGER         :: itracer, i
+   INTEGER         :: itracer, i, row, iel
 
       ! Calculate the contribution from the transport operator
       DO itracer = 1, nTracers ! Only the passive tracers
 
          ! Advect the tracer (vertical diffusion is done implicitly)
-         tendency(1:nDOF,itracer) = transportOperators(1) % MatVecMul( tracerfield(1:nDOF,iTracer) ) 
-         !$OMP BARRIER
+         !$OMP DO
+         DO row = 1, transportOperators(1) % nRows
+            tendency(row,itracer) = 0.0_prec
+            DO iel = transportOperators(1) % rowBounds(1,row), transportOperators(1) % rowBounds(2,row)
+               tendency(row,itracer) = tendency(row,itracer) + transportOperators(1) % A(iel)*tracerfield(transportOperators(1) % col(iel),itracer)
+            ENDDO
+         ENDDO
+         !$OMP ENDDO
 
          ! Add in the relaxation term
          !$OMP DO
@@ -431,7 +437,7 @@ MODULE TracerStorage_Class
                                       (source(i,itracer) - tracerfield(i,iTracer))*&
                                        rFac(i,itracer)
          ENDDO
-         !$OMP END DO
+         !$OMP ENDDO
 
       ENDDO
      
@@ -454,8 +460,14 @@ MODULE TracerStorage_Class
 
       DO iTracer = 1, ntracers
          ! Advect and settle the particulate field
+
+         !$OMP PARALLEL
          tendency(:,itracer) = transportOperators(1) % MatVecMul( tracerfield(:,itracer) ) 
+         !$OMP ENDPARALLEL
+
+         !$OMP PARALLEL
          tendency(:,itracer) = tendency(:,itracer) + transportOperators(3) % MatVecMul( tracerfield(:,itracer) ) 
+         !$OMP ENDPARALLEL
 
          tendency(1:nDOF,itracer) = tendency(1:nDOF,itracer) + &
                                    (source(1:nDOF,itracer) - tracerfield(1:nDOF,iTracer))*&
@@ -514,18 +526,4 @@ MODULE TracerStorage_Class
       
  END FUNCTION ParticulateRadioNuclideModel
 !
- FUNCTION VolumeCorrectionTendency( nDOF, advectiveOperator ) RESULT( tendency )
-
-   IMPLICIT NONE
-   INTEGER           :: nDOF
-   TYPE( CRSMatrix ) :: advectiveOperator
-   REAL(prec)        :: tendency(1:nDOF)
-   ! Local
-   REAL(prec)        :: fieldOfOnes(1:nDOF)
-
-      fieldOfOnes = 1.0_prec
-      tendency = -advectiveOperator % MatVecMul( fieldOfOnes )
-
- END FUNCTION VolumeCorrectionTendency
-
 END MODULE TracerStorage_Class

@@ -938,6 +938,7 @@ CONTAINS
 
       ENDIF
       !$OMP END MASTER
+      !$OMP BARRIER
 
  END SUBROUTINE LoadNewStates_POP_FEOTS
 !
@@ -980,61 +981,60 @@ CONTAINS
    REAL(prec) :: vol(1:this % solution % nDOF)
 
 
-
-         !$OMP DO
+        
+        !$OMP DO
          DO i = 1, this % solution % nDOF
 
            vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
  
          ENDDO
-         !$OMP ENDDO
-
-         !$OMP BARRIER
+        !$OMP ENDDO
 
 #ifdef VOLUME_CORRECTION
 
-         !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
+            !$OMP DO
             DO i = 1, this % solution % nDOF
+
+              !this % solution % tracers(i,m)  = (1.0_prec-this % solution % mask(i,m))*this % solution % tracers(i,m)+&
+              !                                  this % solution % mask(i,m)*&
+              !                                  ( this % solution % tracers(i,m) + (1.0_prec/(1.0_prec+vol(i)))*this % params % dt*dCdt(i,m) )
+
 
               this % solution % tracers(i,m)  = (1.0_prec-this % solution % mask(i,m))*this % solution % tracers(i,m)+&
                                                 this % solution % mask(i,m)*&
-                                                  (1.0_prec/(1.0_prec+vol(i)))*( &
-                                                    (1.0_prec + this % solution % volume(i) )*this % solution % tracers(i,m) +&
-                                                    this % params % dt*dCdt(i,m) )
+                                                (1.0_prec/(1.0_prec+vol(i)))*( (1.0_prec+this % solution %volume(i))*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
 
             ENDDO
+            !$OMP ENDDO
          ENDDO
-         !$OMP ENDDO
 
 #else
-         !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
+            !$OMP DO
             DO i = 1, this % solution % nDOF
 
               this % solution % tracers(i,m)  = this % solution % tracers(i,m) + this % params % dt*dCdt(i,m)
 
             ENDDO
+            !$OMP ENDDO
          ENDDO
-         !$OMP ENDDO
 
 #endif
-         !$OMP BARRIER
 
 #ifdef VERTICAL_DIFFUSION
          CALL this % solution % VerticalDiffusion( this % params % dt )
 #endif
 
 #ifdef TIME_AVG
-         !$OMP DO COLLAPSE(2)
          DO m = 1, this % solution % nTracers
+            !$OMP DO
             DO i = 1, this % solution % nDOF
                this % tAvgSolution % tracers(i,m) = this % tAvgSolution % tracers(i,m) + this % solution % tracers(i,m)/REAL(nTimeSteps,prec)
             ENDDO
+            !$OMP ENDDO
          ENDDO
-         !$OMP ENDDO
 #endif
-         !$OMP BARRIER
 
          !$OMP DO
          DO i = 1, this % solution % nDOF
@@ -1043,7 +1043,6 @@ CONTAINS
          !$OMP ENDDO
 
          !$OMP BARRIER
-
 
  END SUBROUTINE StepForward
 !
@@ -1079,15 +1078,14 @@ CONTAINS
 
          CALL this % LoadNewStates( tn, myRank )
 
-         !$OMP BARRIER
          CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
-         !$OMP BARRIER
 
          CALL this % StepForward( dCdt, dVdt, nTimeSteps )
 
          !$OMP MASTER
          tn = tn + this % params % dt
          !$OMP END MASTER
+
 
       ENDDO
    
