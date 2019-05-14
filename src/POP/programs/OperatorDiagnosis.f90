@@ -216,23 +216,23 @@ IMPLICIT NONE
          nval_diff    = 0
          columns_diff = 0
          opdata_diff  = 0.0_prec
-         DO col = 1, mesh % nDOF
+         DO row = 1, mesh % nDOF
 
-            i = mesh % dofToIJK(1,col)
-            j = mesh % dofToIJK(2,col)
-            k = mesh % dofToIJK(3,col)
+            i = mesh % dofToIJK(1,row)
+            j = mesh % dofToIJK(2,row)
+            k = mesh % dofToIJK(3,row)
 
             IF( k <= mesh % KMT(i,j) )THEN
 
             IF( k == 1 )THEN ! At the surface, the "no-diffusive-flux" condition is used
                 ! cell k coefficient/diagonal
-                row = col
+                col = row
                 nval_diff(row)                   = nval_diff(row) + 1
                 opdata_diff(row,nval_diff(row))  = -irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
                 columns_diff(row,nval_diff(row)) =  col
 
                 ! cell k+1
-                row = mesh % ijkToDOF(i,j,k+1)
+                col = mesh % ijkToDOF(i,j,k+1)
                 nval_diff(row)                   = nval_diff(row) + 1
                 opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
                 columns_diff(row,nval_diff(row)) =  col
@@ -240,13 +240,13 @@ IMPLICIT NONE
             ELSEIF( k == mesh % KMT(i,j) )THEN !At the bottom-- no diffusive flux
 
                 ! cell k-1
-                row = mesh % ijkToDOF(i,j,k-1)
+                col = mesh % ijkToDOF(i,j,k-1)
                 nval_diff(row)                   = nval_diff(row) + 1
                 opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-                columns_diff(row,nval_diff(row)) =  col
+                columns_diff(row,nval_diff(row)) = col
 
                 ! cell k coefficient/diagonal
-                row = col
+                col = row
                 nval_diff(row)                   = nval_diff(row) + 1
                 opdata_diff(row,nval_diff(row))  = -irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
                 columns_diff(row,nval_diff(row)) =  col
@@ -254,23 +254,23 @@ IMPLICIT NONE
             ELSE
 
                 ! cell k-1
-                row = mesh % ijkToDOF(i,j,k-1)
+                col = mesh % ijkToDOF(i,j,k-1)
                 nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-                columns_diff(row,nval_diff(row)) =  col
+                opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+                columns_diff(row,nval_diff(row)) = col
 
                 ! cell k coefficient/diagonal
-                row = col
+                col = row
                 nval_diff(row)                   = nval_diff(row) + 1
                 opdata_diff(row,nval_diff(row))  = -irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
                                                     irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
                 columns_diff(row,nval_diff(row)) =  col
 
                 ! cell k+1
-                row = mesh % ijkToDOF(i,j,k+1)
+                col = mesh % ijkToDOF(i,j,k+1)
                 nval_diff(row)                   = nval_diff(row) + 1
                 opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-                columns_diff(row,nval_diff(row)) =  col
+                columns_diff(row,nval_diff(row)) = col
 
             ENDIF
             ENDIF                 

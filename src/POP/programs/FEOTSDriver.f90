@@ -160,6 +160,7 @@ IMPLICIT NONE
                CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
             ENDIF
             !$OMP END PARALLEL 
+ 
 
             IF(myRank /= 0  .OR. nProcs == 0)THEN
                CALL feots % MapTracerFromDOF( )

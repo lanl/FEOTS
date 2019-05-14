@@ -201,10 +201,8 @@ MODULE TracerStorage_Class
       WRITE( periodChar, '(I5.5)' ) 1
       PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'_advect.'//periodChar
       CALL thisStorage % transportOps(1) % ReadSparseConnectivity( TRIM(fileBase)//'_advect.'//periodChar ) 
-#ifdef VERTICAL_DIFFUSION
       PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'_vdiffu.'//periodChar
       CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
-#endif
       PRINT*, '  Done!'
  
  END SUBROUTINE LoadSparseConnectivities_TracerStorage
@@ -251,11 +249,9 @@ MODULE TracerStorage_Class
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_advect.'//periodChar
          CALL thisStorage % transportOps(1) % ReadSparseConnectivity( TRIM(fileBase)//'_advect.'//periodChar ) 
          CALL thisStorage % transportOps(1) % ReadMatrixData( TRIM(fileBase)//'_advect.'//periodChar ) 
-#ifdef VERTICAL_DIFFUSION
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_vdiffu.'//periodChar
          CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
          CALL thisStorage % transportOps(2) % ReadMatrixData( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
-#endif
          opSwapped = .TRUE.
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0
@@ -339,6 +335,8 @@ MODULE TracerStorage_Class
          PRINT*,' Stopping! '
          STOP
       ENDIF
+
+
       DO itracer = 1, thisStorage % nTracers
          !$OMP DO
          DO i = 1, thisStorage % nDOF
@@ -377,24 +375,27 @@ MODULE TracerStorage_Class
 
  END SUBROUTINE CalculateTendency_TracerStorage
 !
- FUNCTION DiffusiveAction( diffusiveOperator, tracerField, volume, dt, nDOF ) RESULT( diffAction )
+ FUNCTION DiffusiveAction( diffusiveOperator, tracerField, nTracers, nDOF ) RESULT( tendency )
    IMPLICIT NONE
    TYPE(CRSMatrix) :: diffusiveOperator
    INTEGER         :: nDOF, nTracers
-   REAL(prec)      :: tracerField(1:nDOF)
-   REAL(prec)      :: volume(1:nDOF)
-   REAL(prec)      :: dt
-   REAL(prec)      :: diffAction(1:nDOF)
+   REAL(prec)      :: tracerField(1:nDOF,1:nTracers)
+   REAL(prec)      :: tendency(1:nDOF,1:nTracers)
    ! Local 
-   INTEGER :: i
+   INTEGER :: i, itracer, row, iEl
 
-     DO i = 1, nDOF
-        diffAction(i) = ( 1.0_prec - volume(i) )*tracerField(i)
+     DO itracer = 1, nTracers ! Only the passive tracers
+
+        !$OMP DO
+        DO row = 1, diffusiveOperator % nRows
+           tendency(row,itracer) = 0.0_prec
+           DO iel = diffusiveOperator % rowBounds(1,row), diffusiveOperator % rowBounds(2,row)
+              tendency(row,itracer) = tendency(row,itracer) + diffusiveOperator % A(iel)*tracerfield(diffusiveOperator % col(iel),itracer)
+           ENDDO
+        ENDDO
+        !$OMP ENDDO
+
      ENDDO
-
-     !$OMP PARALLEL
-     diffAction = diffAction - dt*diffusiveOperator % MatVecMul( tracerField(1:nDOF) )
-     !$OMP END PARALLEL
 
  END FUNCTION DiffusiveAction
 !
