@@ -44,7 +44,7 @@ USE POP_Mesh_Class
 
 
 IMPLICIT NONE
-   REAL(prec), PARAMETER :: prescribed_width = 0.5_prec
+   REAL(prec), PARAMETER :: prescribed_width = 0.10_prec
 
    TYPE( POP_Params )   :: params
    TYPE( POP_Mesh )     :: mesh
@@ -88,13 +88,15 @@ IMPLICIT NONE
                x = mesh % tLon(i,j)
                y = mesh % tLat(i,j)
              
+               IF( x >= 180.0_prec )THEN
+                  x = x -360.0_prec
+               ENDIF
               
                IF( y >= params % south .AND. y <= params % north .AND. &
                    x >= params % west .AND. x <= params % east)THEN
  
                  ! Set interior points for the mesh
                  maskfield(i,j,1:6) = 1
-
 
                  IF( y < params % south + prescribed_width )THEN
                    maskfield(i,j,1:2) = -1 ! prescribed
@@ -109,7 +111,6 @@ IMPLICIT NONE
                  ENDIF
               
                ENDIF
-
 
             ENDDO
          ENDDO

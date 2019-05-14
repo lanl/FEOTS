@@ -1,10 +1,11 @@
 &POPMeshOptions
 MeshType    = 'PeriodicTripole',
 StencilType = 'LaxWendroff27',
+MaskFile    = 'Zapiola_mask.nc',
 Regional    = .TRUE.,
 south       = -52.18,
 east        = -24.90,
-west        = -71.35,
+west        = -70.25,
 north       = -28.06,  
 /
 &TracerModelOptions
