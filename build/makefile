@@ -75,6 +75,12 @@ all :
 	make FEOTSDriver
 	make clean
 
+install :
+	mkdir -p ${INSTALL_PATH}/bin
+	mv GreedyColoring GenerateMeshOnlyFile GenMask RegionalExtraction OperatorDiagnosis FEOTSInitialize FEOTSDriver ${INSTALL_PATH}/bin
+	cp -r ../examples ${INSTALL_PATH}
+
+
 # ---------------------------------------------------------------------- #
 #                           ~/src/common/                                #
 # ---------------------------------------------------------------------- #
