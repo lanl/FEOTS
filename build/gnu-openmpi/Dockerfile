@@ -24,6 +24,7 @@ FROM gcr.io/feots-224617/gnu-openmpi
  
 COPY --from=devel /usr/local/feots /usr/local/feots
 
+ENV PATH=/usr/local/feots/bin:$PATH
 ENV FEOTS_INSTALL_PATH="/usr/local/feots"
 ENV FEOTS_FCFLAGS="-O3 -ffree-line-length-none"
 ENV FEOTS_FC=gfortran
