@@ -1,0 +1,33 @@
+# 
+# To use this build,
+# gcloud builds submit . --substitutions=_BUILD_BASE=pgi
+#
+# Options : 
+#   _BUILD_BASE=[ pgi | pgi-openmpi | pgi-mvapich | gnu | gnu-openmpi | gnu-mvapich ]
+#
+timeout: 1800s
+
+steps:
+
+- id: FEOTS Build
+  name: 'gcr.io/cloud-builders/docker'
+  args: ['build',
+         '--file',
+         './build/${_BUILD_BASE}/Dockerfile',
+         '.',
+         '-t',
+         'gcr.io/${PROJECT_ID}/feots:${_TAG}',
+         ]
+
+substitutions:
+  _BUILD_BASE: 'gnu-openmpi'
+  _TAG: 'gnu-openmpi'
+
+images: ['gcr.io/${PROJECT_ID}/feots:${_TAG}']
+
+  #artifacts:
+  #  objects:
+  #    location: 'gs://${PROJECT_ID}-singularity/builds/${BRANCH_NAME}'
+  #    paths: ['feots_${_BUILD_BASE}.sif']
+  #
+    

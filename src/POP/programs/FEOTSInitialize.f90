@@ -49,6 +49,7 @@ IMPLICIT NONE
    TYPE( POP_FEOTS ) :: feots
    CHARACTER(200)    :: thisIRFFile
    INTEGER           :: fUnit
+   INTEGER :: myRank, nProcs, mpiErr
 
 #ifdef HAVE_MPI
       CALL MPI_INIT( mpiErr )

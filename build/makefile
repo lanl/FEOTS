@@ -61,8 +61,8 @@ LIB+=${NCLIB}
 INC+=${NCINC}
 
 #/////////////////////////////////////////////////////////////////////// #
-FEOTSDIR=$(shell pwd | sed 's/\(FEOTS\).*/\1/g')
-SRCDIR=${FEOTSDIR}/src/
+FEOTSDIR=$(shell pwd) #| sed 's/\(FEOTS\).*/\1/g')
+SRCDIR=../src/
 
 
 all :
