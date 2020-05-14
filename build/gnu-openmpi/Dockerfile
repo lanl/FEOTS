@@ -11,7 +11,7 @@ COPY . /build/feots
 
 RUN cd /build/feots && \
     FCFLAGS="-O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace" \
-    /build/feots/configure --enable-openmp --enable-mpi || cat config.log && \
+    /build/feots/configure --enable-openmp --enable-mpi --prefix=/usr/local/feots/ || cat config.log && \
     make || cat config.log && make install
 
 FROM gcr.io/feots-224617/gnu-openmpi 
@@ -19,4 +19,6 @@ FROM gcr.io/feots-224617/gnu-openmpi
 COPY --from=devel /usr/local/feots /usr/local/feots
 
 ENV PATH=/usr/local/feots/bin:$PATH
+ENV PATH=/usr/local/feots/include:$PATH
+ENV LD_LIBRARY_PATH=/usr/local/feots/lib:$LD_LIBRARY_PATH
 ENV FEOTS_INSTALL_PATH="/usr/local/feots"
