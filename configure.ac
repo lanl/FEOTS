@@ -12,15 +12,20 @@ AC_PROG_FC([gfortran])
 
 AC_LANG_PUSH([Fortran])
 
+# Check for Double Precision floating point arithmetic request.
+AC_ARG_ENABLE( debug, AS_HELP_STRING([--enable-debug, default:no]))
+AS_IF([test "x$enable_debug" = "xyes"],[
+  FCFLAGS+=" -DDOUBLE_PRECISION"
+])
+
+
 # Check for OpenMP
 AC_ARG_ENABLE([openmp], AS_HELP_STRING([--enable-openmp], [default:no]))
 AS_IF([test "x$enable_openmp" = "xyes"],[
-
   FCFLAGS+=" -DHAVE_OPENMP"
   AX_CHECK_COMPILE_FLAG([-mp], [FCFLAGS+=" -mp"])
   AX_CHECK_COMPILE_FLAG([-openmp], [FCFLAGS+=" -openmp"])
   AX_CHECK_COMPILE_FLAG([-fopenmp], [FCFLAGS+=" -fopenmp"])
-
 ])
 
 # Check for HDF5
@@ -33,8 +38,9 @@ AS_IF([test "x$with_hdf5" = "xyes"],[
 
 # Check for NetCDF4
 AX_LIB_NETCDF4()
-AS_IF([test "x$with_netcdf" = "xyes"],[
+AS_IF([test "x$with_netcdf4" = "xyes"],[
   FC="$NETCDF4_FC"
+  AC_MSG_NOTICE([FFLAGS $NETCDF4_FFLAGS])
 ],[
   AC_MSG_ERROR([Unable to find NetCDF4.])
 ])

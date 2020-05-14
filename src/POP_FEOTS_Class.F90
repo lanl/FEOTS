@@ -82,9 +82,7 @@ INCLUDE 'mpif.h'
    TYPE POP_FEOTS
      
       TYPE( TracerStorage )     :: solution
-#ifdef TIME_AVG
       TYPE( TracerStorage )     :: tAvgSolution
-#endif
       TYPE( POP_Regional )      :: regionalMaps
       TYPE( POP_Mesh )          :: mesh
       TYPE( POP_Params )        :: params
@@ -340,13 +338,12 @@ CONTAINS
                                     this % params % nTracers, & 
                                     this % params % operatorPeriod, &
                                     this % params % dt )
-#ifdef TIME_AVG
+
       CALL this % tAvgSolution % Build( nDOF, nOps, nEl, &
                                         this % params % nOperatorsPerCycle, &
                                         this % params % nTracers, & 
                                         this % params % operatorPeriod, &
                                         this % params % dt )
-#endif
 
 #ifdef HAVE_MPI
       this % solution % nTracers = 1
@@ -474,9 +471,7 @@ CONTAINS
       ENDIF
       CALL this % NativeSol % Trash( )     
 
-#ifdef TIME_AVG
       CALL this % tAvgSolution % Trash( )
-#endif
 
 #ifdef HAVE_OPENMP
   DEALLOCATE( trm1, &
@@ -1160,7 +1155,6 @@ CONTAINS
          ! Need to invert ( 1 + vol(i) + D )*c = rhs with Conjugate Gradient.
          CALL this % VerticalMixing( rhs )
 
-#ifdef TIME_AVG
          DO m = 1, this % solution % nTracers
             !$OMP DO
             DO i = 1, this % solution % nDOF
@@ -1168,7 +1162,6 @@ CONTAINS
             ENDDO
             !$OMP ENDDO
          ENDDO
-#endif
 
 
          !$OMP BARRIER
@@ -1197,9 +1190,8 @@ CONTAINS
 #endif
    INTEGER    :: iT
 
-#ifdef TIME_AVG
       this % tAvgSolution % tracers = this % solution % tracers
-#endif
+
       DO iT = 1, nTimeSteps
 
          CALL this % LoadNewStates( tn, myRank )
@@ -1240,9 +1232,7 @@ CONTAINS
    CHARACTER(5)    :: fileIDChar
    REAL(prec)      :: trackingVar
 
-#ifdef TIME_AVG
       this % tAvgSolution % tracers = this % solution % tracers
-#endif
       DO iT = 1, nTimeSteps
 
          CALL this % LoadNewStates( tn, myRank )
@@ -1309,9 +1299,7 @@ CONTAINS
    CHARACTER(5)    :: fileIDChar
    REAL(prec)      :: trackingVar
 
-#ifdef TIME_AVG
       this % tAvgSolution % tracers = this % solution % tracers
-#endif
       DO iT = 1, nTimeSteps
 
          CALL this % LoadNewStates( tn, myRank )

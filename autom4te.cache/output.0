@@ -683,6 +683,7 @@ ac_user_opts='
 enable_option_checking
 enable_silent_rules
 enable_dependency_tracking
+enable_debug
 enable_openmp
 enable_mpi
 enable_double
@@ -1328,6 +1329,8 @@ Optional Features:
                           do not reject slow dependency extractors
   --disable-dependency-tracking 
                           speeds up one-time build
+  --enable-debug, default:no 
+                          
   --enable-openmp         default:no
   --enable-mpi            default:no
   --enable-double, default:no 
@@ -3986,6 +3989,19 @@ ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 
+# Check for Double Precision floating point arithmetic request.
+@%:@ Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then :
+  enableval=$enable_debug; 
+fi
+
+if test "x$enable_debug" = "xyes"; then :
+  
+  FCFLAGS+=" -DDOUBLE_PRECISION"
+
+fi
+
+
 # Check for OpenMP
 @%:@ Check whether --enable-openmp was given.
 if test "${enable_openmp+set}" = set; then :
@@ -3994,12 +4010,10 @@ fi
 
 if test "x$enable_openmp" = "xyes"; then :
   
-
   FCFLAGS+=" -DHAVE_OPENMP"
   AX_CHECK_COMPILE_FLAG(-mp, FCFLAGS+=" -mp")
   AX_CHECK_COMPILE_FLAG(-openmp, FCFLAGS+=" -openmp")
   AX_CHECK_COMPILE_FLAG(-fopenmp, FCFLAGS+=" -fopenmp")
-
 
 fi
 
@@ -4018,9 +4032,11 @@ fi
 
 # Check for NetCDF4
 AX_LIB_NETCDF4()
-if test "x$with_netcdf" = "xyes"; then :
+if test "x$with_netcdf4" = "xyes"; then :
   
   FC="$NETCDF4_FC"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: FFLAGS $NETCDF4_FFLAGS" >&5
+$as_echo "$as_me: FFLAGS $NETCDF4_FFLAGS" >&6;}
 
 else
   
