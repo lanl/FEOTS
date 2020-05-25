@@ -6,6 +6,8 @@ conflict                feots
 
 set  FEOTS_INSTALL "/users/jschoonover/feots"
 
+prereq gcc/8.2.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0
+
 prepend-path            LD_LIBRARY_PATH             $FEOTS_INSTALL/lib
 prepend-path            PATH             $FEOTS_INSTALL/bin
 prepend-path            PATH             $FEOTS_INSTALL/include
