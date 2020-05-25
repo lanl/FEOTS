@@ -1,61 +1,19 @@
 
 SHELL=/bin/bash
-FEOTSDIR=$(shell pwd | sed 's/FEOTS.*/FEOTS/')
-INITDIR=$(shell pwd)
 
 
-.PHONY: GreedyColoring \
-        GenerateMeshOnlyFile \
-        GenMask \
-        OperatorDiagnosis \
-        RegionalExtraction \
-        ExtractOceanState \
-        FEOTSInitialize \
-        FEOTSDriver
+FC=mpif90
+OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace
+#OPT=-cpp -O3 -ffree-line-length-none
+LIB+=$(shell nc-config --flibs) -L${HOME}/feots/lib -lfeots
+INC+=$(shell nc-config --fflags) -I${HOME}/feots/include
 
-all :
-	make GreedyColoring
-	make GenerateMeshOnlyFile
-	make GenMask
-	make OperatorDiagnosis
-	make RegionalExtraction
-	make ExtractOceanState
-	make FEOTSInitialize
-	make FEOTSDriver
+init : FEOTSInitialize.o
+	${FC} ${OPT} FEOTSInitialize.o ${INC} ${LIB} -o $@
 
-
-GreedyColoring :
-	make --directory=${FEOTSDIR}/build/ GreedyColoring
-	mv ${FEOTSDIR}/build/GreedyColoring ./
-
-GenerateMeshOnlyFile :
-	make --directory=${FEOTSDIR}/build/ GenerateMeshOnlyFile
-	mv ${FEOTSDIR}/build/GenerateMeshOnlyFile ./
-
-GenMask :
-	make MODDIR=${INITDIR} --directory=${FEOTSDIR}/build/ GenMask
-	mv ${FEOTSDIR}/build/GenMask ./
-
-OperatorDiagnosis :
-	make --directory=${FEOTSDIR}/build/ OperatorDiagnosis
-	mv ${FEOTSDIR}/build/OperatorDiagnosis ./
-
-RegionalExtraction :
-	make --directory=${FEOTSDIR}/build/ RegionalExtraction
-	mv ${FEOTSDIR}/build/RegionalExtraction ./
-
-ExtractOceanState :
-	make --directory=${FEOTSDIR}/build/ ExtractOceanState
-	mv ${FEOTSDIR}/build/ExtractOceanState ./
-
-FEOTSInitialize :
-	make MODDIR=${INITDIR} --directory=${FEOTSDIR}/build/ FEOTSInitialize
-	mv ${FEOTSDIR}/build/FEOTSInitialize ./
-
-FEOTSDriver :
-	make --directory=${FEOTSDIR}/build/ FEOTSDriver
-	mv ${FEOTSDIR}/build/FEOTSDriver ./
+FEOTSInitialize.o :
+	${FC} ${OPT} -c FEOTSInitialize.f90 ${INC} ${LIB} -o $@	     
 
 
 clean :
-	make --directory=${FEOTSDIR}/build/ clean
+	rm *.o init
