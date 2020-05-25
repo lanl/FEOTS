@@ -1,0 +1,16 @@
+#%Module 1.0
+#
+#
+
+conflict                feots
+
+set  FEOTS_INSTALL "/users/jschoonover/feots"
+
+prepend-path            LD_LIBRARY_PATH             $FEOTS_INSTALL/lib
+prepend-path            PATH             $FEOTS_INSTALL/bin
+prepend-path            PATH             $FEOTS_INSTALL/include
+
+setenv	FEOTS_VER "1.0.0"
+setenv  FEOTS_INSTALL "$FEOTS_INSTALL"
+setenv	FEOTS_INCLUDE "-I$FEOTS_INSTALL/include"
+setenv	FEOTS_LIB "-L$FEOTS_INSTALL/lib/ -lfeots"
