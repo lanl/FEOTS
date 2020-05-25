@@ -4,21 +4,25 @@
 
 
 ## Running this demo
+Make sure you have the FEOTS toolkit installed. The install path is referred to as ${FEOTS_INSTALL}, and it is assumed that `$FEOTS_INSTALL/bin` is in your default search path.
 
 Modify the `FEOTS_Settings` file to fit your system, then
 ```
 $ module load <compiler> <mpi> <hdf5> <netcdf>
-$ source FEOTS_Settings
+```
+Upate the makefile in this directory to use the appropriate Fortran compiler (FC), and LIB and INCLUDE variables for NetCDF, HDF5, and FEOTS.
+
+```
 $ make all
 ```
 
 To run this demo (assuming you have global IRFs),
 ```
 $ ./GenMask
-$ ./RegionalExtraction
+$ feots region-extraction
 $ export OMP_NUM_THREADS=8
-$ mpirun -np 7 -x OMP_NUM_THREADS ./FEOTSInitialize
-$ mpirun -np 7 -x OMP_NUM_THREADS ./FEOTSDriver
+$ mpirun -np 7 -x OMP_NUM_THREADS ./init
+$ mpirun -np 7 -x OMP_NUM_THREADS feots integrate
 ```
 
 For your convenience, `feots.slurm` is a batch submission file for slurm for this demo.

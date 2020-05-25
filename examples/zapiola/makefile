@@ -8,11 +8,21 @@ OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fb
 LIB+=$(shell nc-config --flibs) -L${HOME}/feots/lib -lfeots
 INC+=$(shell nc-config --fflags) -I${HOME}/feots/include
 
+all :
+	make init
+	make genmask
+
 init : FEOTSInitialize.o
 	${FC} ${OPT} FEOTSInitialize.o ${INC} ${LIB} -o $@
 
 FEOTSInitialize.o :
 	${FC} ${OPT} -c FEOTSInitialize.f90 ${INC} ${LIB} -o $@	     
+
+genmask : GenMask.o
+	${FC} ${OPT} GenMask.o ${INC} ${LIB} -o $@
+
+GenMask.o :
+	${FC} ${OPT} -c GenMask.f90 ${INC} ${LIB} -o $@	     
 
 
 clean :
