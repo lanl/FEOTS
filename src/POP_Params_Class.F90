@@ -104,7 +104,7 @@ USE ConstantsDictionary
  CONTAINS
 
 
- SUBROUTINE Build_POP_Params( thisParam )
+ SUBROUTINE Build_POP_Params( thisParam, paramFile )
  ! S/R Build
  !
  !
@@ -112,6 +112,7 @@ USE ConstantsDictionary
  ! DECLARATIONS
    IMPLICIT NONE
    CLASS( POP_Params ), intent(out) :: thisParam
+   CHARACTER(*), INTENT(in) :: paramFile
    ! LOCAL
    INTEGER :: nUnit
       ! POPMeshOptions
@@ -217,7 +218,7 @@ USE ConstantsDictionary
 
       ! Reading in the namelist FILE
 
-      OPEN( UNIT = NEWUNIT(nUnit), FILE = 'runtime.params')
+      OPEN( UNIT = NEWUNIT(nUnit), FILE = paramFile)
          READ( UNIT = nUnit, NML = POPMeshOptions )
          READ( UNIT = nUnit, NML = TracerModelOptions )
          READ( UNIT = nUnit, NML = OperatorOptions )

@@ -173,12 +173,13 @@ CONTAINS
 !==================================================================================================!
 !
 !
- SUBROUTINE Build_POP_FEOTS( this, myRank, nProcs ) 
+ SUBROUTINE Build_POP_FEOTS( this, paramFile, myRank, nProcs ) 
  ! S/R Build
  !
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(out) :: this
+   CHARACTER(*), INTENT(in) :: paramFile
    INTEGER, INTENT(in)             :: myRank, nProcs
    ! Local
    INTEGER    :: nX, nY, nZ, nTracers, nRow, nPeriods
@@ -194,7 +195,7 @@ CONTAINS
 
       PRINT*, 'S/R : Build_POP_FEOTS : Start...'
 
-      CALL this % params  % Build( )
+      CALL this % params % Build(paramFile)
 
       IF( this % params % StencilType == LaxWendroff )THEN
          stencilSize = 9

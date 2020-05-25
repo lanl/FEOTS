@@ -20,21 +20,21 @@ IMPLICIT NONE
   IF( setupSuccess )THEN
 
     IF( run_Impulse )THEN
-      CALL GreedyGraphColoring()
+      CALL GreedyGraphColoring(paramFile)
     ELSEIF( run_PopMesh )THEN
-      CALL GenerateMeshOnlyFile()
+      CALL GenerateMeshOnlyFile(paramFile)
     ELSEIF( run_genmask )THEN
-      CALL GenMask()
+      CALL GenMask(paramFile)
     ELSEIF( run_regionalExtraction )THEN
-      CALL RegionalExtraction()
+      CALL RegionalExtraction(paramFile)
     ELSEIF( run_operatorDiagnosis )THEN
-      CALL OperatorDiagnosis()
+      CALL OperatorDiagnosis(paramFile)
     ELSEIF( run_Initialize )THEN
-      CALL FEOTSInitialize()
+      CALL FEOTSInitialize(paramFile)
     ELSEIF( run_Equilibrator )THEN
-      CALL FEOTSEquilibrate()
+      CALL FEOTSEquilibrate(paramFile)
     ELSEIF( run_Integrator )THEN
-      CALL FEOTSIntegrate()
+      CALL FEOTSIntegrate(paramFile)
     ENDIF
 
 !ExtractOceanState
@@ -126,6 +126,7 @@ CONTAINS
             IF( paramFileProvided )THEN
 
               paramFile = TRIM( argName )
+              print*, paramFile
               paramFileProvided = .FALSE.
 
             ENDIF

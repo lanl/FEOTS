@@ -54,10 +54,12 @@ USE OMP_LIB
 IMPLICIT NONE
 CONTAINS
         
-  SUBROUTINE ExtractOceanState()
+  SUBROUTINE ExtractOceanState(paramFile)
 
 
     IMPLICIT NONE
+
+    CHARACTER(*), INTENT(in) :: paramFile
 
     TYPE( POP_FEOTS )    :: feots
     TYPE( POP_Mesh )     :: globalMesh 
@@ -69,7 +71,7 @@ CONTAINS
     CHARACTER(200) :: thisIRFFile
     CHARACTER(200) :: oceanStateFile
 
-      CALL feots % Build( 0, 1 )
+      CALL feots % Build( paramFile, 0, 1 )
 
       CALL globalMesh % Load( TRIM( feots % params % meshFile ) )
 
@@ -124,10 +126,11 @@ CONTAINS
 
   END SUBROUTINE ExtractOceanState
 
-  SUBROUTINE GenerateMeshOnlyFile()
-   
+  SUBROUTINE GenerateMeshOnlyFile(paramFile)
    IMPLICIT NONE
 
+   CHARACTER(*), INTENT(in) :: paramFile
+   
    TYPE( POP_Params ) :: params
    TYPE( POP_Mesh )   :: mesh
    INTEGER(KIND=8), ALLOCATABLE :: dofToIJK_check(:,:), ijkToDOF_check(:,:,:)
@@ -135,7 +138,7 @@ CONTAINS
    CHARACTER(400) :: ncfile
 
 
-      CALL params % Build( )
+      CALL params % Build(paramFile)
 
       ! Reads in the first file from the IRF File list
       OPEN( UNIT=NewUnit(fUnit),&
@@ -159,7 +162,7 @@ CONTAINS
 
   END SUBROUTINE GenerateMeshOnlyFile
 
-  SUBROUTINE GreedyGraphColoring()
+  SUBROUTINE GreedyGraphColoring(paramFile)
 
 
     IMPLICIT NONE
@@ -169,8 +172,10 @@ CONTAINS
     TYPE( Stencil )            :: overlapStencil
     TYPE( POP_AdjacencyGraph ) :: graph
     TYPE( POP_Native )         :: impulseFields
+    CHARACTER(*), INTENT(in) :: paramFile
+    
 
-      CALL params % Build( )
+      CALL params % Build(paramFile)
 
       ! Load in the mesh from the netcdf file specified above
       CALL mesh % Load( TRIM(params % meshfile) )
@@ -220,6 +225,7 @@ CONTAINS
 
 
   SUBROUTINE GraphToImpulse( graph, impulse, mesh )
+   
     IMPLICIT NONE
     TYPE( POP_AdjacencyGraph ), INTENT(in) :: graph
     TYPE( POP_Native ), INTENT(inout)      :: impulse
@@ -247,10 +253,12 @@ CONTAINS
 
   END SUBROUTINE GraphToImpulse
 
-  SUBROUTINE GenMask()
+  SUBROUTINE GenMask(paramFile)
 
     IMPLICIT NONE
 
+    CHARACTER(*), INTENT(in) :: paramFile
+   
     TYPE( POP_Params )   :: params
     TYPE( POP_Mesh )     :: mesh
     INTEGER              :: i, j
@@ -259,7 +267,7 @@ CONTAINS
     REAL(prec)           :: x, y, r
 
 
-      CALL params % Build( )
+      CALL params % Build(paramFile)
 
       CALL mesh % Load( TRIM(params % meshFile)  )
 
@@ -334,11 +342,13 @@ CONTAINS
 
  END SUBROUTINE WriteMaskField
 
- SUBROUTINE OperatorDiagnosis()
+ SUBROUTINE OperatorDiagnosis(paramFile)
 
    
    IMPLICIT NONE
 
+   CHARACTER(*), INTENT(in) :: paramFile
+   
    TYPE( POP_Params )         :: params
    TYPE( POP_Mesh )           :: mesh
    TYPE( Stencil )            :: advstencil
@@ -360,7 +370,7 @@ CONTAINS
    REAL(prec)                 :: t0, t1    
 
 
-      CALL params % Build( )
+      CALL params % Build(paramFile)
 
       ! Use the first IRF file (assumed to list netcdf files) to obtain the
       ! meshfile
@@ -628,9 +638,11 @@ CONTAINS
 
   END SUBROUTINE OperatorDiagnosis
 
-  SUBROUTINE RegionalExtraction( )
+  SUBROUTINE RegionalExtraction(paramFile)
 
     IMPLICIT NONE
+
+    CHARACTER(*), INTENT(in) :: paramFile
 
     TYPE( CRSMatrix )    :: transportOp, diffusionOP
     TYPE( CRSMatrix )    :: regionalTransportOp, regionalDiffusionOP
@@ -646,7 +658,7 @@ CONTAINS
     CHARACTER(5)   :: fileIDChar
     CHARACTER(400) :: crsFile
 
-      CALL params % Build( )
+      CALL params % Build(paramFile)
 
       CALL globalMesh % Load( TRIM( params % meshFile ) )
 
@@ -737,9 +749,10 @@ CONTAINS
 
   END SUBROUTINE RegionalExtraction
 
-  SUBROUTINE FEOTSInitialize()
+  SUBROUTINE FEOTSInitialize(paramFile)
     
     IMPLICIT NONE
+    CHARACTER(*), INTENT(in) :: paramFile
 
     TYPE( POP_FEOTS ) :: feots
     CHARACTER(200)    :: thisIRFFile
@@ -755,7 +768,7 @@ CONTAINS
       nProcs = 1
 #endif
       !CALL feots % Build( myRank == 0, nProcs == 1 )
-      CALL feots % Build( myRank, nProcs )
+      CALL feots % Build( paramFile, myRank, nProcs )
 
       CALL InitialConditions( feots )
 
@@ -808,9 +821,10 @@ CONTAINS
 
  END SUBROUTINE InitialConditions
 
- SUBROUTINE FEOTSIntegrate()
+ SUBROUTINE FEOTSIntegrate(paramFile)
 
    IMPLICIT NONE
+   CHARACTER(*), INTENT(in) :: paramFile
 
    TYPE( POP_FEOTS ) :: feots
    CHARACTER(10) :: ncFileTag
@@ -830,7 +844,7 @@ CONTAINS
       nProcs = 1
 #endif
 
-      CALL feots % Build( myRank, nProcs )
+      CALL feots % Build( paramFile, myRank, nProcs )
 
       recordID = 1
 
@@ -957,9 +971,10 @@ CONTAINS
 
  END SUBROUTINE FEOTSIntegrate
 
- SUBROUTINE FEOTSEquilibrate()
+ SUBROUTINE FEOTSEquilibrate(paramFile)
 
    IMPLICIT NONE
+   CHARACTER(*), INTENT(in) :: paramFile
 
    TYPE( POP_FEOTS ) :: feots
    CHARACTER(10) :: ncFileTag
@@ -979,7 +994,7 @@ CONTAINS
       nProcs = 1
 #endif
 
-      CALL feots % Build( myRank, nProcs )
+      CALL feots % Build(paramFile, myRank, nProcs )
 
       recordID = 1
       IF( myRank == 0 )THEN
