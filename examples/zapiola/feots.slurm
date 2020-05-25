@@ -6,10 +6,12 @@
 #SBATCH --time=8:00:00               # Time limit hrs:min:sec
 #SBATCH --output=feots_%j.log   # Standard output and error log
 
-module load gcc/7.4.0 openmpi/3.1.2/gcc/7.4.0 hdf5/1.10.3/parallel/openmpi/3.1.2/gcc/7.4.0 netcdf/4.6.1/parallel/openmpi/3.1.2/gcc/7.4.0
+module use /users/jschoonover/feots
+module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/1.0.0
 
-./GenMask
-./RegionalExtraction
+./genmask
+feots region-extraction
 export OMP_NUM_THREADS=12
-mpirun -np 7 -x OMP_NUM_THREADS ./FEOTSInitialize
-mpirun -np 7 -x OMP_NUM_THREADS ./FEOTSDriver
+mpirun -np 7 -x OMP_NUM_THREADS ./init
+mpirun -np 7 -x OMP_NUM_THREADS feots integrate
+#mpirun -np 7 -x OMP_NUM_THREADS feots equilibrate
