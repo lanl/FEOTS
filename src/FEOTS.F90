@@ -11,24 +11,39 @@ IMPLICIT NONE
   IF( cliParams % setupSuccess )THEN
 
     IF( cliParams % run_Impulse )THEN
-      CALL GreedyGraphColoring()
+
+      CALL GreedyGraphColoring(cliParams)
+
     ELSEIF( cliParams % run_PopMesh )THEN
-      CALL GenerateMeshOnlyFile()
+
+      CALL GenerateMeshOnlyFile(cliParams)
+
     ELSEIF( cliParams % run_genmask )THEN
-      CALL GenMask()
+
+      CALL GenMask(cliParams)
+
     ELSEIF( cliParams % run_regionalExtraction )THEN
+
       CALL RegionalExtraction(cliParams)
+
     ELSEIF( cliParams % run_operatorDiagnosis )THEN
-      CALL OperatorDiagnosis()
+
+      CALL OperatorDiagnosis(cliParams)
+
     ELSEIF( cliParams % run_Initialize )THEN
-      CALL FEOTSInitialize()
+
+      CALL FEOTSInitialize(cliParams)
+
     ELSEIF( cliParams % run_Equilibrator )THEN
-      CALL FEOTSEquilibrate()
+
+      CALL FEOTSEquilibrate(cliParams)
+
     ELSEIF( cliParams % run_Integrator )THEN
-      CALL FEOTSIntegrate()
+
+      CALL FEOTSIntegrate(cliParams)
+
     ENDIF
 
-!ExtractOceanState
   ENDIF
 
 END PROGRAM FEOTS

@@ -69,12 +69,16 @@ IMPLICIT NONE
       maskField  = 0
       regionMask = 0
 
+      PRINT*, 'Before...', TRIM(params % IRFListFile)
+
       OPEN( UNIT=NewUnit(fUnit),&
             FILE=TRIM(params % IRFListFile), &
             FORM='FORMATTED',&
             ACCESS='SEQUENTIAL',&
             ACTION='READ',&
             STATUS='OLD' )
+
+      PRINT*, IRFFile
 
       READ( fUnit, '(A200)' ) IRFFile
       CLOSE(fUnit)
