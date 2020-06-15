@@ -1034,7 +1034,6 @@ CONTAINS
        DO i = 1, this % solution % nDOF
          ! Invert the preconditioner
          z(i,m) = r(i,m)
-
          p(i,m) = z(i,m)
        ENDDO
        !$OMP ENDDO
@@ -1063,6 +1062,9 @@ CONTAINS
      ENDDO
 
      residual_magnitude = sqrt( this % DotProduct( rk, rk ) )
+     !$OMP MASTER
+     PRINT*, 'Residual :', residual_magnitude 
+     !$OMP END MASTER
 
      DO iter = 1, cg_itermax
 
@@ -1113,6 +1115,9 @@ CONTAINS
      
        !$OMP BARRIER
        residual_magnitude = sqrt( this % DotProduct( rk, rk ) )
+       !$OMP MASTER
+       PRINT*, 'Residual :', residual_magnitude 
+       !$OMP END MASTER
        IF( residual_magnitude <= cg_tolerance )THEN
          RETURN
        ENDIF
@@ -1136,36 +1141,54 @@ CONTAINS
    REAL(prec) :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
 
 
+        !$OMP DO
+        DO i = 1, this % solution % nDOF
+           ! Calculate volume correction
+           vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
+        ENDDO
+        !$OMP ENDDO
 
-         DO m = 1, this % solution % nTracers
-            !$OMP DO
-            DO i = 1, this % solution % nDOF
+        DO m = 1, this % solution % nTracers
+           !$OMP DO
+           DO i = 1, this % solution % nDOF
 
-              rhs(i,m)  = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) )+&
-                          this % solution % mask(i,m)*&
-                          ( (1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
+             ! Mask is applied to locations where tracers are held fixed.
+             ! Mask = 1 corresponds to interior point
+             rhs(i,m)  = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) )+&
+                         this % solution % mask(i,m)*&
+                         ( (1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
 
-              this % solution % tracers(i,m) = rhs(i,m)
-
-              this % solution % volume(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
-
-            ENDDO
-            !$OMP ENDDO
-         ENDDO
-
-         ! Need to invert ( 1 + vol(i) + D )*c = rhs with Conjugate Gradient.
-         CALL this % VerticalMixing( rhs )
-
-         DO m = 1, this % solution % nTracers
-            !$OMP DO
-            DO i = 1, this % solution % nDOF
-               this % tAvgSolution % tracers(i,m) = this % tAvgSolution % tracers(i,m) + this % solution % tracers(i,m)/REAL(nTimeSteps,prec)
-            ENDDO
-            !$OMP ENDDO
-         ENDDO
+             ! Set the initial guess for the vertical diffusion
+             this % solution % tracers(i,m) = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) )+&
+                                              this % solution % mask(i,m)*&
+                                              ( (1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )/(1.0_prec+vol(i))
 
 
-         !$OMP BARRIER
+           ENDDO
+           !$OMP ENDDO
+        ENDDO
+
+        ! Update volume
+        !$OMP DO
+        DO i = 1, this % solution % nDOF
+           ! Calculate volume correction
+           this % solution % volume(i) = vol(i)
+        ENDDO
+        !$OMP ENDDO
+
+        ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
+        CALL this % VerticalMixing( rhs )
+
+        DO m = 1, this % solution % nTracers
+           !$OMP DO
+           DO i = 1, this % solution % nDOF
+              this % tAvgSolution % tracers(i,m) = this % tAvgSolution % tracers(i,m) + this % solution % tracers(i,m)/REAL(nTimeSteps,prec)
+           ENDDO
+           !$OMP ENDDO
+        ENDDO
+
+
+        !$OMP BARRIER
 
  END SUBROUTINE StepForward
 !
