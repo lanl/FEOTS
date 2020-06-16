@@ -21,7 +21,7 @@ IMPLICIT NONE
       nProcs = 1
 #endif
 
-      CALL feots % Build( myRank, nProcs )
+      CALL feots % Build('./runtime.params', myRank, nProcs )
 
       print*, 'Check!'
       

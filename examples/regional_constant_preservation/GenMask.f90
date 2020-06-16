@@ -57,7 +57,7 @@ IMPLICIT NONE
    INTEGER              :: nMasks
 
 
-      CALL params % Build( )
+      CALL params % Build('./runtime.params')
 
       CALL mesh % Load( TRIM(params % meshFile)  )
   
@@ -100,18 +100,18 @@ IMPLICIT NONE
                    x >= params % west .AND. x <= params % east)THEN
  
                  ! Set interior points for the mesh
-                 maskfield(i,j,1:6) = 1
+                 maskfield(i,j,1) = 1
 
                  IF( y < params % south + prescribed_width )THEN
-                   maskfield(i,j,1:2) = -1 ! prescribed
+                   maskfield(i,j,1) = -1 ! prescribed
                  ENDIF
 
                  IF( x > params % east - prescribed_width )THEN
-                   maskfield(i,j,3:4) = -1 ! prescribed
+                   maskfield(i,j,1) = -1 ! prescribed
                  ENDIF
 
                  IF( y > params % north - prescribed_width )THEN
-                   maskfield(i,j,5:6) = -1 ! prescribed
+                   maskfield(i,j,1) = -1 ! prescribed
                  ENDIF
               
                ENDIF

@@ -148,14 +148,14 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(inout) :: this
 
-      DEALLOCATE( this % tracer, &
-                  this % mask, &
-                  this % source, &
-                  this % rFac, &
-                  this % volume, &
-                  this % temperature, &
-                  this % salinity, &
-                  this % density )
+      IF(ALLOCATED(this % tracer)) DEALLOCATE(this % tracer)
+      IF(ALLOCATED(this % mask)) DEALLOCATE(this % mask)
+      IF(ALLOCATED(this % source)) DEALLOCATE(this % source)
+      IF(ALLOCATED(this % rFac)) DEALLOCATE(this % rFac)
+      IF(ALLOCATED(this % volume)) DEALLOCATE(this % volume)
+      IF(ALLOCATED(this % temperature)) DEALLOCATE(this % temperature)
+      IF(ALLOCATED(this % salinity)) DEALLOCATE(this % salinity)
+      IF(ALLOCATED(this % density )) DEALLOCATE(this % density)
 
  END SUBROUTINE Trash_POP_Native
 !

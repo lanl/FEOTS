@@ -70,6 +70,10 @@ IMPLICIT NONE
       PROCEDURE :: ReadGraphBinFile  => ReadGraphBinFile_POP_AdjacencyGraph
       PROCEDURE :: WriteGraphBinFile => WriteGraphBinFile_POP_AdjacencyGraph
 
+      !
+      PROCEDURE :: WriteGraph_NetCDF
+!      PROCEDURE :: ReadGraph_NetCDF
+
 
    END TYPE POP_AdjacencyGraph
 
@@ -253,7 +257,75 @@ CONTAINS
       
  END SUBROUTINE GreedyColoring_POP_AdjacencyGraph
 !
+ SUBROUTINE WriteGraph_NetCDF( myGraph, filename )
+   IMPLICIT NONE
+   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
+   CHARACTER(*), INTENT(in)                   :: filename
+   ! Local
+   INTEGER :: ncid
+   INTEGER :: dof_dimid, valence_dimid, color_dimid
+   INTEGER :: dof_varid, valence_varid, color_varid, neighbors_varid
+
+      CALL Check( nf90_create( PATH=TRIM(filename),&
+                               CMODE=OR(nf90_clobber,nf90_64bit_offset),&
+                               NCID=ncid ) )
+      CALL Check( nf90_def_dim( ncid, "dof", myGraph % nDOF, dof_dimid ) ) 
+
+      CALL Check( nf90_create( PATH=TRIM(filename),&
+                               CMODE=OR(nf90_clobber,nf90_64bit_offset),&
+                               NCID=ncid ) )
+      CALL Check( nf90_def_dim( ncid, "dof", myGraph % nDOF, dof_dimid ) ) 
+      CALL Check( nf90_def_dim( ncid, "valence", myGraph % maxValence, valence_dimid ) ) 
+      CALL Check( nf90_def_dim( ncid, "color", myGraph % nColors, color_dimid ) ) 
+
+      CALL Check( nf90_def_var( ncid, "cell_valence", NF90_INT, dof_dimid, valence_varid ) )
+      CALL Check( nf90_def_var( ncid, "cell_color", NF90_INT, dof_dimid, color_varid ) )
+      CALL Check( nf90_def_var( ncid, "cell_neighbors", NF90_INT, (/valence_dimid, dof_dimid/), neighbors_varid ) )
+
+      CALL Check( nf90_put_att( ncid, valence_varid, "long_name", "Cell Valence" ) )
+      CALL Check( nf90_put_att( ncid, valence_varid, "description", "The number of cells that have advection stencils that overlap with a given cell." ) )
+      CALL Check( nf90_put_att( ncid, valence_varid, "_FillValue", 0) )
+      CALL Check( nf90_put_att( ncid, valence_varid, "missing_value",0))
+
+      CALL Check( nf90_put_att( ncid, color_varid, "long_name", "Cell Color" ) )
+      CALL Check( nf90_put_att( ncid, color_varid, "description", "The color given to a cell that is different from each of its neighbors. This is the result of the Greedy Algorithm." ) )
+      CALL Check( nf90_put_att( ncid, color_varid, "_FillValue", -1) )
+      CALL Check( nf90_put_att( ncid, color_varid, "missing_value",-1))
+
+      CALL Check( nf90_put_att( ncid, neighbors_varid, "long_name", "Cell Neighbors" ) )
+      CALL Check( nf90_put_att( ncid, neighbors_varid, "description", "The global cell ID's of the cells that have overlapping advection stencils with a given cell." ) )
+      CALL Check( nf90_put_att( ncid, neighbors_varid, "_FillValue", 0) )
+      CALL Check( nf90_put_att( ncid, neighbors_varid, "missing_value",0))
+
+
+      CALL Check( nf90_enddef(ncid) )
+
+
+      CALL Check( nf90_put_var( ncid, &
+                                valence_varid, &
+                                myGraph % valence, &
+                                1, myGraph % nDOF ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                color_varid, &
+                                myGraph % color, &
+                                1, myGraph % nDOF ) )
+
+      CALL Check( nf90_put_var( ncid, &
+                                neighbors_varid, &
+                                myGraph % neighbors, &
+                                (/1, 1/),(/myGraph % maxValence, myGraph % nDOF/) ) )
+
+       
+      CALL Check( nf90_close( ncid ) )
+
+ END SUBROUTINE WriteGraph_NetCDF
 !
+ SUBROUTINE ReadGraph_NetCDF( myGraph, filename )
+   IMPLICIT NONE
+   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
+   CHARACTER(*), INTENT(in)                   :: filename
+ END SUBROUTINE ReadGraph_NetCDF
 !
  SUBROUTINE ReadGraphFile_POP_AdjacencyGraph( myGraph, filename )
  !

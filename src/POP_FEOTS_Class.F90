@@ -132,6 +132,9 @@ INCLUDE 'mpif.h'
       PROCEDURE :: JFNK                  => JFNK_POP_FEOTS
 
       PROCEDURE :: VerticalMixing => VerticalMixing_POP_FEOTS
+      PROCEDURE :: VerticalMixingAction
+      PROCEDURE :: GetMax
+      PROCEDURE :: Mask
 
    END TYPE POP_FEOTS
 
@@ -997,6 +1000,59 @@ CONTAINS
 
  END SUBROUTINE ForwardStep_POP_FEOTS
 !
+ FUNCTION VerticalMixingAction( this, x ) RESULT(Ax)
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ) :: this
+   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: Ax(1:this % solution % nDOF, 1:this % solution % nTracers)
+   ! Local
+   INTEGER :: i, m
+   REAL(prec) :: Dx(1:this % solution % nDOF, 1:this % solution % nTracers)
+
+     Dx = DiffusiveAction( this % solution % transportOps(2), x, this % solution % nTracers, this % solution % nDOF )
+     DO m = 1, this % solution % nTracers
+       !$OMP DO
+       DO i = 1, this % solution % nDOF
+         Ax(i,m) = (1.0_prec + this % solution % volume(i))*x(i,m) - this % params % dt*Dx(i,m)
+       ENDDO
+       !$OMP ENDDO
+     ENDDO
+
+ END FUNCTION VerticalMixingAction 
+    
+ FUNCTION GetMax( this, x ) RESULT( maxX )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ) :: this
+   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: maxX
+   ! Local
+   INTEGER :: i, m
+
+     maxX = 0.0_prec 
+     DO m = 1, this % solution % nTracers
+       DO i = 1, this % solution % nDOF
+          maxX = MAX(ABS(x(i,m)), maxX)
+       ENDDO
+     ENDDO
+
+ END FUNCTION GetMax
+
+ FUNCTION Mask( this, x ) RESULT( y )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ) :: this
+   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: y(1:this % solution % nDOF, 1:this % solution % nTracers)
+   ! Local
+   INTEGER :: i, m
+
+     DO m = 1, this % solution % nTracers
+       DO i = 1, this % solution % nDOF
+          y(i,m) = this % solution % mask(i,m)*x(i,m) 
+       ENDDO
+     ENDDO
+
+ END FUNCTION Mask
+
  SUBROUTINE VerticalMixing_POP_FEOTS( this, rhs )
    ! Preconditioned Conjugate Gradient used to solve vertical mixing
    ! Algorithm taken from page 3 of
@@ -1012,23 +1068,36 @@ CONTAINS
    REAL(prec) :: zk(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: w(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: p(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
 #endif
-   REAL(prec) :: alpha, beta, residual_magnitude
+   REAL(prec) :: alpha, beta, residual_magnitude, sol_magnitude, update_magnitude
    INTEGER :: m, i, iter
+   REAL(prec) :: mag_divisor
   
 
      !$OMP BARRIER
-     Ax = DiffusiveAction( this % solution % transportOps(2), this % solution % tracers, this % solution % nTracers, this % solution % nDOF )
      DO m = 1, this % solution % nTracers
        !$OMP DO
        DO i = 1, this % solution % nDOF
-         Ax(i,m) = this % solution % mask(i,m)*( (1.0_prec + this % solution % volume(i))*this % solution % tracers(i,m) - this % params % dt*Ax(i,m) )
-         r(i,m)  = this % solution % mask(i,m)*( rhs(i,m) - Ax(i,m) )
+         x(i,m) = this % solution % tracers(i,m)
+       ENDDO
+       !$OMP ENDDO
+     ENDDO
+    
+     !$OMP BARRIER
+     Ax = this % VerticalMixingAction( x )
+     DO m = 1, this % solution % nTracers
+       !$OMP DO
+       DO i = 1, this % solution % nDOF
+         r(i,m)  = rhs(i,m) - Ax(i,m)
        ENDDO
        !$OMP ENDDO
      ENDDO
 
-     
+     r = this % Mask( r )
+    
+     PRINT*, 'Max Residual :', this % GetMax(r)
+
      DO m = 1, this % solution % nTracers
        !$OMP DO
        DO i = 1, this % solution % nDOF
@@ -1040,14 +1109,7 @@ CONTAINS
      ENDDO  
 
      !$OMP BARRIER
-     Ax = DiffusiveAction( this % solution % transportOps(2), p, this % solution % nTracers, this % solution % nDOF )
-     DO m = 1, this % solution % nTracers
-       !$OMP DO
-       DO i = 1, this % solution % nDOF
-         w(i,m) = this % solution % mask(i,m)*( (1.0_prec + this % solution % volume(i))*p(i,m) - this % params % dt*Ax(i,m) )
-       ENDDO
-       !$OMP ENDDO
-     ENDDO
+     w = this % VerticalMixingAction( p ) 
 
      !$OMP BARRIER
      alpha = this % DotProduct( r, z )/this % DotProduct( p, w )
@@ -1055,16 +1117,22 @@ CONTAINS
      DO m = 1, this % solution % nTracers
        !$OMP DO
        DO i = 1, this % solution % nDOF
-         this % solution % tracers(i,m) = this % solution % tracers(i,m) + alpha*p(i,m)
+         x(i,m) = x(i,m) + alpha*p(i,m)
          rk(i,m) = r(i,m) - alpha*w(i,m)
        ENDDO
        !$OMP ENDDO
      ENDDO
 
-     residual_magnitude = sqrt( this % DotProduct( rk, rk ) )
-     !$OMP MASTER
-     PRINT*, 'Residual :', residual_magnitude 
-     !$OMP END MASTER
+     !$OMP BARRIER
+     DO m = 1, this % solution % nTracers
+       !$OMP DO
+       DO i = 1, this % solution % nDOF
+         this % solution % tracers(i,m) = x(i,m)
+       ENDDO
+       !$OMP ENDDO
+     ENDDO
+
+     RETURN
 
      DO iter = 1, cg_itermax
 
@@ -1139,6 +1207,7 @@ CONTAINS
    INTEGER    :: m, i
    REAL(prec) :: vol(1:this % solution % nDOF)
    REAL(prec) :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: Dx(1:this % solution % nDOF, 1:this % solution % nTracers)
 
 
         !$OMP DO
@@ -1148,21 +1217,16 @@ CONTAINS
         ENDDO
         !$OMP ENDDO
 
+        Dx = DiffusiveAction( this % solution % transportOps(2), this % solution % tracers, this % solution % nTracers, this % solution % nDOF )
         DO m = 1, this % solution % nTracers
            !$OMP DO
            DO i = 1, this % solution % nDOF
 
-             ! Mask is applied to locations where tracers are held fixed.
-             ! Mask = 1 corresponds to interior point
-             rhs(i,m)  = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) )+&
-                         this % solution % mask(i,m)*&
-                         ( (1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )
+             !rhs(i,m)  = this % solution % mask(i,m)*((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
+             rhs(i,m)  = this % solution % mask(i,m)*((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(Dx(i,m)))
 
              ! Set the initial guess for the vertical diffusion
-             this % solution % tracers(i,m) = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) )+&
-                                              this % solution % mask(i,m)*&
-                                              ( (1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*dCdt(i,m) )/(1.0_prec+vol(i))
-
+             this % solution % tracers(i,m) = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) ) + rhs(i,m)/(1.0_prec+vol(i))
 
            ENDDO
            !$OMP ENDDO
@@ -1171,13 +1235,12 @@ CONTAINS
         ! Update volume
         !$OMP DO
         DO i = 1, this % solution % nDOF
-           ! Calculate volume correction
            this % solution % volume(i) = vol(i)
         ENDDO
         !$OMP ENDDO
 
         ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
-        CALL this % VerticalMixing( rhs )
+        !CALL this % VerticalMixing( rhs )
 
         DO m = 1, this % solution % nTracers
            !$OMP DO

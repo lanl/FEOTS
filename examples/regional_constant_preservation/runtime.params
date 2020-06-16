@@ -2,7 +2,7 @@
 MeshType    = 'PeriodicTripole',
 StencilType = 'LaxWendroff27',
 MaskFile    = 'Zapiola_mask.nc',
-Regional    = .TRUE.,
+Regional    = .FALSE.,
 south       = -52.18,
 east        = -24.90,
 west        = -70.25,
@@ -10,7 +10,7 @@ north       = -28.06,
 /
 &TracerModelOptions
 TracerModel = 'DyeModel',
-dt          = 1080.0, 
+dt          = 10.0, 
 runMode     = 'Forward',
 nStepsPerDump   = 1,
 iterInit        = 0,

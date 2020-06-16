@@ -606,6 +606,7 @@ CONTAINS
    REAL(prec), ALLOCATABLE    :: opdata(:,:)
    INTEGER, ALLOCATABLE       :: nval_diff(:), columns_diff(:,:)
    REAL(prec), ALLOCATABLE    :: opdata_diff(:,:)
+   REAL(prec), ALLOCATABLE    :: x(:), Dx(:)
    REAL(prec)                 :: t0, t1    
 
 
@@ -646,6 +647,7 @@ CONTAINS
       ! Allocate space for a hash-table storage of vertical diffusion operator
       ALLOCATE( nval_diff(1:mesh % nDOF), columns_diff(1:mesh % nDOF, 1:3) )
       ALLOCATE( opdata_diff(1:mesh % nDOF, 1:3) )
+      ALLOCATE( x(1:mesh % nDOF), Dx(1:mesh % nDOF) )
 
 
       ! Read the adjacency graph from file
@@ -758,6 +760,7 @@ CONTAINS
             j = mesh % dofToIJK(2,row)
             k = mesh % dofToIJK(3,row)
 
+!            IF( mesh % KMT(i,j) > 1 )
             IF( k <= mesh % KMT(i,j) )THEN
 
             IF( k == 1 )THEN ! At the surface, the "no-diffusive-flux" condition is used
@@ -856,6 +859,11 @@ CONTAINS
          CALL diffusionOperator % WriteSparseConnectivity( TRIM(crsFile) )
          CALL diffusionOperator % WriteMatrixData( TRIM(crsFile) )
 
+         ! Testing the diffusion operator
+         x = 1.0_prec
+         Dx = diffusionOperator % MatVecMul( x )
+         PRINT*, 'MAX RowSum(Dx)', MAXVAL(Dx)
+         PRINT*, 'MIN RowSum(Dx)', MINVAL(Dx)
 
          CALL transportOperator % Reset( )
          CALL diffusionOperator % Reset( )
@@ -872,6 +880,7 @@ CONTAINS
       CALL irfFields % Trash( )
       CALL transportOperator % Trash( )
       CALL diffusionOperator % Trash( )
+      DEALLOCATE( x, Dx )
       DEALLOCATE( nval, columns )
       DEALLOCATE( opdata )
 

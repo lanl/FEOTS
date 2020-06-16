@@ -374,6 +374,7 @@ MODULE CRSMatrix_Class
          ENDDO
 
          subMatrix % rowBounds( 2, inverseDOFMap( dofMap(i) ) ) = iEl
+         ! Set the starting row bound for the next row
          IF( inverseDOFMap( dofMap(i) ) + 1 <= nDOF )THEN
             subMatrix % rowBounds( 1, inverseDOFMap( dofMap(i) )+1 ) = iEl+1
          ENDIF
