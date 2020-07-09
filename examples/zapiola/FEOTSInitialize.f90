@@ -10,6 +10,7 @@ USE POP_Params_Class
 IMPLICIT NONE
 
    TYPE( POP_FEOTS ) :: feots
+   TYPE(FEOTS_CLI) :: cliParams
    INTEGER :: mpiErr, myRank, nProcs
 
 #ifdef HAVE_MPI
@@ -21,7 +22,8 @@ IMPLICIT NONE
       nProcs = 1
 #endif
 
-      CALL feots % Build( myRank, nProcs )
+      CALL cliParams % GetCLIConf( )
+      CALL feots % Build( cliParams, myRank, nProcs )
 
       print*, 'Check!'
       
@@ -31,7 +33,7 @@ IMPLICIT NONE
       IF( myRank == 0 )THEN
         CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                            feots % mesh, &
-                                                           TRIM(feots % params % outputDirectory)//'Tracer.init.nc', &
+                                                           TRIM(cliParams % outDir)//'/Tracer.init.nc', &
                                                            .TRUE. )
         CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, 1 )
         CALL feots % nativeSol % WriteSourceEtcNetCDF( feots % mesh )

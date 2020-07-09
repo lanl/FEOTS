@@ -41,6 +41,7 @@ USE CommonRoutines
 ! src/POP/
 USE POP_Params_Class
 USE POP_Mesh_Class
+USE FEOTS_CLI_Class
 
 
 IMPLICIT NONE
@@ -55,11 +56,13 @@ IMPLICIT NONE
    CHARACTER(200)       :: IRFfile
    REAL(prec)           :: x, y, r
    INTEGER              :: nMasks
+   TYPE(FEOTS_CLI) :: cliParams
 
+      CALL cliParams % GetCLIConf( )
 
-      CALL params % Build( )
+      CALL params % Build( cliParams % paramFile )
 
-      CALL mesh % Load( TRIM(params % meshFile)  )
+      CALL mesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc'  )
   
       nMasks = params % nTracers
 
@@ -69,21 +72,7 @@ IMPLICIT NONE
       maskField  = 0
       regionMask = 0
 
-      PRINT*, 'Before...', TRIM(params % IRFListFile)
-
-      OPEN( UNIT=NewUnit(fUnit),&
-            FILE=TRIM(params % IRFListFile), &
-            FORM='FORMATTED',&
-            ACCESS='SEQUENTIAL',&
-            ACTION='READ',&
-            STATUS='OLD' )
-
-      PRINT*, IRFFile
-
-      READ( fUnit, '(A200)' ) IRFFile
-      CLOSE(fUnit)
-      CALL LoadRegionMask( mesh, regionMask, TRIM(irfFile) )
-
+      CALL LoadRegionMask( mesh, regionMask, TRIM(cliParams % irfFile) )
 
 
          DO j = 1, mesh % nY
@@ -120,7 +109,6 @@ IMPLICIT NONE
          ENDDO
 
       
-
       CALL WriteMaskField( mesh, maskField, TRIM(params % maskFile) )
       CALL mesh % Trash( )
       DEALLOCATE( regionMask, maskField )
