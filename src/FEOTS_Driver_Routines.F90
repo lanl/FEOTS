@@ -46,6 +46,7 @@ USE POP_AdjacencyGraph_Class
 USE POP_Native_Class
 USE POP_FEOTS_Class
 USE POP_GridTypeMappings
+USE FEOTS_CLI_Class
 #ifdef HAVE_OPENMP
 USE OMP_LIB
 #endif
@@ -53,255 +54,10 @@ USE OMP_LIB
 
 IMPLICIT NONE
 
-   TYPE FEOTS_CLI
-
-     LOGICAL :: run_Impulse
-     LOGICAL :: run_PopMesh
-     LOGICAL :: run_genmask
-     LOGICAL :: run_regionalExtraction
-     LOGICAL :: run_operatorDiagnosis
-     LOGICAL :: run_Initialize
-     LOGICAL :: run_Equilibrator
-     LOGICAL :: run_Integrator
-     LOGICAL :: setupSuccess
-     LOGICAL :: helpNeeded
-
-     CHARACTER(500) :: paramFile
-     CHARACTER(500) :: irfFile
-     INTEGER :: oplevel
-     
-     CONTAINS
-
-     PROCEDURE :: GetCLIConf
-     PROCEDURE :: ValidateCLI
-
-   END TYPE FEOTS_CLI
-
 
 CONTAINS
 
-  SUBROUTINE GetCLIConf(cliParams)
-    IMPLICIT NONE
-    CLASS(FEOTS_CLI), INTENT(out) :: cliParams
-    ! Local
-    INTEGER :: nArg, argID
-    CHARACTER(500) :: argName
-    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided
-
-      PRINT*, 'FEOTS (feots) Command Line Interface' 
-      PRINT*, ' Copyright Los Alamos National Laboratory (2017-2020)'
-      PRINT*, ' Licensed for use under 3-Clause BSD License'
-      PRINT*, ' '
-      PRINT*, ' For support related issues, https://github.com/lanl/feots/issues/new'
-      PRINT*, ' '
-      PRINT*, ' A program for performing creating impulse functions, diagnosing transport'
-      PRINT*, ' operators from POP IRFs, and conducting offline tracer simulations using '
-      PRINT*, ' diagnosed transport operators.'
-      PRINT*, ' '
-
-    ! Default cli parameters
-    cliParams % run_Impulse = .FALSE.
-    cliParams % run_PopMesh = .FALSE.
-    cliParams % run_genmask = .FALSE.
-    cliParams % run_regionalExtraction = .FALSE.
-    cliParams % run_operatorDiagnosis = .FALSE.
-    cliParams % run_Initialize = .FALSE.
-    cliParams % run_Equilibrator = .FALSE.
-    cliParams % run_Integrator = .FALSE.
-    cliParams % helpNeeded = .FALSE.
-    cliParams % paramFile = './runtime.params'
-    cliParams % irfFile = ''
-    cliParams % oplevel = -1
-
-
-    paramFileProvided = .FALSE.
-    irfProvided = .FALSE.
-    oplevelProvided = .FALSE.
-
-
-    nArg = command_argument_count( )
-
-    IF( nArg > 0 )THEN
-      cliParams % setupSuccess = .TRUE.
-      DO argID = 1, nArg
-
-        CALL get_command_argument( argID, argName )
-
-        SELECT CASE( TRIM( argName ) )
-
-          CASE( "impulse" )
-            ! GreedyColoring
-            cliParams % run_Impulse = .TRUE.
-
-          CASE( "popmesh" )
-            !GenerateMeshOnlyFile
-            cliParams % run_PopMesh = .TRUE.
-
-          CASE( "genmask" )
-            !GenMask
-            cliParams % run_genmask = .TRUE.
-
-          CASE( "region-extraction" )
-            !RegionalExtraction 
-            cliParams % run_regionalExtraction = .TRUE.
-
-          CASE( "operator-diagnosis" )
-            !OperatorDiagnosis
-            cliParams % run_operatorDiagnosis = .TRUE.
-
-          CASE( "initialize" )
-            !FEOTSInitialize
-            cliParams % run_Initialize = .TRUE.
-
-          CASE( "integrate" )
-            !FEOTSDriver
-            cliParams % run_Integrator = .TRUE.
-
-          CASE( "equilibrate" )
-            !FEOTSDriver
-            cliParams % run_Equilibrator = .TRUE.
-
-          CASE( "--help" )
-            cliParams % helpNeeded = .TRUE.
-            EXIT
-
-          CASE( "--param-file" )
-            paramFileProvided = .TRUE.
-
-          CASE( "--oplevel" )
-            oplevelProvided = .TRUE.
-
-          CASE( "--irf" )
-            irfProvided = .TRUE.
-
-          CASE DEFAULT
-
-            IF( paramFileProvided )THEN
-
-              cliParams % paramFile = TRIM( argName )
-              paramFileProvided = .FALSE.
-
-            ENDIF
-
-            IF( oplevelProvided )THEN
-
-              READ(argName,*)  cliParams % opLevel
-              opLevelProvided = .FALSE.
-
-            ENDIF
-
-            IF( irfProvided )THEN
-
-              cliParams % irfFile = TRIM( argName )
-              irfProvided = .FALSE.
-
-            ENDIF
-
-        END SELECT
-
-      ENDDO
-
-    ELSE
-
-      cliParams % helpNeeded = .TRUE.
-
-    ENDIF
-
-    IF( cliParams % helpNeeded ) THEN
-
-      PRINT*, '  feots [tool] [options]'      
-      PRINT*, ' '
-      PRINT*, ' [tool] can be :'
-      PRINT*, ' '
-      PRINT*, '   impulse'
-      PRINT*, '     Use a POP-Mesh, with land-mask, and a chosen advection-difussion stencil'
-      PRINT*, '     to create impulse fields for capturing impulse response functions.'
-      PRINT*, ' '
-      PRINT*, '   popmesh'
-      PRINT*, '     Extract POP-Mesh information from POP standard output.'
-      PRINT*, ' '
-      PRINT*, '   genmask'
-      PRINT*, '     Create a regional FEOTS mask using lat-lon domain bounds'
-      PRINT*, ' '
-      PRINT*, '   operator-diagnosis'
-      PRINT*, '     Diagnose transport operators using impulse fields and POP IRF output.'
-      PRINT*, '     You must specify the IRF file using the --irf option.'
-      PRINT*, ' '
-      PRINT*, '   region-extraction'
-      PRINT*, '     Create regional transport operators from global transport operators'
-      PRINT*, ' '
-      PRINT*, '   initialize'
-      PRINT*, '     Use the built in initialization routines to create tracer initial conditions'
-      PRINT*, ' '
-      PRINT*, '   integrate'
-      PRINT*, '     Run the offline tracer simulation in a forward integration mode'
-      PRINT*, ' '
-      PRINT*, '   equilibrate'
-      PRINT*, '     Run the offline tracer simulation using JFNK to find the equilibrated tracer field'
-      PRINT*, ' '
-      PRINT*, '  [options] can be :'
-      PRINT*, ' '
-      PRINT*, '   --help'
-      PRINT*, '     Display this help message'
-      PRINT*, ' '
-      PRINT*, '    --param-file /path/to/param/file'
-      PRINT*, '       Specifies the full path to a file with namelist settings for'
-      PRINT*, '       the feots application. If not provided, runtime.params in  '
-      PRINT*, '       your current directory is assumed.                          '
-      PRINT*, ' '
-      PRINT*, '    --irf /path/to/irf-file'
-      PRINT*, '       Specifies the full path to a netcdf file with IRFs'
-      PRINT*, '       (For operator diagnosis and regional extraction)'
-      PRINT*, ' '
-      PRINT*, '    --oplevel 0'
-      PRINT*, '       Specifies the index of the operator in the operator sequence'
-      PRINT*, '       This option determines the time level encoded to _advect.{oplevel}.data/conn'
-      PRINT*, ' '
-      PRINT*, ' '
-
-    ENDIF
-
-    CALL cliParams % ValidateCLI( )
-
-  END SUBROUTINE GetCLIConf
-
-  SUBROUTINE ValidateCLI(cliParams)
-    IMPLICIT NONE
-    CLASS(FEOTS_CLI), INTENT(inout) :: cliParams
-
-
-      cliParams % setupSuccess = .TRUE.
-      IF( cliParams % helpNeeded )THEN
-        cliParams % setupSuccess = .FALSE.
-      ELSE
-    
-        IF( cliParams % run_operatorDiagnosis )THEN
-          IF( TRIM(cliParams % irfFile) == '' )THEN
-            PRINT*, 'ERROR: IRF File needed for operator-diagnosis.'
-            cliParams %  setupSuccess = .FALSE.
-          ENDIF
-
-          IF( cliParams % opLevel < 0 )THEN
-            PRINT*, 'WARNING: Operator level not provided. Transport operators will use sequence level of 0'
-            cliParams % opLevel = 0
-            cliParams %  setupSuccess = .TRUE.
-          ENDIF
-        ENDIF
-        IF( cliParams % run_regionalExtraction )THEN
-
-          IF( cliParams % opLevel < 0 )THEN
-            PRINT*, 'WARNING: Operator level not provided. Transport operators will use sequence level of 0'
-            cliParams % opLevel = 0
-            cliParams %  setupSuccess = .TRUE.
-          ENDIF
-        ENDIF
-
-      ENDIF
-
-  END SUBROUTINE ValidateCLI
-        
   SUBROUTINE ExtractOceanState(cliParams)
-
 
     IMPLICIT NONE
     TYPE( FEOTS_CLI )    :: cliParams
@@ -407,11 +163,8 @@ CONTAINS
   END SUBROUTINE GenerateMeshOnlyFile
 
   SUBROUTINE GreedyGraphColoring(cliParams)
-
-
     IMPLICIT NONE
     TYPE( FEOTS_CLI )          :: cliParams
-
     TYPE( POP_Params )         :: params
     TYPE( POP_Mesh )           :: mesh
     TYPE( Stencil )            :: overlapStencil
@@ -429,7 +182,6 @@ CONTAINS
       CALL overLapStencil % Build( stencilFlag = params % StencilType, &
                                    flavor      = Overlap )
 
-
       ! Build the adjacency graph using the wet points in the mesh and the
       ! overlap-stencil associated with the specified transport operator finite
       ! difference stencil
@@ -442,11 +194,13 @@ CONTAINS
       ! scheme.
       CALL graph % GreedyColoring( )
 
+      ! Write the graph to file for later use
+      CALL graph % WriteGraph_HDF5( TRIM(cliParams %dbRoot)//'/irf/impulse/graph.h5' )
 
       CALL impulseFields % Build( mesh, graph % nColors )
       CALL impulseFields % InitializeForNetCDFWrite( ImpulseField, &
                                                      mesh, &
-                                                     'ImpulseFields.nc', &
+                                                     TRIM(cliParams % dbRoot)//'/irf/impulse/ImpulseFields.nc', &
                                                      .TRUE. )
 
       CALL GraphToImpulse( graph, impulseFields, mesh )
@@ -455,17 +209,13 @@ CONTAINS
  
       CALL impulseFields % FinalizeNetCDF( )
 
-      ! Write the graph to file for later use
-      CALL graph % WriteGraphBinFile( TRIM(params % GraphFile) )
-
-
       ! Clear memory
+      CALL impulseFields % Trash( )
       CALL overlapStencil % Trash( )
       CALL graph % Trash( )
       CALL mesh % Trash( )
 
   END SUBROUTINE GreedyGraphColoring
-
 
   SUBROUTINE GraphToImpulse( graph, impulse, mesh )
     IMPLICIT NONE
@@ -595,7 +345,7 @@ CONTAINS
    TYPE( CRSMatrix )          :: transportOperator, diffusionOperator
    TYPE( POP_Native )         :: irfFields
    CHARACTER(200)             :: thisIRFFile, meshFile
-   CHARACTER(400)             :: crsFile
+   CHARACTER(200)             :: crsFile
    CHARACTER(17)              :: walltime
    CHARACTER(5)               :: fileIDChar
    INTEGER                    :: nEntries, irf_id, row, col, m, diff_id
@@ -612,21 +362,8 @@ CONTAINS
 
       CALL params % Build(cliParams % paramFile)
 
-      ! Use the first IRF file (assumed to list netcdf files) to obtain the
-      ! meshfile
-      PRINT*, TRIM(params % IRFListFile)
-      OPEN( UNIT=NewUnit(fUnit),&
-            FILE=TRIM(params % IRFListFile), &
-            FORM='FORMATTED',&
-            ACCESS='SEQUENTIAL',&
-            ACTION='READ',&
-            STATUS='OLD' )
- 
-      READ( fUnit, '(A200)' ) meshFile
-      CLOSE( fUnit )
-      PRINT*,meshFile
       ! Load in the mesh from the netcdf file specified above
-      CALL mesh % Load( TRIM(meshfile) )
+      CALL mesh % Load( params % meshfile )
       mesh % meshType = params % meshType ! And set a flag for the type of mesh
 
       ! Here, we build a stencil for the finite difference scheme
@@ -638,8 +375,8 @@ CONTAINS
       ! The number of possible non-zero entries is the number of degrees of
       ! freedom multiplied by the stencil-width
       nEntries = ( mesh % nDOF )*( advStencil % nPoints )
-      CALL transportOperator % Build( mesh % nDOF, mesh % nDOF, nEntries )
-      CALL diffusionOperator % Build( mesh % nDOF, mesh % nDOF, mesh % nDOF*3 ) 
+      CALL transportOperator % Build( INT(mesh % nDOF,8), INT(mesh % nDOF,8), INT(nEntries,8) )
+      CALL diffusionOperator % Build( INT(mesh % nDOF,8), INT(mesh % nDOF,8), INT(mesh % nDOF*3,8) ) 
 
       ! Allocate space for a hash-table storage
       ALLOCATE( nval(1:mesh % nDOF), columns(1:mesh % nDOF, 1:advStencil % nPoints) )
@@ -651,7 +388,7 @@ CONTAINS
 
 
       ! Read the adjacency graph from file
-      CALL graph % ReadGraphBinFile( TRIM(params % graphFile) )
+      !CALL graph % ReadGraph_HDF5( TRIM(params % graphFile) )
       
       ! Allocate space for the IRF fields. The number of IRF fields is
       ! equivalent to the number of colors in the graph
@@ -659,24 +396,16 @@ CONTAINS
       ! When building this data structure for the irf-fields, nColors
       ! corresponds to the number of irf fields-we add an additionation
       ! "POP_Native" attribute for the vertical diffusivity
-      CALL irfFields % Build( mesh, graph % nColors+1 )
-      diff_id = graph % nColors + 1
+      !CALL irfFields % Build( mesh, graph % nColors+1 )
+     ! diff_id = graph % nColors + 1
+      CALL irfFields % Build( mesh, 54 )
+      diff_id = 54
       
       ! /////////////////////// Operator Diagnosis //////////////////////////// !
 
-      OPEN( UNIT=NewUnit(fUnit),&
-            FILE=TRIM(params % IRFListFile), &
-            FORM='FORMATTED',&
-            ACCESS='SEQUENTIAL',&
-            ACTION='READ',&
-            STATUS='OLD' )
+         fileID = cliParams % oplevel
+         thisIRFFile = cliParams % irfFile
  
-      DO fileID = 1, params % nIRFFiles
- 
-         !!! >> Change to CLI Params << !! READ( fUnit, '(A200)' ) thisIRFFile
-
-         IF( fileID >= params % IRFStart )THEN
-
          ! Initialize the NetCDF file
          PRINT*, 'Initialize for reading...'//TRIM( thisIRFFile )
          CALL irfFields % InitializeForNetCDFRead( modelType=ImpulseResponseField, &
@@ -712,6 +441,8 @@ CONTAINS
                      IF( this_k <= mesh % nZ .AND. this_k > 0 )THEN
 
                         
+                        ! Get neighboring i,j indices, taking tripole grid
+                        ! connectivity into account
                         CALL GetTrueIJ( params % MeshType, &
                                         this_i, this_j, &
                                         mesh % nX, mesh % nY, &
@@ -849,17 +580,22 @@ CONTAINS
          ENDDO
       
          WRITE(fileIDChar, '(I5.5)' ) fileID
-         crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
+         crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
          PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-         CALL transportOperator % WriteSparseConnectivity( TRIM(crsFile) )
-         CALL transportOperator % WriteMatrixData( TRIM(crsFile) )
+!         CALL transportOperator % WriteSparseConnectivity( TRIM(crsFile) )
+!         CALL transportOperator % WriteMatrixData( TRIM(crsFile) )
+!         CALL transportOperator % WriteCRSMatrix_NetCDF( TRIM(crsFile) )
+         CALL transportOperator % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
-         crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
+         crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
          PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-         CALL diffusionOperator % WriteSparseConnectivity( TRIM(crsFile) )
-         CALL diffusionOperator % WriteMatrixData( TRIM(crsFile) )
+         !CALL diffusionOperator % WriteSparseConnectivity( TRIM(crsFile) )
+         !CALL diffusionOperator % WriteMatrixData( TRIM(crsFile) )
+!         CALL diffusionOperator % WriteCRSMatrix_NetCDF( TRIM(crsFile) )
+         CALL diffusionOperator % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
          ! Testing the diffusion operator
+         PRINT*, 'Testing diffusion operator'
          x = 1.0_prec
          Dx = diffusionOperator % MatVecMul( x )
          PRINT*, 'MAX RowSum(Dx)', MAXVAL(Dx)
@@ -868,10 +604,10 @@ CONTAINS
          CALL transportOperator % Reset( )
          CALL diffusionOperator % Reset( )
 
-         ENDIF
+         !ENDIF
 
-      ENDDO ! Loop over the IRF Files
-      CLOSE( fUnit )
+      !ENDDO ! Loop over the IRF Files
+      !CLOSE( fUnit )
 
       ! Clear memory
       CALL advStencil % Trash( )
@@ -931,12 +667,12 @@ CONTAINS
                                   flavor      = Normal )
 
          nGentries = ( globalMesh % nDOF )*( advStencil % nPoints )
-         CALL transportOp % Build( globalmesh % nDOF, globalmesh % nDOF, nGEntries )
-         CALL diffusionOp % Build( globalmesh % nDOF, globalmesh % nDOF, globalmesh % nDOF*3 ) 
+         CALL transportOp % Build( INT(globalmesh % nDOF,8), INT(globalmesh % nDOF,8), INT(nGEntries,8) )
+         CALL diffusionOp % Build( INT(globalmesh % nDOF,8), INT(globalmesh % nDOF,8), INT(globalmesh % nDOF*3,8) ) 
          
          nRentries = ( region % nCells )*( advStencil % nPoints )
-         CALL regionalTransportOp % Build( region % nCells, region % nCells, nREntries )
-         CALL regionalDiffusionOp % Build( region % nCells, region % nCells, region % nCells*3 ) 
+         CALL regionalTransportOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(nREntries,8) )
+         CALL regionalDiffusionOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(region % nCells*3,8) ) 
 
          PRINT*, ' Extracting regional operators.'
          DO fileID = 1, params % nIRFFiles
@@ -945,15 +681,13 @@ CONTAINS
 
                ! offset the file-id by the oplevel
                WRITE(fileIDChar, '(I5.5)' ) fileID-1+cliParams % oplevel
-               crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
+               crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
                PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-               CALL transportOp % ReadSparseConnectivity( TRIM(crsFile) )
-               CALL transportOp % ReadMatrixData( TRIM(crsFile) )
+               CALL transportOp % ReadCRSMatrix_HDF5(TRIM(crsFile) )
 
-               crsFile=TRIM(params % feotsOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
+               crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
                PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-               CALL diffusionOp % ReadSparseConnectivity( TRIM(crsFile) )
-               CALL diffusionOp % ReadMatrixData( TRIM(crsFile) )
+               CALL diffusionOp % ReadCRSMatrix_HDF5(TRIM(crsFile) )
 
                ! Extract advection operator in region 
                CALL transportOp % SubSample( regionalTransportOp, &
@@ -968,15 +702,13 @@ CONTAINS
                                              region % nCells, &
                                              region % nCells*3 )
 
-               crsFile=TRIM(params % regionalOperatorDirectory)//TRIM(params % operatorBaseName)//'_advect.'//fileIDChar
+               crsFile=TRIM(params % regionalOperatorDirectory)//'transport.'//fileIDChar//'.h5'
                PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-               CALL regionalTransportOp % WriteSparseConnectivity( TRIM(crsFile) )
-               CALL regionalTransportOp % WriteMatrixData( TRIM(crsFile) )
+               CALL regionalTransportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
-               crsFile=TRIM(params % regionalOperatorDirectory)//TRIM(params % operatorBaseName)//'_vdiffu.'//fileIDChar
+               crsFile=TRIM(params % regionalOperatorDirectory)//'diffusion.'//fileIDChar//'.h5'
                PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-               CALL regionalDiffusionOp % WriteSparseConnectivity( TRIM(crsFile) )
-               CALL regionalDiffusionOp % WriteMatrixData( TRIM(crsFile) )
+               CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
             
             ENDIF
          ENDDO

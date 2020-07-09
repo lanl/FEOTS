@@ -160,6 +160,7 @@ INCLUDE 'mpif.h'
    REAL(prec), ALLOCATABLE :: zk(:,:)
    REAL(prec), ALLOCATABLE :: w (:,:)
    REAL(prec), ALLOCATABLE :: p (:,:)
+   REAL(prec), ALLOCATABLE :: x (:,:)
 
    ! Function JacobianAction
    REAL(prec)              :: scFac, vmag, e
@@ -454,6 +455,7 @@ CONTAINS
              rk(1:this % solution % nDOF, 1:this % solution % nTracers), &
              zk(1:this % solution % nDOF, 1:this % solution % nTracers), &
              w(1:this % solution % nDOF, 1:this % solution % nTracers), &
+             x(1:this % solution % nDOF, 1:this % solution % nTracers), &
              p(1:this % solution % nDOF, 1:this % solution % nTracers) )
 #endif
 
@@ -491,6 +493,7 @@ CONTAINS
               rk, &
               zk, &
               w, & 
+              x, & 
               p  )
 #endif
 
@@ -863,8 +866,11 @@ CONTAINS
          ELSE
             fileBase = TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename)
          ENDIF
-         CALL this % solution % transportOps(1) % ReadMatrixData(TRIM(fileBase)//'_advect.'//fileIDChar )
-         CALL this % solution % transportOps(2) % ReadMatrixData(TRIM(fileBase)//'_vdiffu.'//fileIDChar )
+         PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'advect.'//fileIDChar//'.h5'
+         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//fileIDChar//'.h5' ) 
+
+         PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'diffusion.'//fileIDChar//'.h5'
+         CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//fileIDChar//'.h5' ) 
 
          IF( this % params % waterMassTagging )THEN
 

@@ -32,6 +32,7 @@ AS_IF([test "x$enable_openmp" = "xyes"],[
 AX_LIB_HDF5()
 AS_IF([test "x$with_hdf5" = "xyes"],[
   AC_MSG_NOTICE([found hdf5 $H5FC])
+  FC=$H5FC
 ],[
   AC_MSG_ERROR([Unable to find HDF5.])
 ])
@@ -39,7 +40,6 @@ AS_IF([test "x$with_hdf5" = "xyes"],[
 # Check for NetCDF4
 AX_LIB_NETCDF4()
 AS_IF([test "x$with_netcdf4" = "xyes"],[
-  FC="$NETCDF4_FC"
   AC_MSG_NOTICE([FFLAGS $NETCDF4_FFLAGS])
 ],[
   AC_MSG_ERROR([Unable to find NetCDF4.])

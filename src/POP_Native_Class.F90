@@ -171,8 +171,7 @@ CONTAINS
    CHARACTER(2) :: tracerid
 
       ! Create the netcdf file and generate a file handle referenced by the
-      ! integer "ncid_PN"
-
+      PRINT*, 'Preparing write to '//TRIM(filename)
       CALL Check( nf90_create( PATH=TRIM(filename),&
                                CMODE=OR(nf90_clobber,nf90_64bit_offset),&
                                NCID=ncid_PN ) )
@@ -429,7 +428,7 @@ CONTAINS
          ! convention for reporting the impulse fields.
          DO i = 1, this % nTracers-1
             WRITE( tracerid, '(I2.2)') i
-            PRINT*, "ADV_3D_IRF_"//tracerid
+            !PRINT*, "ADV_3D_IRF_"//tracerid
             CALL Check( nf90_inq_varid( ncid_PN, "ADV_3D_IRF_"//tracerid, &
                                         tracer_varid_PN(i) ) )
          ENDDO

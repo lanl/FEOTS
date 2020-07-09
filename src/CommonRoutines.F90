@@ -39,6 +39,7 @@ MODULE CommonRoutines
 
 USE ModelPrecision
 USE ConstantsDictionary
+USE HDF5
 
 ! netcdf
 USE netcdf
@@ -665,6 +666,66 @@ END FUNCTION NewUnit
       PRINT *, trim(nf90_strerror(status))
       STOP "NetCDF Error, Stopped"
     ENDIF
-  END SUBROUTINE Check 
+ END SUBROUTINE Check 
+
+ SUBROUTINE Add_IntObj_to_HDF5( rank, dimensions, variable_name,variable, file_id )
+   IMPLICIT NONE
+   INTEGER, INTENT(in)          :: rank
+   INTEGER(HSIZE_T), INTENT(in) :: dimensions(1:rank)
+   CHARACTER(*)                 :: variable_name
+   INTEGER, INTENT(in)          :: variable(*)
+   INTEGER(HID_T), INTENT(in)   :: file_id
+   ! local
+   INTEGER(HID_T)   :: memspace, dataset_id
+   INTEGER          :: error
+
+       CALL h5screate_simple_f(rank, dimensions, memspace, error)
+       CALL h5dcreate_f( file_id, TRIM(variable_name), H5T_STD_I32LE, memspace,dataset_id, error)
+       CALL h5dwrite_f( dataset_id, H5T_STD_I32LE , variable, dimensions,error)
+       CALL h5dclose_f( dataset_id, error )
+       CALL h5sclose_f( memspace, error )
+
+ END SUBROUTINE Add_IntObj_to_HDF5
+
+ SUBROUTINE Add_FloatObj_to_HDF5( rank, dimensions, variable_name, variable, file_id )
+   IMPLICIT NONE
+   INTEGER, INTENT(in)          :: rank
+   INTEGER(HSIZE_T), INTENT(in) :: dimensions(1:rank)
+   CHARACTER(*)                 :: variable_name
+   REAL(prec), INTENT(in)       :: variable(*)
+   INTEGER(HID_T), INTENT(in)   :: file_id
+   ! local
+   INTEGER(HID_T)   :: memspace, dataset_id
+   INTEGER          :: error
+
+       CALL h5screate_simple_f(rank, dimensions, memspace, error)
+       CALL h5dcreate_f( file_id, TRIM(variable_name), H5T_IEEE_F32LE, memspace, dataset_id, error)
+       CALL h5dwrite_f( dataset_id, H5T_IEEE_F32LE, variable, dimensions,error)
+       CALL h5dclose_f( dataset_id, error )
+       CALL h5sclose_f( memspace, error )
+
+ END SUBROUTINE Add_FloatObj_to_HDF5
+
+ SUBROUTINE Get_HDF5_Obj_Dimensions( file_id, variable_name, rank, dimensions )
+   IMPLICIT NONE
+   INTEGER(HID_T), INTENT(in)    :: file_id
+   CHARACTER(*)                  :: variable_name
+   INTEGER, INTENT(in)           :: rank
+   INTEGER(HSIZE_T), INTENT(out) :: dimensions(1:rank)
+   ! Local
+   INTEGER          :: error
+   INTEGER(HID_T)   :: dataset_id
+   INTEGER(HSIZE_T) :: maxdims(1:rank)
+   INTEGER(HID_T)   :: filespace
+
+        CALL h5dopen_f(file_id, TRIM(variable_name), dataset_id, error)
+        CALL h5dget_space_f(dataset_id, filespace, error)
+        CALL h5sget_simple_extent_dims_f(filespace, dimensions, maxdims, error)
+
+        CALL h5dclose_f(dataset_id, error)
+        CALL h5sclose_f(filespace, error)
+
+ END SUBROUTINE Get_HDF5_Obj_Dimensions
+
 
 END MODULE CommonRoutines

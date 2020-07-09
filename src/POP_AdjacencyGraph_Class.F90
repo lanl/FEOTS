@@ -50,12 +50,12 @@ USE POP_GridTypeMappings
 IMPLICIT NONE
 
    TYPE POP_AdjacencyGraph
-      INTEGER(KIND=8)      :: nDOF
+      INTEGER              :: nDOF
       INTEGER              :: maxValence
       INTEGER              :: nColors
       INTEGER, ALLOCATABLE :: valence(:)
       INTEGER, ALLOCATABLE :: color(:)
-      INTEGER(KIND=8), ALLOCATABLE :: neighbors(:,:)
+      INTEGER, ALLOCATABLE :: neighbors(:,:)
 
       CONTAINS
 
@@ -65,14 +65,17 @@ IMPLICIT NONE
       PROCEDURE :: ConstructFromStencil => ConstructFromStencil_POP_AdjacencyGraph
       PROCEDURE :: GreedyColoring       => GreedyColoring_POP_AdjacencyGraph
     
-      PROCEDURE :: ReadGraphFile     => ReadGraphFile_POP_AdjacencyGraph
-      PROCEDURE :: WriteGraphFile    => WriteGraphFile_POP_AdjacencyGraph
-      PROCEDURE :: ReadGraphBinFile  => ReadGraphBinFile_POP_AdjacencyGraph
-      PROCEDURE :: WriteGraphBinFile => WriteGraphBinFile_POP_AdjacencyGraph
+!      PROCEDURE :: ReadGraphFile     => ReadGraphFile_POP_AdjacencyGraph
+!      PROCEDURE :: WriteGraphFile    => WriteGraphFile_POP_AdjacencyGraph
+!      PROCEDURE :: ReadGraphBinFile  => ReadGraphBinFile_POP_AdjacencyGraph
+!      PROCEDURE :: WriteGraphBinFile => WriteGraphBinFile_POP_AdjacencyGraph
 
       !
+      PROCEDURE :: WriteGraph_HDF5
+      PROCEDURE :: ReadGraph_HDF5
+
       PROCEDURE :: WriteGraph_NetCDF
-!      PROCEDURE :: ReadGraph_NetCDF
+      PROCEDURE :: ReadGraph_NetCDF
 
 
    END TYPE POP_AdjacencyGraph
@@ -93,7 +96,7 @@ CONTAINS
  ! ============================================================================ !
    IMPLICIT NONE
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   INTEGER(KIND=8), INTENT(in)                :: nDOF
+   INTEGER, INTENT(in)                :: nDOF
    INTEGER, INTENT(in)                        :: maxValence
    
       myGraph % nDOF       = nDOF
@@ -142,10 +145,7 @@ CONTAINS
 
        CALL CPU_TIME( t1 )
 
-       IF( .NOT.( ALLOCATED( myGraph % valence ) ) )THEN
-          CALL myGraph % Build( INT(mesh % nDOF,8), relStencil % nPoints ) 
-       ENDIF
-
+       CALL myGraph % Build( mesh % nDOF, relStencil % nPoints ) 
 
        DO e1 = 1, mesh % nDOF
 
@@ -199,7 +199,7 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
    ! Local
-   INTEGER(KIND=8) :: e1, e2
+   INTEGER :: e1, e2
    INTEGER :: i, j
    INTEGER :: c2(1:myGraph % maxValence)
    LOGICAL :: neednewcolor, colorfound
@@ -246,7 +246,6 @@ CONTAINS
          IF( neednewcolor )THEN
             myGraph % nColors   = myGraph % nColors + 1
             myGraph % color(e1) = myGraph % nColors
-            PRINT*, 'nColors = ', myGraph % nColors
          ENDIF
 
       ENDDO
@@ -256,24 +255,122 @@ CONTAINS
       PRINT *,' S/R GreedyColoring : Coloring completed in ', t2-t1, ' seconds.'
       
  END SUBROUTINE GreedyColoring_POP_AdjacencyGraph
-!
+
+ SUBROUTINE ReadGraph_HDF5( myGraph, filename )
+   IMPLICIT NONE
+   CLASS( POP_AdjacencyGraph ), INTENT(out) :: myGraph
+   CHARACTER(*), INTENT(in)                 :: filename
+   ! Local
+   INTEGER(HID_T) :: file_id
+   INTEGER(HSIZE_T) :: v2dim(1:2), vdim(1:1)
+   INTEGER(HID_T)   :: dataset_id, filespace
+   INTEGER          :: error
+
+     CALL h5open_f(error)
+     CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error)
+
+     CALL Get_HDF5_Obj_Dimensions( file_id,'/graph/cell_valence', 1, vdim )
+     CALL Get_HDF5_Obj_Dimensions( file_id,'/graph/cell_neighbors', 2, v2dim )
+
+     CALL myGraph % Build( nDOF = INT(vdim(1),4), &
+                           maxValence = INT(v2dim(1),4) )
+
+     ! Get the cell valence 
+     CALL h5dopen_f(file_id, '/graph/cell_valence', dataset_id, error)
+     CALL h5dget_space_f( dataset_id, filespace, error )
+     CALL h5dread_f( dataset_id, H5T_STD_I32LE, &
+                     myGraph % valence, &
+                     vdim, error)
+     CALL h5dclose_f(dataset_id, error)
+     CALL h5sclose_f(filespace, error)
+
+     ! Get the cell color 
+     CALL h5dopen_f(file_id, '/graph/cell_color', dataset_id, error)
+     CALL h5dget_space_f( dataset_id, filespace, error )
+     CALL h5dread_f( dataset_id, H5T_STD_I32LE, &
+                     myGraph % color, &
+                     vdim, error)
+     CALL h5dclose_f(dataset_id, error)
+     CALL h5sclose_f(filespace, error)
+
+     ! Get the cell neighbors 
+     CALL h5dopen_f(file_id, '/graph/cell_neighbors', dataset_id, error)
+     CALL h5dget_space_f( dataset_id, filespace, error )
+     CALL h5dread_f( dataset_id, H5T_STD_I32LE, &
+                     myGraph % neighbors, &
+                     vdim, error)
+     CALL h5dclose_f(dataset_id, error)
+     CALL h5sclose_f(filespace, error)
+
+     CALL h5fclose_f(file_id, error)
+     CALL h5close_f(error)
+
+     myGraph % nColors = MAXVAL(myGraph % color)
+
+ END SUBROUTINE ReadGraph_HDF5
+ 
+ SUBROUTINE WriteGraph_HDF5( myGraph, filename )
+   IMPLICIT NONE
+   CLASS( POP_AdjacencyGraph ), INTENT(in) :: myGraph
+   CHARACTER(*), INTENT(in)                :: filename
+   ! Local
+   INTEGER(HID_T) :: file_id
+   INTEGER(HSIZE_T) :: vdim(1:1), v2dim(1:2)
+   INTEGER(HID_T)   :: group_id
+   INTEGER          :: error
+
+       CALL h5open_f(error)
+
+       CALL h5fcreate_f(TRIM(filename), H5F_ACC_TRUNC_F, file_id, error)
+
+       CALL h5gcreate_f( file_id, "/graph", group_id, error )
+       CALL h5gclose_f( group_id, error )
+
+       vdim(1:1) = (/myGraph % nDOF/)
+       v2dim(1:2) = (/myGraph % maxValence, myGraph % nDOF/)
+
+       ! Write the cell valence
+       CALL Add_IntObj_to_HDF5( rank=1,&
+                                dimensions=vdim(1:1),&
+                                variable_name='/graph/cell_valence',&
+                                variable=myGraph % valence,&
+                                file_id=file_id )
+       ! Write the cell color
+       CALL Add_IntObj_to_HDF5( rank=1,&
+                                dimensions=vdim(1:1),&
+                                variable_name='/graph/cell_color',&
+                                variable=myGraph % color,&
+                                file_id=file_id )
+       ! Write the cell neighbors
+       CALL Add_IntObj_to_HDF5( rank=2,&
+                                dimensions=v2dim(1:2),&
+                                variable_name='/graph/cell_neighbors',&
+                                variable=myGraph % neighbors,&
+                                file_id=file_id )
+
+       CALL h5fclose_f( file_id, error )
+       CALL h5close_f( error )
+
+ END SUBROUTINE WriteGraph_HDF5
+
  SUBROUTINE WriteGraph_NetCDF( myGraph, filename )
    IMPLICIT NONE
-   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   CHARACTER(*), INTENT(in)                   :: filename
+   CLASS( POP_AdjacencyGraph ), INTENT(in) :: myGraph
+   CHARACTER(*), INTENT(in)                :: filename
    ! Local
    INTEGER :: ncid
    INTEGER :: dof_dimid, valence_dimid, color_dimid
    INTEGER :: dof_varid, valence_varid, color_varid, neighbors_varid
 
+      
+      PRINT*, 'Writing graph to '//TRIM(filename)
+      PRINT*, 'Graph nDOF ',myGraph % nDOF
+      PRINT*, 'Graph nColor ',myGraph % nColors
+      PRINT*, 'Graph maxValence ',myGraph % maxValence
       CALL Check( nf90_create( PATH=TRIM(filename),&
                                CMODE=OR(nf90_clobber,nf90_64bit_offset),&
                                NCID=ncid ) )
-      CALL Check( nf90_def_dim( ncid, "dof", myGraph % nDOF, dof_dimid ) ) 
 
-      CALL Check( nf90_create( PATH=TRIM(filename),&
-                               CMODE=OR(nf90_clobber,nf90_64bit_offset),&
-                               NCID=ncid ) )
       CALL Check( nf90_def_dim( ncid, "dof", myGraph % nDOF, dof_dimid ) ) 
       CALL Check( nf90_def_dim( ncid, "valence", myGraph % maxValence, valence_dimid ) ) 
       CALL Check( nf90_def_dim( ncid, "color", myGraph % nColors, color_dimid ) ) 
@@ -297,19 +394,17 @@ CONTAINS
       CALL Check( nf90_put_att( ncid, neighbors_varid, "_FillValue", 0) )
       CALL Check( nf90_put_att( ncid, neighbors_varid, "missing_value",0))
 
-
       CALL Check( nf90_enddef(ncid) )
-
 
       CALL Check( nf90_put_var( ncid, &
                                 valence_varid, &
                                 myGraph % valence, &
-                                1, myGraph % nDOF ) )
+                                (/1/), (/myGraph % nDOF/) ) )
 
       CALL Check( nf90_put_var( ncid, &
                                 color_varid, &
                                 myGraph % color, &
-                                1, myGraph % nDOF ) )
+                                (/1/), (/myGraph % nDOF/) ) )
 
       CALL Check( nf90_put_var( ncid, &
                                 neighbors_varid, &
@@ -318,282 +413,333 @@ CONTAINS
 
        
       CALL Check( nf90_close( ncid ) )
+      PRINT*, 'Done writing graph file'
 
  END SUBROUTINE WriteGraph_NetCDF
 !
  SUBROUTINE ReadGraph_NetCDF( myGraph, filename )
    IMPLICIT NONE
-   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   CHARACTER(*), INTENT(in)                   :: filename
+   CLASS( POP_AdjacencyGraph ), INTENT(out) :: myGraph
+   CHARACTER(*), INTENT(in)                 :: filename
+   ! Local
+   INTEGER :: i, ncid, dimid, varid
+   INTEGER :: nDOF, maxValence, nColors
+   CHARACTER(20) :: nameHolder
+
+      CALL Check( nf90_open( TRIM(filename), nf90_nowrite, ncid ) )
+
+      ! Get the number of DOF
+      CALL Check( nf90_inq_dimid(ncid, "dof", dimid) )
+      CALL Check(nf90_inquire_dimension(ncid, dimid, nameHolder, nDOF))
+     
+      ! Get the max valence for each node in a graph
+      CALL Check( nf90_inq_dimid(ncid, "valence", dimid) )
+      CALL Check(nf90_inquire_dimension(ncid, dimid, nameHolder, maxValence))
+
+      ! Get the number of colors in a graph
+      CALL Check( nf90_inq_dimid(ncid, "color", dimid) )
+      CALL Check( nf90_inquire_dimension(ncid, dimid, nameHolder, nColors) )
+       
+      PRINT*, 'Graph nDOF',nDOF 
+      PRINT*, 'Graph maxValence',maxValence 
+
+      CALL myGraph % Build( nDOF, maxValence )
+      myGraph % nColors = nColors
+
+
+      CALL Check( nf90_inq_varid( ncid, "cell_neighbors", varid ) )
+      DO i = 1, maxValence
+          CALL Check( nf90_get_var( ncid, &
+                                    varid, &
+                                    myGraph % neighbors(i,1:nDOF), &
+                                    (/i, 1/),(/1, nDOF/) ) )
+      ENDDO
+
+      CALL Check( nf90_inq_varid( ncid, "cell_valence",varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                myGraph % valence(1:nDOF), &
+                                (/1/), (/nDOF/) ) )
+
+      CALL Check( nf90_inq_varid( ncid, "cell_color", varid ) )
+      CALL Check( nf90_get_var( ncid, &
+                                varid, &
+                                myGraph % color(1:nDOF), &
+                                (/1/), (/nDOF/) ) )
+
+
+      CALL Check( nf90_close(ncid) )
+
+
  END SUBROUTINE ReadGraph_NetCDF
 !
- SUBROUTINE ReadGraphFile_POP_AdjacencyGraph( myGraph, filename )
- !
-   IMPLICIT NONE
-   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   CHARACTER(*), INTENT(in)                   :: filename
-   ! Local
-   INTEGER(KIND=8) :: i, ndof
-   INTEGER         ::  maxvalence, ncolors, j, fUnit
-
-      OPEN( UNIT = NewUnit(fUnit), &
-            FILE = TRIM(filename), &
-            FORM = 'FORMATTED', &
-            ACCESS = 'SEQUENTIAL', &
-            STATUS = 'OLD', &
-            ACTION = 'READ' )
-
-      READ( fUnit, * ) ndof, maxvalence, ncolors
-
-      CALL myGraph % Build( ndof, maxvalence )
-      myGraph % nColors = ncolors
-      
-      DO i = 1, ndof
-
-         READ( fUnit, * ) myGraph % valence(i)
-         READ( fUnit, * ) myGraph % color(i)
-
-         DO j = 1, myGraph % valence(i)
-            READ( fUnit, * ) myGraph % neighbors(j,i)
-         ENDDO
-         
-      ENDDO
-
-      CLOSE( fUnit )
-
- END SUBROUTINE ReadGraphFile_POP_AdjacencyGraph
+! SUBROUTINE ReadGraphFile_POP_AdjacencyGraph( myGraph, filename )
+! !
+!   IMPLICIT NONE
+!   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
+!   CHARACTER(*), INTENT(in)                   :: filename
+!   ! Local
+!   INTEGER(KIND=8) :: i, ndof
+!   INTEGER         ::  maxvalence, ncolors, j, fUnit
 !
- SUBROUTINE WriteGraphFile_POP_AdjacencyGraph( myGraph, filename )
- !
-   IMPLICIT NONE
-   CLASS( POP_AdjacencyGraph ), INTENT(in) :: myGraph
-   CHARACTER(*), INTENT(in)                :: filename
-   ! Local
-   INTEGER(KIND=8) :: i
-   INTEGER         :: j, fUnit
-
-      OPEN( UNIT = NewUnit(fUnit), &
-            FILE = TRIM(filename), &
-            FORM = 'FORMATTED', &
-            ACCESS = 'SEQUENTIAL', &
-            STATUS = 'REPLACE', &
-            ACTION = 'WRITE' )
-
-      WRITE( fUnit, * ) myGraph % nDOF, &
-                        myGraph % maxValence, &
-                        myGraph % nColors
-
-      DO i = 1, myGraph % nDOF
-
-         WRITE( fUnit, * ) myGraph % valence(i)
-         WRITE( fUnit, * ) myGraph % color(i)
-
-         DO j = 1, myGraph % valence(i)
-            WRITE( fUnit, * ) myGraph % neighbors(j,i)
-         ENDDO
-         
-      ENDDO
-
-      CLOSE( fUnit )
-
- END SUBROUTINE WriteGraphFile_POP_AdjacencyGraph
+!      OPEN( UNIT = NewUnit(fUnit), &
+!            FILE = TRIM(filename), &
+!            FORM = 'FORMATTED', &
+!            ACCESS = 'SEQUENTIAL', &
+!            STATUS = 'OLD', &
+!            ACTION = 'READ' )
 !
- SUBROUTINE ReadGraphBinFile_POP_AdjacencyGraph( myGraph, filename )
- !
-   IMPLICIT NONE
-   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   CHARACTER(*), INTENT(in)                   :: filename
-   ! Local
-   INTEGER(KIND=8) :: ndof
-   INTEGER         :: maxvalence, ncolors, j, reclength, fUnit
-   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
-   INTEGER(KIND=8), ALLOCATABLE :: localIOarray(:)
-
-      OPEN( UNIT = NewUnit(fUnit), &
-            FILE = TRIM(filename)//'.graph.hdr', &
-            FORM = 'FORMATTED', &
-            ACCESS = 'SEQUENTIAL', &
-            STATUS = 'OLD', &
-            ACTION = 'READ' )
-
-      READ( fUnit, * ) ndof, maxvalence, ncolors
-
-      CLOSE( UNIT = fUnit )
-
-      CALL myGraph % Build( ndof, maxvalence )
-      myGraph % nColors = ncolors
-      
-      datalength = ndof*(maxvalence+2)
-      ! NOTE : in gfortran, internally the record length is stored as a 32-bit
-      ! signed integer. Thus, in gfortran, it is not possible to have a record
-      ! length be greater than 2^31 Bytes ( ~2.147 GB ). Our solution is to make
-      ! the I/O array an integer multiple of a fixed "data chunk" size. For
-      ! example, this chunk size might be 100 MB, which corresponds to
-      ! 25-million 4-byte integers per record in the fil
-      !
-      ! Make sure that the datalength is an integer multiple of the
-      ! "lgFileIOChunkSize". This parameter has units of "Bytes"
-      IF( SIZEOF(i) == 4 )THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nInt4PerChunk)
-         IF( nChunks*nInt4PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength   = nChunks*nInt4PerChunk
-         recLength    = nInt4PerChunk*4
-         nIntPerChunk = nInt4PerChunk
-
-      ELSEIF( SIZEOF(i) == 8)THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nInt8PerChunk)
-         IF( nChunks*nInt8PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength = nChunks*nInt8PerChunk
-         recLength  = nInt8PerChunk*8
-         nIntPerChunk = nInt8PerChunk
-
-      ELSE
-         PRINT*, 'Module POP_AdjacencyGraph_Class.f90 : S/R WriteGraphBinFile '
-         PRINT*, '     Invalid INTEGER SIZE. STOPPING'
-         STOP
-      ENDIF
-     
-      ALLOCATE( localIOarray(1:datalength) )
-      localIOarray = 0   
-   
-      OPEN( UNIT = NewUnit(fUnit), &
-            FILE = TRIM(filename)//'.graph.bin', &
-            FORM = 'UNFORMATTED', &
-            ACCESS = 'DIRECT', &
-            STATUS = 'OLD', &
-            ACTION = 'READ', &
-            RECL = reclength )
-
-      PRINT*, 'S/R ReadGraphBinFile : Done!'
-      PRINT*, '        '//TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
-      DO i = 1, nChunks
-         adr1 = 1 + (i-1)*(nIntPerChunk)
-         adr2 = adr1 + nIntPerChunk - 1
-         READ( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)
-      ENDDO
-      CLOSE( fUnit )
-
-      k = 0 
-      DO i = 1, myGraph % ndof
-         
-         k = k+1
-         myGraph % valence(i) = localIOArray(k)
-         k = k+1
-         myGraph % color(i)   = localIOArray(k)
-
-         DO j = 1, myGraph % maxValence
-            k = k+1
-            myGraph % neighbors(j,i) = localIOArray(k)
-         ENDDO
-         
-      ENDDO
-
-      DEALLOCATE( localIOarray )
-
- END SUBROUTINE ReadGraphBinFile_POP_AdjacencyGraph
+!      READ( fUnit, * ) ndof, maxvalence, ncolors
 !
- SUBROUTINE WriteGraphBinFile_POP_AdjacencyGraph( myGraph, filename )
- !
-   IMPLICIT NONE
-   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
-   CHARACTER(*), INTENT(in)                   :: filename
-   ! Local
-   INTEGER :: j, fUnit, reclength
-   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
-   INTEGER(KIND=8), ALLOCATABLE :: localIOarray(:)
-
-      OPEN( UNIT = NewUnit(fUnit), &
-            FILE = TRIM(filename)//'.graph.hdr', &
-            FORM = 'FORMATTED', &
-            ACCESS = 'SEQUENTIAL', &
-            STATUS = 'REPLACE', &
-            ACTION = 'WRITE' )
-
-      WRITE( fUnit, * ) myGraph  % ndof, myGraph % maxvalence, myGraph % ncolors
-
-      CLOSE( UNIT = fUnit )
-
-      
-      datalength = myGraph % ndof*(myGraph % maxvalence+2)
-      ! NOTE : in gfortran, internally the record length is stored as a 32-bit
-      ! signed integer. Thus, in gfortran, it is not possible to have a record
-      ! length be greater than 2^31 Bytes ( ~2.147 GB ). Our solution is to make
-      ! the I/O array an integer multiple of a fixed "data chunk" size. For
-      ! example, this chunk size might be 100 MB, which corresponds to
-      ! 25-million 4-byte integers per record in the fil
-      !
-      ! Make sure that the datalength is an integer multiple of the
-      ! "lgFileIOChunkSize". This parameter has units of "Bytes"
-      IF( SIZEOF(i) == 4 )THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nInt4PerChunk)
-         IF( nChunks*nInt4PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength   = nChunks*nInt4PerChunk
-         recLength    = nInt4PerChunk*4
-         nIntPerChunk = nInt4PerChunk
-
-      ELSEIF( SIZEOF(i) == 8)THEN
-
-         ! Make sure that datalength is an integer multiple of nInt8PerChunk 
-         nChunks    = (datalength/nInt8PerChunk)
-         IF( nChunks*nInt8PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength = nChunks*nInt8PerChunk
-         recLength  = nInt8PerChunk*8
-         nIntPerChunk = nInt8PerChunk
-
-      ELSE
-         PRINT*, 'Module POP_AdjacencyGraph_Class.f90 : S/R WriteGraphBinFile '
-         PRINT*, '     Invalid INTEGER SIZE. STOPPING'
-         STOP
-      ENDIF
-      ALLOCATE( localIOarray(1:datalength) )
-      localIOarray = 0   
-   
-      k = 0 
-      DO i = 1, myGraph % ndof
-         
-         k = k+1
-         localIOArray(k) = myGraph % valence(i)
-         k = k+1
-         localIOArray(k) = myGraph % color(i)
-
-         DO j = 1, myGraph % maxValence
-            k = k+1
-            localIOArray(k) = myGraph % neighbors(j,i)
-         ENDDO
-         
-      ENDDO
-
-      OPEN( UNIT = NewUnit(fUnit), &
-            FILE = TRIM(filename)//'.graph.bin', &
-            FORM = 'UNFORMATTED', &
-            ACCESS = 'DIRECT', &
-            STATUS = 'REPLACE', &
-            ACTION = 'WRITE', &
-            RECL = reclength )
-
-      PRINT*, TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
-      DO i = 1, nChunks
-         adr1 = 1 + (i-1)*(nIntPerChunk)
-         adr2 = adr1 + nIntPerChunk - 1
-         WRITE( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)
-      ENDDO
-      CLOSE( fUnit )
-
-      DEALLOCATE( localIOarray )
-
- END SUBROUTINE WriteGraphBinFile_POP_AdjacencyGraph
+!      CALL myGraph % Build( ndof, maxvalence )
+!      myGraph % nColors = ncolors
+!      
+!      DO i = 1, ndof
+!
+!         READ( fUnit, * ) myGraph % valence(i)
+!         READ( fUnit, * ) myGraph % color(i)
+!
+!         DO j = 1, myGraph % valence(i)
+!            READ( fUnit, * ) myGraph % neighbors(j,i)
+!         ENDDO
+!         
+!      ENDDO
+!
+!      CLOSE( fUnit )
+!
+! END SUBROUTINE ReadGraphFile_POP_AdjacencyGraph
+!!
+! SUBROUTINE WriteGraphFile_POP_AdjacencyGraph( myGraph, filename )
+! !
+!   IMPLICIT NONE
+!   CLASS( POP_AdjacencyGraph ), INTENT(in) :: myGraph
+!   CHARACTER(*), INTENT(in)                :: filename
+!   ! Local
+!   INTEGER(KIND=8) :: i
+!   INTEGER         :: j, fUnit
+!
+!      OPEN( UNIT = NewUnit(fUnit), &
+!            FILE = TRIM(filename), &
+!            FORM = 'FORMATTED', &
+!            ACCESS = 'SEQUENTIAL', &
+!            STATUS = 'REPLACE', &
+!            ACTION = 'WRITE' )
+!
+!      WRITE( fUnit, * ) myGraph % nDOF, &
+!                        myGraph % maxValence, &
+!                        myGraph % nColors
+!
+!      DO i = 1, myGraph % nDOF
+!
+!         WRITE( fUnit, * ) myGraph % valence(i)
+!         WRITE( fUnit, * ) myGraph % color(i)
+!
+!         DO j = 1, myGraph % valence(i)
+!            WRITE( fUnit, * ) myGraph % neighbors(j,i)
+!         ENDDO
+!         
+!      ENDDO
+!
+!      CLOSE( fUnit )
+!
+! END SUBROUTINE WriteGraphFile_POP_AdjacencyGraph
+!!
+! SUBROUTINE ReadGraphBinFile_POP_AdjacencyGraph( myGraph, filename )
+! !
+!   IMPLICIT NONE
+!   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
+!   CHARACTER(*), INTENT(in)                   :: filename
+!   ! Local
+!   INTEGER(KIND=8) :: ndof
+!   INTEGER         :: maxvalence, ncolors, j, reclength, fUnit
+!   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
+!   INTEGER(KIND=8), ALLOCATABLE :: localIOarray(:)
+!
+!      OPEN( UNIT = NewUnit(fUnit), &
+!            FILE = TRIM(filename)//'.graph.hdr', &
+!            FORM = 'FORMATTED', &
+!            ACCESS = 'SEQUENTIAL', &
+!            STATUS = 'OLD', &
+!            ACTION = 'READ' )
+!
+!      READ( fUnit, * ) ndof, maxvalence, ncolors
+!
+!      CLOSE( UNIT = fUnit )
+!
+!      CALL myGraph % Build( ndof, maxvalence )
+!      myGraph % nColors = ncolors
+!      
+!      datalength = ndof*(maxvalence+2)
+!      ! NOTE : in gfortran, internally the record length is stored as a 32-bit
+!      ! signed integer. Thus, in gfortran, it is not possible to have a record
+!      ! length be greater than 2^31 Bytes ( ~2.147 GB ). Our solution is to make
+!      ! the I/O array an integer multiple of a fixed "data chunk" size. For
+!      ! example, this chunk size might be 100 MB, which corresponds to
+!      ! 25-million 4-byte integers per record in the fil
+!      !
+!      ! Make sure that the datalength is an integer multiple of the
+!      ! "lgFileIOChunkSize". This parameter has units of "Bytes"
+!      IF( SIZEOF(i) == 4 )THEN
+!
+!         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
+!         nChunks    = (datalength/nInt4PerChunk)
+!         IF( nChunks*nInt4PerChunk < datalength )THEN
+!            nChunks = nChunks+1
+!         ENDIF
+!         dataLength   = nChunks*nInt4PerChunk
+!         recLength    = nInt4PerChunk*4
+!         nIntPerChunk = nInt4PerChunk
+!
+!      ELSEIF( SIZEOF(i) == 8)THEN
+!
+!         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
+!         nChunks    = (datalength/nInt8PerChunk)
+!         IF( nChunks*nInt8PerChunk < datalength )THEN
+!            nChunks = nChunks+1
+!         ENDIF
+!         dataLength = nChunks*nInt8PerChunk
+!         recLength  = nInt8PerChunk*8
+!         nIntPerChunk = nInt8PerChunk
+!
+!      ELSE
+!         PRINT*, 'Module POP_AdjacencyGraph_Class.f90 : S/R WriteGraphBinFile '
+!         PRINT*, '     Invalid INTEGER SIZE. STOPPING'
+!         STOP
+!      ENDIF
+!     
+!      ALLOCATE( localIOarray(1:datalength) )
+!      localIOarray = 0   
+!   
+!      OPEN( UNIT = NewUnit(fUnit), &
+!            FILE = TRIM(filename)//'.graph.bin', &
+!            FORM = 'UNFORMATTED', &
+!            ACCESS = 'DIRECT', &
+!            STATUS = 'OLD', &
+!            ACTION = 'READ', &
+!            RECL = reclength )
+!
+!      PRINT*, 'S/R ReadGraphBinFile : Done!'
+!      PRINT*, '        '//TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
+!      DO i = 1, nChunks
+!         adr1 = 1 + (i-1)*(nIntPerChunk)
+!         adr2 = adr1 + nIntPerChunk - 1
+!         READ( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)
+!      ENDDO
+!      CLOSE( fUnit )
+!
+!      k = 0 
+!      DO i = 1, myGraph % ndof
+!         
+!         k = k+1
+!         myGraph % valence(i) = localIOArray(k)
+!         k = k+1
+!         myGraph % color(i)   = localIOArray(k)
+!
+!         DO j = 1, myGraph % maxValence
+!            k = k+1
+!            myGraph % neighbors(j,i) = localIOArray(k)
+!         ENDDO
+!         
+!      ENDDO
+!
+!      DEALLOCATE( localIOarray )
+!
+! END SUBROUTINE ReadGraphBinFile_POP_AdjacencyGraph
+!!
+! SUBROUTINE WriteGraphBinFile_POP_AdjacencyGraph( myGraph, filename )
+! !
+!   IMPLICIT NONE
+!   CLASS( POP_AdjacencyGraph ), INTENT(inout) :: myGraph
+!   CHARACTER(*), INTENT(in)                   :: filename
+!   ! Local
+!   INTEGER :: j, fUnit, reclength
+!   INTEGER(KIND=8) :: datalength, i, k, adr1, adr2, nChunks, nIntPerChunk
+!   INTEGER(KIND=8), ALLOCATABLE :: localIOarray(:)
+!
+!      OPEN( UNIT = NewUnit(fUnit), &
+!            FILE = TRIM(filename)//'.graph.hdr', &
+!            FORM = 'FORMATTED', &
+!            ACCESS = 'SEQUENTIAL', &
+!            STATUS = 'REPLACE', &
+!            ACTION = 'WRITE' )
+!
+!      WRITE( fUnit, * ) myGraph  % ndof, myGraph % maxvalence, myGraph % ncolors
+!
+!      CLOSE( UNIT = fUnit )
+!
+!      
+!      datalength = myGraph % ndof*(myGraph % maxvalence+2)
+!      ! NOTE : in gfortran, internally the record length is stored as a 32-bit
+!      ! signed integer. Thus, in gfortran, it is not possible to have a record
+!      ! length be greater than 2^31 Bytes ( ~2.147 GB ). Our solution is to make
+!      ! the I/O array an integer multiple of a fixed "data chunk" size. For
+!      ! example, this chunk size might be 100 MB, which corresponds to
+!      ! 25-million 4-byte integers per record in the fil
+!      !
+!      ! Make sure that the datalength is an integer multiple of the
+!      ! "lgFileIOChunkSize". This parameter has units of "Bytes"
+!      IF( SIZEOF(i) == 4 )THEN
+!
+!         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
+!         nChunks    = (datalength/nInt4PerChunk)
+!         IF( nChunks*nInt4PerChunk < datalength )THEN
+!            nChunks = nChunks+1
+!         ENDIF
+!         dataLength   = nChunks*nInt4PerChunk
+!         recLength    = nInt4PerChunk*4
+!         nIntPerChunk = nInt4PerChunk
+!
+!      ELSEIF( SIZEOF(i) == 8)THEN
+!
+!         ! Make sure that datalength is an integer multiple of nInt8PerChunk 
+!         nChunks    = (datalength/nInt8PerChunk)
+!         IF( nChunks*nInt8PerChunk < datalength )THEN
+!            nChunks = nChunks+1
+!         ENDIF
+!         dataLength = nChunks*nInt8PerChunk
+!         recLength  = nInt8PerChunk*8
+!         nIntPerChunk = nInt8PerChunk
+!
+!      ELSE
+!         PRINT*, 'Module POP_AdjacencyGraph_Class.f90 : S/R WriteGraphBinFile '
+!         PRINT*, '     Invalid INTEGER SIZE. STOPPING'
+!         STOP
+!      ENDIF
+!      ALLOCATE( localIOarray(1:datalength) )
+!      localIOarray = 0   
+!   
+!      k = 0 
+!      DO i = 1, myGraph % ndof
+!         
+!         k = k+1
+!         localIOArray(k) = myGraph % valence(i)
+!         k = k+1
+!         localIOArray(k) = myGraph % color(i)
+!
+!         DO j = 1, myGraph % maxValence
+!            k = k+1
+!            localIOArray(k) = myGraph % neighbors(j,i)
+!         ENDDO
+!         
+!      ENDDO
+!
+!      OPEN( UNIT = NewUnit(fUnit), &
+!            FILE = TRIM(filename)//'.graph.bin', &
+!            FORM = 'UNFORMATTED', &
+!            ACCESS = 'DIRECT', &
+!            STATUS = 'REPLACE', &
+!            ACTION = 'WRITE', &
+!            RECL = reclength )
+!
+!      PRINT*, TRIM(filename)//'.graph.bin,  file size (GB):',REAL(reclength)*REAL(nChunks)/10.0**9
+!      DO i = 1, nChunks
+!         adr1 = 1 + (i-1)*(nIntPerChunk)
+!         adr2 = adr1 + nIntPerChunk - 1
+!         WRITE( UNIT=fUnit, REC=i ) localIOarray(adr1:adr2)
+!      ENDDO
+!      CLOSE( fUnit )
+!
+!      DEALLOCATE( localIOarray )
+!
+! END SUBROUTINE WriteGraphBinFile_POP_AdjacencyGraph
 END MODULE POP_AdjacencyGraph_Class

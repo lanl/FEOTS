@@ -139,7 +139,7 @@ MODULE TracerStorage_Class
       ALLOCATE( thisStorage % transportOps(1:nOps) )
       
       DO iOp = 1, nOps
-         CALL thisStorage % transportOps(iOp) % Build( nDOF, nDOF, nElems(iOp) )
+         CALL thisStorage % transportOps(iOp) % Build( INT(nDOF,8), INT(nDOF,8), INT(nElems(iOp),8) )
       ENDDO
 
       ALLOCATE( thisStorage % tracers(1:nDOF,1:nTracers) )
@@ -198,11 +198,11 @@ MODULE TracerStorage_Class
    CHARACTER(5) :: periodChar
 
 
-      WRITE( periodChar, '(I5.5)' ) 1
-      PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'_advect.'//periodChar
-      CALL thisStorage % transportOps(1) % ReadSparseConnectivity( TRIM(fileBase)//'_advect.'//periodChar ) 
-      PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'_vdiffu.'//periodChar
-      CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
+      WRITE( periodChar, '(I5.5)' )
+      PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'advect.'//periodChar//'.h5'
+      CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//periodChar//'.h5' ) 
+      PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'diffusion.'//periodChar//'.h5'
+      CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//periodChar//'.h5' ) 
       PRINT*, '  Done!'
  
  END SUBROUTINE LoadSparseConnectivities_TracerStorage
@@ -246,12 +246,10 @@ MODULE TracerStorage_Class
             WRITE( periodChar, '(I5.5)' ) newPeriod+1
         ! ENDIF
 
-         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_advect.'//periodChar
-         CALL thisStorage % transportOps(1) % ReadSparseConnectivity( TRIM(fileBase)//'_advect.'//periodChar ) 
-         CALL thisStorage % transportOps(1) % ReadMatrixData( TRIM(fileBase)//'_advect.'//periodChar ) 
-         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'_vdiffu.'//periodChar
-         CALL thisStorage % transportOps(2) % ReadSparseConnectivity( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
-         CALL thisStorage % transportOps(2) % ReadMatrixData( TRIM(fileBase)//'_vdiffu.'//periodChar ) 
+        PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'advect.'//periodChar//'.h5'
+        CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//periodChar//'.h5' ) 
+        PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'diffusion.'//periodChar//'.h5'
+        CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//periodChar//'.h5' ) 
          opSwapped = .TRUE.
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0

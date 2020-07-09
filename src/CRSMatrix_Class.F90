@@ -79,13 +79,15 @@ MODULE CRSMatrix_Class
 !  col(1) = 1, col(2) = 2
 !  col(3) = 1, col(4) = 2, col(5) = 3
 !  col(6) = 2, col(7) = 3, col(8) = 4
-!   .......
+
 !  col(18) = 6, col(19) = 7
 !
 ! ================================================================================================ !
 
  USE ConstantsDictionary
  USE CommonRoutines
+
+ USE HDF5
 
  IMPLICIT NONE
 
@@ -103,15 +105,19 @@ MODULE CRSMatrix_Class
 
       PROCEDURE :: GetDataForRowAndCol => GetDataForRowAndCol_CRSMatrix
       PROCEDURE :: MatVecMul           => MatVecMul_CRSMatrix
-      PROCEDURE :: DenseToSparse       => DenseToSparse_CRSMatrix
       PROCEDURE :: SubSample           => SubSample_CRSMatrix
 
+
+      PROCEDURE :: WriteCRSMatrix_HDF5
+      PROCEDURE :: ReadCRSMatrix_HDF5
+!      PROCEDURE :: WriteCRSMatrix_NetCDF
+!      PROCEDURE :: ReadCRSMatrix_NetCDF
 !      PROCEDURE :: ReadHeader  => ReadHeader_CRSMatrix
-      PROCEDURE :: WriteHeader             => WriteHeader_CRSMatrix
-      PROCEDURE :: ReadSparseConnectivity  => ReadSparseConnectivity_CRSMatrix
-      PROCEDURE :: WriteSparseConnectivity => WriteSparseConnectivity_CRSMatrix
-      PROCEDURE :: ReadMatrixData          => ReadMatrixData_CRSMatrix
-      PROCEDURE :: WriteMatrixData         => WriteMatrixData_CRSMatrix
+!      PROCEDURE :: WriteHeader             => WriteHeader_CRSMatrix
+!      PROCEDURE :: ReadSparseConnectivity  => ReadSparseConnectivity_CRSMatrix
+!      PROCEDURE :: WriteSparseConnectivity => WriteSparseConnectivity_CRSMatrix
+!      PROCEDURE :: ReadMatrixData          => ReadMatrixData_CRSMatrix
+!      PROCEDURE :: WriteMatrixData         => WriteMatrixData_CRSMatrix
 
    END TYPE CRSMatrix
 
@@ -132,7 +138,7 @@ MODULE CRSMatrix_Class
  ! =============================================================================================== !
   IMPLICIT NONE
   CLASS( CRSMatrix ), INTENT(out) :: myMatrix
-  INTEGER, INTENT(in)             :: nRows, nCols, nElems
+  INTEGER(HSIZE_T), INTENT(in)   :: nRows, nCols, nElems
 
      myMatrix % nRows = nRows
      myMatrix % nCols = nCols
@@ -253,68 +259,6 @@ MODULE CRSMatrix_Class
       
  END FUNCTION MatVecMul_CRSMatrix
 !
-!
-!
- SUBROUTINE DenseToSparse_CRSMatrix( myMatrix, dmatrix, nRows, nCols )
- ! S/R DenseToSparse
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( CRSMatrix ), INTENT(out) :: myMatrix
-   INTEGER, INTENT(in)             :: nRows, nCols
-   REAL(prec), INTENT(in)          :: dMatrix(1:nRows,1:nCols)
-   ! Local
-   INTEGER    :: row, col, nEl, r1, r2
-   REAL(prec) :: aij
-
-
-      ! First, count the number of non-zero entries.
-      nEl = 0
-      DO col = 1, nCols
-         DO row = 1, nRows
-         
-            aij = dMatrix(row,col)
-
-            IF( .NOT.( AlmostEqual(aij, ZERO) ) )THEN
-               nEl = nEl+1
-            ENDIF
-
-         ENDDO
-      ENDDO
-      PRINT*, nEl
-      CALL myMatrix % Build( nRows, nCols, nEl )
-
-      nEl = 0
-      r1 = 0
-      DO row = 1, nRows
-         DO col = 1, nCols
-         
-            aij = dMatrix(row,col)
-
-            IF( .NOT.( AlmostEqual(aij, ZERO) ) )THEN
-               nEl = nEl+1
-               myMatrix % A(nEl)   = aij
-               myMatrix % col(nEl) = col
-               ! Check to see if we've changed rows
-               r2 = row
-               IF( r2 /= r1 )THEN
-                  myMatrix % rowBounds(1,row) = nEl
-               ENDIF
-               r1 = r2 
-            ENDIF
-
-         ENDDO
-      ENDDO
-
-      DO row = 2, nRows
-         myMatrix % rowBounds(2,row-1) = myMatrix % rowBounds(1,row)-1
-      ENDDO
-      myMatrix % rowBounds(2,nRows) = nEl
-      
-
- END SUBROUTINE DenseToSparse_CRSMatrix
-!
-!
  SUBROUTINE SubSample_CRSMatrix( inputMatrix, subMatrix, dofMap, inverseDOFMap, nDOF, nMaxElem )
 ! This subroutine constructs a sparse matrix that contains only rows and
 ! columns specified in the "dofMap" - it "subsamples" the matrix.
@@ -389,6 +333,108 @@ MODULE CRSMatrix_Class
 !==================================================================================================!
 !
 !
+ SUBROUTINE ReadCRSMatrix_HDF5( myMatrix, filename )
+   IMPLICIT NONE
+   CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
+   CHARACTER(*), INTENT(in)          :: filename
+   ! Local
+   INTEGER(HID_T) :: file_id
+   INTEGER(HSIZE_T) :: rdim(1:2), edim(1:1)
+   INTEGER(HID_T)   :: dataset_id, filespace
+   INTEGER          :: error
+
+     CALL h5open_f(error)
+     CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error)
+
+     IF( .NOT. ALLOCATED( myMatrix % A ) )THEN
+       CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/rowBounds', 2, rdim )
+       CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/elements', 1, edim )
+       CALL myMatrix % Build( nRows = rdim(2), &
+                              nCols = rdim(2), &
+                              nElems = edim(1) )                            
+     ENDIF
+
+     ! Get the rowBounds 
+     CALL h5dopen_f(file_id, '/sparse_crs/rowBounds', dataset_id, error)
+     CALL h5dget_space_f( dataset_id, filespace, error )
+     CALL h5dread_f( dataset_id, H5T_STD_I32LE, &
+                     myMatrix % rowBounds, &
+                     rdim, error)
+     CALL h5dclose_f(dataset_id, error)
+     CALL h5sclose_f(filespace, error)
+
+     ! Get the columns 
+     CALL h5dopen_f(file_id, '/sparse_crs/columns', dataset_id, error)
+     CALL h5dget_space_f( dataset_id, filespace, error )
+     CALL h5dread_f( dataset_id, H5T_STD_I32LE, &
+                     myMatrix % col, &
+                     edim, error)
+     CALL h5dclose_f(dataset_id, error)
+     CALL h5sclose_f(filespace, error)
+
+     ! Get the elements
+     CALL h5dopen_f(file_id, '/sparse_crs/elements', dataset_id, error)
+     CALL h5dget_space_f( dataset_id, filespace, error )
+     CALL h5dread_f( dataset_id, H5T_IEEE_F32LE, &
+                     myMatrix % A, &
+                     edim, error)
+     CALL h5dclose_f(dataset_id, error)
+     CALL h5sclose_f(filespace, error)
+
+     CALL h5fclose_f(file_id, error)
+     CALL h5close_f(error)
+
+
+ END SUBROUTINE ReadCRSMatrix_HDF5
+
+ SUBROUTINE WriteCRSMatrix_HDF5( myMatrix, filename )
+   IMPLICIT NONE
+   CLASS( CRSMatrix ), INTENT(in) :: myMatrix
+   CHARACTER(*), INTENT(in)       :: filename
+   ! Local
+   INTEGER(HID_T) :: file_id
+   INTEGER(HSIZE_T) :: vdim(1:2)
+   INTEGER(HID_T)   :: group_id
+   INTEGER          :: error
+
+
+       CALL h5open_f(error)
+
+       CALL h5fcreate_f(TRIM(filename), H5F_ACC_TRUNC_F, file_id, error)
+
+       CALL h5gcreate_f( file_id, "/sparse_crs", group_id, error )
+       CALL h5gclose_f( group_id, error )
+
+
+       ! Write the rowBounds
+       vdim(1:2) = (/2, myMatrix % nRows /)
+       CALL Add_IntObj_to_HDF5( rank=2,&
+                                dimensions=vdim(1:2),&
+                                variable_name='/sparse_crs/rowBounds',&
+                                variable=myMatrix % rowBounds,&
+                                file_id=file_id )
+
+       ! Write the columns
+       vdim(1:1) = (/myMatrix % nelems/)
+       CALL Add_IntObj_to_HDF5( rank=1,&
+                                dimensions=vdim(1:1),&
+                                variable_name='/sparse_crs/columns',&
+                                variable=myMatrix % col,&
+                                file_id=file_id )
+
+       ! Write the matrix elements
+       vdim(1:1) = (/myMatrix % nelems/)
+       CALL Add_FloatObj_to_HDF5( rank=1,&
+                                  dimensions=vdim(1:1),&
+                                  variable_name='/sparse_crs/elements',&
+                                  variable=myMatrix % A,&
+                                  file_id=file_id )
+
+       CALL h5fclose_f( file_id, error )
+       CALL h5close_f( error )
+
+ END SUBROUTINE WriteCRSMatrix_HDF5
+
  SUBROUTINE ReadHeader( fileBase, nRow, nCol, nElems )
  ! S/R ReadHeader
  !
