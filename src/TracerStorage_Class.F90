@@ -199,9 +199,9 @@ MODULE TracerStorage_Class
 
 
       WRITE( periodChar, '(I5.5)' )
-      PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'advect.'//periodChar//'.h5'
+      PRINT*, '  Loading Operator : '//TRIM(fileBase)//'advect.'//periodChar//'.h5'
       CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//periodChar//'.h5' ) 
-      PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'diffusion.'//periodChar//'.h5'
+      PRINT*, '  Loading Operator : '//TRIM(fileBase)//'diffusion.'//periodChar//'.h5'
       CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//periodChar//'.h5' ) 
       PRINT*, '  Done!'
  
@@ -240,16 +240,12 @@ MODULE TracerStorage_Class
 
       IF( newPeriod /= thisStorage % currentPeriod )THEN
          PRINT*, t, adjT, nthCycle, newPeriod
-        ! IF( thisStorage % currentPeriod == -1 )THEN
-        !    WRITE( periodChar, '(I5.5)' ) newPeriod
-        ! ELSE
-            WRITE( periodChar, '(I5.5)' ) newPeriod+1
-        ! ENDIF
+         WRITE( periodChar, '(I5.5)' ) newPeriod+1
 
-        PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'advect.'//periodChar//'.h5'
-        CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//periodChar//'.h5' ) 
-        PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'diffusion.'//periodChar//'.h5'
-        CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//periodChar//'.h5' ) 
+        PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//periodChar//'.h5'
+        CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//periodChar//'.h5' ) 
+        PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//periodChar//'.h5'
+        CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion.'//periodChar//'.h5' ) 
          opSwapped = .TRUE.
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0

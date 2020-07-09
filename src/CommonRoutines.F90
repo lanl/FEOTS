@@ -721,7 +721,6 @@ END FUNCTION NewUnit
         CALL h5dopen_f(file_id, TRIM(variable_name), dataset_id, error)
         CALL h5dget_space_f(dataset_id, filespace, error)
         CALL h5sget_simple_extent_dims_f(filespace, dimensions, maxdims, error)
-
         CALL h5dclose_f(dataset_id, error)
         CALL h5sclose_f(filespace, error)
 

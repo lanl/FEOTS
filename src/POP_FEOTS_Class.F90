@@ -859,10 +859,10 @@ CONTAINS
          ELSE
             fileBase = TRIM(this % params % dbRoot)//'/ops'
          ENDIF
-         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'advect.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/advect.'//fileIDChar//'.h5' ) 
+         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//fileIDChar//'.h5'
+         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//fileIDChar//'.h5' ) 
 
-         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'diffusion.'//fileIDChar//'.h5'
+         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//fileIDChar//'.h5'
          CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5' ) 
 
          IF( this % params % waterMassTagging )THEN

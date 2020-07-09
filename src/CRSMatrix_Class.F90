@@ -110,14 +110,6 @@ MODULE CRSMatrix_Class
 
       PROCEDURE :: WriteCRSMatrix_HDF5
       PROCEDURE :: ReadCRSMatrix_HDF5
-!      PROCEDURE :: WriteCRSMatrix_NetCDF
-!      PROCEDURE :: ReadCRSMatrix_NetCDF
-!      PROCEDURE :: ReadHeader  => ReadHeader_CRSMatrix
-!      PROCEDURE :: WriteHeader             => WriteHeader_CRSMatrix
-!      PROCEDURE :: ReadSparseConnectivity  => ReadSparseConnectivity_CRSMatrix
-!      PROCEDURE :: WriteSparseConnectivity => WriteSparseConnectivity_CRSMatrix
-!      PROCEDURE :: ReadMatrixData          => ReadMatrixData_CRSMatrix
-!      PROCEDURE :: WriteMatrixData         => WriteMatrixData_CRSMatrix
 
    END TYPE CRSMatrix
 
@@ -346,9 +338,10 @@ MODULE CRSMatrix_Class
      CALL h5open_f(error)
      CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error)
 
+     CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/rowBounds', 2, rdim )
+     CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/elements', 1, edim )
+
      IF( .NOT. ALLOCATED( myMatrix % A ) )THEN
-       CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/rowBounds', 2, rdim )
-       CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/elements', 1, edim )
        CALL myMatrix % Build( nRows = rdim(2), &
                               nCols = rdim(2), &
                               nElems = edim(1) )                            

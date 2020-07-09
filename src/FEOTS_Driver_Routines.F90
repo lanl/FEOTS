@@ -552,16 +552,10 @@ CONTAINS
          WRITE(fileIDChar, '(I5.5)' ) fileID
          crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
          PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-!         CALL transportOperator % WriteSparseConnectivity( TRIM(crsFile) )
-!         CALL transportOperator % WriteMatrixData( TRIM(crsFile) )
-!         CALL transportOperator % WriteCRSMatrix_NetCDF( TRIM(crsFile) )
          CALL transportOperator % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
          crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
          PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-         !CALL diffusionOperator % WriteSparseConnectivity( TRIM(crsFile) )
-         !CALL diffusionOperator % WriteMatrixData( TRIM(crsFile) )
-!         CALL diffusionOperator % WriteCRSMatrix_NetCDF( TRIM(crsFile) )
          CALL diffusionOperator % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
          ! Testing the diffusion operator
@@ -646,12 +640,11 @@ CONTAINS
 
          PRINT*, ' Extracting regional operators.'
         ! DO fileID = 1, params % nIRFFiles
-         fileID = 1
 
             !IF( fileID >= params % IRFStart )THEN
 
                ! offset the file-id by the oplevel
-               WRITE(fileIDChar, '(I5.5)' ) fileID-1+cliParams % oplevel
+               WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
                crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
                PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
                CALL transportOp % ReadCRSMatrix_HDF5(TRIM(crsFile) )
@@ -673,11 +666,11 @@ CONTAINS
                                              region % nCells, &
                                              region % nCells*3 )
 
-               crsFile=TRIM(params % regionalOperatorDirectory)//'transport.'//fileIDChar//'.h5'
+               crsFile=TRIM(params % regionalOperatorDirectory)//'/transport.'//fileIDChar//'.h5'
                PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
                CALL regionalTransportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
-               crsFile=TRIM(params % regionalOperatorDirectory)//'diffusion.'//fileIDChar//'.h5'
+               crsFile=TRIM(params % regionalOperatorDirectory)//'/diffusion.'//fileIDChar//'.h5'
                PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
                CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
             
