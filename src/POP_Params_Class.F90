@@ -72,18 +72,19 @@ USE ConstantsDictionary
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
       ! FileOptions
-      LOGICAL        :: extractRegionalOperators
-      CHARACTER(400) :: graphFile
-      CHARACTER(400) :: IRFListFile
-      INTEGER        :: IRFStart
-      CHARACTER(100) :: operatorBaseName
-      CHARACTER(400) :: feotsOperatorDirectory
+      !LOGICAL        :: extractRegionalOperators
+      !CHARACTER(400) :: graphFile
+      !CHARACTER(400) :: IRFListFile
+      !INTEGER        :: IRFStart
+      !CHARACTER(100) :: operatorBaseName
+      !CHARACTER(400) :: feotsOperatorDirectory
       CHARACTER(400) :: regionalOperatorDirectory
       CHARACTER(400) :: settlingOperatorFile
-      INTEGER        :: nIRFFiles
-      CHARACTER(400) :: meshfile
+      !INTEGER        :: nIRFFiles
+      !CHARACTER(400) :: meshfile
       CHARACTER(400) :: regionalMeshfile
-      CHARACTER(400) :: outputDirectory
+      CHARACTER(200) :: dbRoot
+      !CHARACTER(400) :: outputDirectory
       ! JFNKOptions
       LOGICAL    :: IsPickupRun
       INTEGER    :: maxItersJFNK
@@ -138,18 +139,18 @@ USE ConstantsDictionary
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
       ! FileOptions
-      LOGICAL        :: extractRegionalOperators
-      CHARACTER(100) :: operatorBaseName
-      CHARACTER(400) :: graphFile
-      CHARACTER(400) :: IRFListFile
-      INTEGER        :: IRFStart
-      CHARACTER(400) :: feotsOperatorDirectory
+      !LOGICAL        :: extractRegionalOperators
+      !CHARACTER(100) :: operatorBaseName
+      !CHARACTER(400) :: graphFile
+      !CHARACTER(400) :: IRFListFile
+      !INTEGER        :: IRFStart
+      !CHARACTER(400) :: feotsOperatorDirectory
       CHARACTER(400) :: regionalOperatorDirectory
       CHARACTER(400) :: settlingOperatorFile
-      INTEGER        :: nIRFFiles
-      CHARACTER(400) :: meshfile
+      !INTEGER        :: nIRFFiles
+      !CHARACTER(400) :: meshfile
       CHARACTER(400) :: regionalMeshfile
-      CHARACTER(400) :: outputDirectory
+      !CHARACTER(400) :: outputDirectory
       ! JFNKOptions
       LOGICAL    :: IsPickupRun
       INTEGER    :: maxItersJFNK
@@ -163,9 +164,10 @@ USE ConstantsDictionary
       NAMELIST / TracerModelOptions / TracerModel, settlingVelocity, nTracers, RunMode, dt, timeStepScheme, iterInit, nTimeSteps, nStepsPerDump, nRecordsPerFile, &
                                       WaterMassTagging, nLayers
       NAMELIST / OperatorOptions / operatorPeriod, nOperatorsPerCycle
-      NAMELIST / FileOptions / extractRegionalOperators, IRFListFile, IRFStart, feotsOperatorDirectory, &
-                               regionalOperatorDirectory, settlingOperatorFile, nIRFFiles, operatorBaseName, &
-                               graphFile, regionalMeshFile, meshfile, outputDirectory
+      !NAMELIST / FileOptions / extractRegionalOperators, IRFListFile, IRFStart, feotsOperatorDirectory, &
+      !                         regionalOperatorDirectory, settlingOperatorFile, nIRFFiles, operatorBaseName, &
+      !                         graphFile, regionalMeshFile, meshfile, outputDirectory
+      NAMELIST / FileOptions / regionalOperatorDirectory, settlingOperatorFile, regionalMeshFile
       NAMELIST / JFNKOptions / isPickupRun, maxItersJFNK, maxItersGMRES, mInnerItersGMRES, &
                                JacobianStepSize, toleranceJFNK, toleranceGMRES 
 
@@ -195,18 +197,9 @@ USE ConstantsDictionary
       operatorPeriod     = 86400.0_prec
       nOperatorsPerCycle = 1
       ! FileOptions
-      extractRegionalOperators  = .FALSE.
-      operatorBaseName          = 'TransportOp'
-      graphFile                 = 'graph'
-      IRFListFile               = ''
-      IRFStart                  = 1
-      feotsOperatorDirectory    = './'
       regionalOperatorDirectory = './'
       settlingOperatorFile      = 'settling'
-      nIRFFiles                 = 0
-      meshfile                  = 'mesh.nc'
       regionalMeshFile          = 'regional_mesh.nc'
-      outputdirectory           = './'
       ! JFNKOptions
       isPickupRun      = .FALSE.
       maxItersJFNK     = 500
@@ -266,18 +259,10 @@ USE ConstantsDictionary
       thisParam % operatorPeriod     = operatorPeriod
       thisParam % nOperatorsPerCycle = nOperatorsPerCycle
       ! FileOptions
-      thisParam % extractRegionalOperators  = extractRegionalOperators
-      thisParam % operatorBaseName          = operatorBaseName
-      thisParam % graphFile                 = graphFile
-      thisParam % feotsOperatorDirectory    = feotsOperatorDirectory
       thisParam % regionalOperatorDirectory = regionalOperatorDirectory
       thisParam % settlingOperatorFile      = settlingOperatorFile
-      thisParam % IRFListFile               = IRFListFile
-      thisParam % IRFStart                  = IRFStart
-      thisParam % nIRFFiles                 = nIRFFiles
-      thisParam % outputDirectory           = outputDirectory
       thisParam % regionalMeshFile          = regionalMeshFile
-      thisParam % meshfile                  = meshfile
+      thisParam % dbRoot         = './'
       ! JFNKOptions
       thisParam % isPickupRun      = isPickupRun
       thisParam % maxItersJFNK     = maxItersJFNK

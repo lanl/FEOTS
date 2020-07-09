@@ -59,6 +59,7 @@ IMPLICIT NONE
      CHARACTER(200) :: paramFile
      CHARACTER(200) :: irfFile
      CHARACTER(200) :: dbRoot
+     CHARACTER(100) :: outdir
      INTEGER :: oplevel
      
      CONTAINS
@@ -77,7 +78,7 @@ CONTAINS
     ! Local
     INTEGER :: nArg, argID
     CHARACTER(500) :: argName
-    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided
+    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided
 
       PRINT*, 'FEOTS (feots) Command Line Interface' 
       PRINT*, ' Copyright Los Alamos National Laboratory (2017-2020)'
@@ -104,6 +105,7 @@ CONTAINS
     cliParams % irfFile = ''
     cliParams % oplevel = -1
     cliParams % dbRoot = './'
+    cliParams % outdir = './'
 
 
     paramFileProvided = .FALSE.
@@ -171,6 +173,9 @@ CONTAINS
           CASE( "--dbroot" )
             dbRootProvided = .TRUE.
 
+          CASE( "--out" )
+            outProvided = .TRUE.
+
           CASE DEFAULT
 
             IF( paramFileProvided )THEN
@@ -199,6 +204,13 @@ CONTAINS
 
               cliParams % dbRoot = TRIM( argName )
               dbRootProvided = .FALSE.
+
+            ENDIF
+
+            IF( outProvided )THEN
+
+              cliParams % outdir = TRIM( argName )
+              outProvided = .FALSE.
 
             ENDIF
 
@@ -264,6 +276,9 @@ CONTAINS
       PRINT*, ' '
       PRINT*, '    --dbroot /path/to/feot/db'
       PRINT*, '       Specifies the path to a FEOTS database'
+      PRINT*, ' '
+      PRINT*, '    --out /path/to/output/directory'
+      PRINT*, '       Specifies the path to write model output. Defaults to ./'
       PRINT*, ' '
       PRINT*, ' '
 

@@ -53,6 +53,7 @@ USE POP_Stencil_Class
 USE POP_Mesh_Class
 USE POP_Regional_Class
 USE POP_Native_Class
+USE FEOTS_CLI_Class
 
  IMPLICIT NONE
 #ifdef HAVE_MPI
@@ -177,13 +178,13 @@ CONTAINS
 !==================================================================================================!
 !
 !
- SUBROUTINE Build_POP_FEOTS( this, paramFile, myRank, nProcs ) 
+ SUBROUTINE Build_POP_FEOTS( this, cliParams, myRank, nProcs ) 
  ! S/R Build
  !
  ! =============================================================================================== !
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(out) :: this
-   CHARACTER(*), INTENT(in) :: paramFile
+   TYPE( FEOTS_CLI ) :: cliParams
    INTEGER, INTENT(in)             :: myRank, nProcs
    ! Local
    INTEGER    :: nX, nY, nZ, nTracers, nRow, nPeriods
@@ -199,7 +200,8 @@ CONTAINS
 
       PRINT*, 'S/R : Build_POP_FEOTS : Start...'
 
-      CALL this % params % Build(paramFile)
+      CALL this % params % Build(TRIM(cliParams % paramFile))
+      this % params % dbRoot = cliParams % dbRoot
 
       IF( this % params % StencilType == LaxWendroff )THEN
          stencilSize = 9
@@ -234,7 +236,7 @@ CONTAINS
          nDOF = this % regionalMaps % nCells
          this % mesh % nDOF = nDOF
       ELSE
-         CALL this % mesh % Load( TRIM(this % params % meshFile) )
+         CALL this % mesh % Load( TRIM(this % params % dbRoot)//'/mesh/mesh.nc' )
          nDOF = this % mesh % nDOF
       ENDIF
 
@@ -354,13 +356,6 @@ CONTAINS
       this % solution % nTracers = 1
 #endif
 
-      IF( this % params % Regional ) THEN
-         CALL this % solution % LoadSparseConnectivities( &
-                                TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename) )
-      ELSE
-         CALL this % solution % LoadSparseConnectivities( &
-                                TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename) )
-      ENDIF
       IF( this % params % TracerModel == RadionuclideModel .OR. &
           this % params % TracerModel == SettlingModel )THEN 
          PRINT*, '  Setting up Settling Operator'
@@ -838,8 +833,6 @@ CONTAINS
       ENDDO
 #endif
       this % nativeSol % volume = this % mesh % MapFromDOFtoIJK( this % solution % volume )
-      PRINT*, 'MINMAX NATIVE VOL', MINVAL( this % nativeSol % volume ), MAXVAL( this % nativeSol % volume )
-      PRINT*, 'MINMAX VOL', MINVAL( this % solution % volume ), MAXVAL( this % solution % volume )
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
@@ -862,15 +855,15 @@ CONTAINS
          
          WRITE( fileIDChar, '(I5.5)' ) operatorPeriod
          IF( this % params % Regional )THEN
-            fileBase = TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename)
+            fileBase = TRIM(this % params % regionalOperatorDirectory)
          ELSE
-            fileBase = TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename)
+            fileBase = TRIM(this % params % dbRoot)//'/ops'
          ENDIF
-         PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'advect.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//fileIDChar//'.h5' ) 
+         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'advect.'//fileIDChar//'.h5'
+         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/advect.'//fileIDChar//'.h5' ) 
 
-         PRINT*, '  Loading Sparse Connectivity : '//TRIM(fileBase)//'diffusion.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//fileIDChar//'.h5' ) 
+         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'diffusion.'//fileIDChar//'.h5'
+         CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5' ) 
 
          IF( this % params % waterMassTagging )THEN
 
@@ -919,11 +912,11 @@ CONTAINS
          
          IF( this % params % Regional ) THEN
             CALL this % solution % CheckForNewOperator( tn, &
-                                TRIM( this % params % regionalOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                TRIM( this % params % regionalOperatorDirectory), &
                                 operatorsSwapped )
          ELSE
             CALL this % solution % CheckForNewOperator( tn, &
-                                TRIM( this % params % feotsOperatorDirectory)//TRIM(this % params % operatorBasename), &
+                                TRIM( this % params % dbRoot )//'/ops/', &
                                 operatorsSwapped )
          ENDIF
 
@@ -1023,6 +1016,7 @@ CONTAINS
        ENDDO
        !$OMP ENDDO
      ENDDO
+     
 
  END FUNCTION VerticalMixingAction 
     
@@ -1034,12 +1028,14 @@ CONTAINS
    ! Local
    INTEGER :: i, m
 
+     !$OMP MASTER
      maxX = 0.0_prec 
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
           maxX = MAX(ABS(x(i,m)), maxX)
        ENDDO
      ENDDO
+     !$OMP END MASTER
 
  END FUNCTION GetMax
 
@@ -1052,9 +1048,11 @@ CONTAINS
    INTEGER :: i, m
 
      DO m = 1, this % solution % nTracers
+       !$OMP DO
        DO i = 1, this % solution % nDOF
           y(i,m) = this % solution % mask(i,m)*x(i,m) 
        ENDDO
+       !$OMP ENDDO
      ENDDO
 
  END FUNCTION Mask
@@ -1101,8 +1099,6 @@ CONTAINS
      ENDDO
 
      r = this % Mask( r )
-    
-     PRINT*, 'Max Residual :', this % GetMax(r)
 
      DO m = 1, this % solution % nTracers
        !$OMP DO
@@ -1116,8 +1112,8 @@ CONTAINS
 
      !$OMP BARRIER
      w = this % VerticalMixingAction( p ) 
-
      !$OMP BARRIER
+
      alpha = this % DotProduct( r, z )/this % DotProduct( p, w )
 
      DO m = 1, this % solution % nTracers
@@ -1128,17 +1124,14 @@ CONTAINS
        ENDDO
        !$OMP ENDDO
      ENDDO
-
      !$OMP BARRIER
-     DO m = 1, this % solution % nTracers
-       !$OMP DO
-       DO i = 1, this % solution % nDOF
-         this % solution % tracers(i,m) = x(i,m)
-       ENDDO
-       !$OMP ENDDO
-     ENDDO
+     residual_magnitude = this % GetMax(rk)
+     !$OMP FLUSH(residual_magnitude)
+     PRINT*, 'Residual :', residual_magnitude
 
-     RETURN
+     IF( residual_magnitude <= cg_tolerance )THEN
+       RETURN
+     ENDIF
 
      DO iter = 1, cg_itermax
 
@@ -1188,10 +1181,9 @@ CONTAINS
        ENDDO
      
        !$OMP BARRIER
-       residual_magnitude = sqrt( this % DotProduct( rk, rk ) )
-       !$OMP MASTER
+       residual_magnitude = this % GetMax(rk)
+       !$OMP FLUSH(residual_magnitude)
        PRINT*, 'Residual :', residual_magnitude 
-       !$OMP END MASTER
        IF( residual_magnitude <= cg_tolerance )THEN
          RETURN
        ENDIF
@@ -1223,16 +1215,14 @@ CONTAINS
         ENDDO
         !$OMP ENDDO
 
-        Dx = DiffusiveAction( this % solution % transportOps(2), this % solution % tracers, this % solution % nTracers, this % solution % nDOF )
         DO m = 1, this % solution % nTracers
            !$OMP DO
            DO i = 1, this % solution % nDOF
 
-             !rhs(i,m)  = this % solution % mask(i,m)*((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
-             rhs(i,m)  = this % solution % mask(i,m)*((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(Dx(i,m)))
+             rhs(i,m)  = this % solution % mask(i,m)*((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
 
              ! Set the initial guess for the vertical diffusion
-             this % solution % tracers(i,m) = this % solution % tracers(i,m)*( 1.0_prec - this % solution % mask(i,m) ) + rhs(i,m)/(1.0_prec+vol(i))
+             this % solution % tracers(i,m) = rhs(i,m)/(1.0_prec+vol(i))
 
            ENDDO
            !$OMP ENDDO
@@ -1246,7 +1236,7 @@ CONTAINS
         !$OMP ENDDO
 
         ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
-        !CALL this % VerticalMixing( rhs )
+        CALL this % VerticalMixing( rhs )
 
         DO m = 1, this % solution % nTracers
            !$OMP DO
@@ -1714,12 +1704,14 @@ CONTAINS
    ! Local
    INTEGER    :: i, j
 
+      !$OMP MASTER
       xdoty = 0.0_prec
       DO j = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF
             xdoty = xdoty + x(i,j)*y(i,j)*this % solution % mask(i,j)
          ENDDO
       ENDDO
+      !$OMP END MASTER
 
  END FUNCTION DotProduct_POP_FEOTS
 !

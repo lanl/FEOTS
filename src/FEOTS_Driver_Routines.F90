@@ -71,54 +71,39 @@ CONTAINS
     CHARACTER(200) :: thisIRFFile
     CHARACTER(200) :: oceanStateFile
 
-      CALL feots % Build( cliParams % paramFile, 0, 1 )
+     CALL feots % Build( cliParams, 0, 1 )
 
-      CALL globalMesh % Load( TRIM( feots % params % meshFile ) )
+     CALL globalMesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc' )
 
-      CALL globalState % Build( globalMesh, 1 ) 
+     CALL globalState % Build( globalMesh, 1 ) 
 
-      OPEN( UNIT=NewUnit(fUnit),&
-            FILE=TRIM(feots % params % IRFListFile), &
-            FORM='FORMATTED',&
-            ACCESS='SEQUENTIAL',&
-            ACTION='READ',&
-            STATUS='OLD' )
+     thisIRFFile = cliParams % irfFile
+     PRINT*,' Loading '//TRIM(cliParams % irfFile)
+     CALL globalState % LoadOceanState( globalMesh, cliParams % irfFile )
+     ! The volume correction attribute is a unitless measure; it is
+     ! the fractional change in the fluid volume at each degree of freedom
+     ! The ssh divided by the volume's height is equivalent to the volume
+     ! correction
+     globalState % volume = globalState % volume/globalMesh % dzw(1)
 
-      DO fileID = 1, feots % params % nIRFFiles
+     DO m = 1, feots % regionalMaps % nCells
+        i = feots % regionalMaps % IJKinRegion(1,m)
+        j = feots % regionalMaps % IJKinRegion(2,m)
+        k = feots % regionalMaps % IJKinRegion(3,m)
 
-         READ( fUnit, '(A200)' ) thisIRFFile
+        i_local = feots % regionalMaps % dofToLocalIJK(1,m)
+        j_local = feots % regionalMaps % dofToLocalIJK(2,m)
+        k_local = feots % regionalMaps % dofToLocalIJK(3,m)
 
-         IF( fileID >= feots % params % IRFStart )THEN
-            PRINT*,' Loading '//TRIM(thisIRFFile)
-            CALL globalState % LoadOceanState( globalMesh, thisIRFFile )
-            ! The volume correction attribute is a unitless measure; it is
-            ! the fractional change in the fluid volume at each degree of freedom
-            ! The ssh divided by the volume's height is equivalent to the volume
-            ! correction
-            globalState % volume = globalState % volume/globalMesh % dzw(1)
-
-            DO m = 1, feots % regionalMaps % nCells
-               i = feots % regionalMaps % IJKinRegion(1,m)
-               j = feots % regionalMaps % IJKinRegion(2,m)
-               k = feots % regionalMaps % IJKinRegion(3,m)
-
-               i_local = feots % regionalMaps % dofToLocalIJK(1,m)
-               j_local = feots % regionalMaps % dofToLocalIJK(2,m)
-               k_local = feots % regionalMaps % dofToLocalIJK(3,m)
-
-               feots % nativeSol % temperature(i_local,j_local,k_local) = globalState % temperature(i,j,k)
-               feots % nativeSol % salinity(i_local,j_local,k_local)    = globalState % salinity(i,j,k)
-               feots % nativeSol % density(i_local,j_local,k_local)     = globalState % density(i,j,k)
-               feots % nativeSol % volume(i_local,j_local,k_local)      = globalState % volume(i,j,k)
-            ENDDO
-
-            WRITE(fileIDChar, '(I5.5)' ) fileID
-            oceanStateFile = TRIM( feots % params % regionalOperatorDirectory )//'Ocean.'//fileIDChar//'.nc'
-            CALL feots % nativeSol % WriteOceanState( feots % mesh, TRIM(oceanStateFile) )
-
-         ENDIF
-
+        feots % nativeSol % temperature(i_local,j_local,k_local) = globalState % temperature(i,j,k)
+        feots % nativeSol % salinity(i_local,j_local,k_local)    = globalState % salinity(i,j,k)
+        feots % nativeSol % density(i_local,j_local,k_local)     = globalState % density(i,j,k)
+        feots % nativeSol % volume(i_local,j_local,k_local)      = globalState % volume(i,j,k)
      ENDDO
+
+     WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
+     oceanStateFile = TRIM( feots % params % regionalOperatorDirectory )//'Ocean.'//fileIDChar//'.nc'
+     CALL feots % nativeSol % WriteOceanState( feots % mesh, TRIM(oceanStateFile) )
 
      CALL globalState % Trash( )
      CALL globalMesh % Trash( )
@@ -138,25 +123,12 @@ CONTAINS
    CHARACTER(400) :: ncfile
 
 
-      CALL params % Build(cliParams % paramFile)
-
-      ! Reads in the first file from the IRF File list
-      OPEN( UNIT=NewUnit(fUnit),&
-            FILE=TRIM(params % IRFListFile), &
-            FORM='FORMATTED',&
-            ACCESS='SEQUENTIAL',&
-            ACTION='READ',&
-            STATUS='OLD' )
-      READ( fUnit, '(A400)' ) ncFile
-      CLOSE( fUnit )
-
       ! This call loads the mesh from the netcdf file and builds the
       ! ijkToDOF and dofToIJK mappings by using the "kmt" field.
-      CALL mesh % Load( TRIM(ncFile)  )
+      CALL mesh % Load( TRIM(cliParams % irfFile)  )
 
       ! Write a netcdf file containing only the mesh
-      CALL mesh % WriteNetCDF( TRIM(params % meshFile) )
-
+      CALL mesh % WriteNetCDF( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc' )
 
       CALL mesh % Trash( )
 
@@ -174,7 +146,7 @@ CONTAINS
       CALL params % Build(cliParams % paramFile)
 
       ! Load in the mesh from the netcdf file specified above
-      CALL mesh % Load( TRIM(params % meshfile) )
+      CALL mesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc')
       mesh % meshType = params % meshType ! And set a flag for the type of mesh
 
       ! Here, we build a overlap stencil for the finite difference scheme
@@ -259,7 +231,7 @@ CONTAINS
 
       CALL params % Build(cliParams % paramFile)
 
-      CALL mesh % Load( TRIM(params % meshFile)  )
+      CALL mesh % Load( TRIM(cliParams % irfFile)  )
 
       ALLOCATE( maskField(1:mesh % nX,1:mesh % nY) )
 
@@ -363,7 +335,7 @@ CONTAINS
       CALL params % Build(cliParams % paramFile)
 
       ! Load in the mesh from the netcdf file specified above
-      CALL mesh % Load( params % meshfile )
+      CALL mesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc')
       mesh % meshType = params % meshType ! And set a flag for the type of mesh
 
       ! Here, we build a stencil for the finite difference scheme
@@ -388,7 +360,7 @@ CONTAINS
 
 
       ! Read the adjacency graph from file
-      !CALL graph % ReadGraph_HDF5( TRIM(params % graphFile) )
+      CALL graph % ReadGraph_HDF5( TRIM(cliParams % dbRoot)//'/irf/impulse/graph.h5' )
       
       ! Allocate space for the IRF fields. The number of IRF fields is
       ! equivalent to the number of colors in the graph
@@ -396,10 +368,8 @@ CONTAINS
       ! When building this data structure for the irf-fields, nColors
       ! corresponds to the number of irf fields-we add an additionation
       ! "POP_Native" attribute for the vertical diffusivity
-      !CALL irfFields % Build( mesh, graph % nColors+1 )
-     ! diff_id = graph % nColors + 1
-      CALL irfFields % Build( mesh, 54 )
-      diff_id = 54
+      CALL irfFields % Build( mesh, graph % nColors+1 )
+      diff_id = graph % nColors + 1
       
       ! /////////////////////// Operator Diagnosis //////////////////////////// !
 
@@ -643,7 +613,7 @@ CONTAINS
 
       CALL params % Build(cliParams % paramFile)
 
-      CALL globalMesh % Load( TRIM( params % meshFile ) )
+      CALL globalMesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc'  )
 
       CALL modelstencil % Build( stencilFlag = params % stencilType, &
                                  flavor      = LateralPlusCorners )
@@ -661,7 +631,7 @@ CONTAINS
          CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
       ENDIF
 
-      IF( params % ExtractRegionalOperators )THEN
+      !IF( params % ExtractRegionalOperators )THEN
 
          CALL advstencil % Build( stencilFlag = params % stencilType, &
                                   flavor      = Normal )
@@ -675,9 +645,10 @@ CONTAINS
          CALL regionalDiffusionOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(region % nCells*3,8) ) 
 
          PRINT*, ' Extracting regional operators.'
-         DO fileID = 1, params % nIRFFiles
+        ! DO fileID = 1, params % nIRFFiles
+         fileID = 1
 
-            IF( fileID >= params % IRFStart )THEN
+            !IF( fileID >= params % IRFStart )THEN
 
                ! offset the file-id by the oplevel
                WRITE(fileIDChar, '(I5.5)' ) fileID-1+cliParams % oplevel
@@ -710,15 +681,15 @@ CONTAINS
                PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
                CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
             
-            ENDIF
-         ENDDO
+            !ENDIF
+         !ENDDO
    
          CALL transportOp % Trash( )
          CALL diffusionOp % Trash( )
          CALL regionaltransportOp % Trash( )
          CALL regionalDiffusionOp % Trash( )
         
-      ENDIF   
+      !ENDIF   
       
       ! Clean up memory !
      ! DEALLOCATE( maskfield )
@@ -746,14 +717,14 @@ CONTAINS
       myRank = 0
       nProcs = 1
 #endif
-      CALL feots % Build( cliParams % paramFile, myRank, nProcs )
+      CALL feots % Build( cliParams, myRank, nProcs )
 
       CALL InitialConditions( feots )
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                          feots % mesh, &
-                                                         TRIM(feots % params % outputDirectory)//'Tracer.init.nc', &
+                                                         TRIM(cliParams % outDir)//'/Tracer.init.nc', &
                                                          .TRUE. )
       CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, 1 )
       CALL feots % nativeSol % WriteSourceEtcNetCDF( feots % mesh )
@@ -821,7 +792,7 @@ CONTAINS
       nProcs = 1
 #endif
 
-      CALL feots % Build( cliParams % paramFile, myRank, nProcs )
+      CALL feots % Build( cliParams, myRank, nProcs )
 
       recordID = 1
 
@@ -839,39 +810,6 @@ CONTAINS
             CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
             CALL feots % nativeSol % FinalizeNetCDF( )
 
-
-            ! ************
-            ! This section of code loads in the temperature, salinity, potential
-            ! density, and ssh fields if the water mass tagging is turned on.
-            ! In future implementations with the volume correction, this will need
-            ! to be turned on the volume corrections are enabled. 
-            !
-            IF( feots % params % WaterMassTagging ) THEN
-
-               WRITE( fileIDChar, '(I5.5)' ) feots % params % IRFStart
-               IF( feots % params % Regional )THEN
-                  CALL feots % nativeSol % LoadOceanState( feots % mesh, &
-                                                          TRIM(feots % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc')
-               ELSE
-                  OPEN( UNIT=NewUnit(fUnit),&
-                        FILE=TRIM(feots % params % IRFListFile), &
-                        FORM='FORMATTED',&
-                        ACCESS='SEQUENTIAL',&
-                        ACTION='READ',&
-                        STATUS='OLD' )
-            
-                  DO fileID = 1, feots % params % nIRFFiles
-            
-                     READ( fUnit, '(A200)' ) thisIRFFile
-            
-                     IF( fileID == feots % params % IRFStart )THEN
-                        CALL feots % nativeSol % LoadOceanState( feots % mesh,TRIM(thisIRFFile) )
-                     ENDIF
-                  ENDDO
-   
-                  CLOSE(fUnit)
-               ENDIF
-            ENDIF
 
          ENDIF ! myRank == 0
          !***********
@@ -929,7 +867,7 @@ CONTAINS
                WRITE( ncfileTag, '(I10.10)' ) iter + feots % params % nStepsPerDump
                CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
                                                                   feots % mesh, &
-                                                                 'Tracer.'//ncFileTag//'.nc', &
+                                                                  TRIM(cliParams % outdir)//'/Tracer.'//ncFileTag//'.nc', &
                                                                   .FALSE. )
                CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
@@ -970,7 +908,7 @@ CONTAINS
       nProcs = 1
 #endif
 
-      CALL feots % Build( cliParams % paramFile, myRank, nProcs )
+      CALL feots % Build( cliParams, myRank, nProcs )
 
       recordID = 1
       IF( myRank == 0 )THEN
