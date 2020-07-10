@@ -12,9 +12,9 @@ north       = -28.06,
 TracerModel = 'DyeModel',
 dt          = 1080.0, 
 runMode     = 'Forward',
-nStepsPerDump   = 1,
+nStepsPerDump   = 80,
 iterInit        = 0,
-nTimeSteps      = 1,
+nTimeSteps      = 80,
 nTracers        = 6,
 /
 &OperatorOptions
