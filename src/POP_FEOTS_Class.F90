@@ -1107,9 +1107,9 @@ CONTAINS
      !$OMP BARRIER
      residual_magnitude = this % GetMax(rk)
      !$OMP FLUSH(residual_magnitude)
-     PRINT*, 'Residual :', residual_magnitude
 
      IF( residual_magnitude <= cg_tolerance )THEN
+       PRINT*, 'Vertical Mixing : Final Residual :', residual_magnitude
        RETURN
      ENDIF
 
