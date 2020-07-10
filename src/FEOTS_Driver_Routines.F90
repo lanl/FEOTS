@@ -647,11 +647,11 @@ CONTAINS
                WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
                crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
                PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-               CALL transportOp % ReadCRSMatrix_HDF5(TRIM(crsFile) )
+               CALL transportOp % ReadCRSMatrix_HDF5(TRIM(crsFile), 0, 1 )
 
                crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
                PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-               CALL diffusionOp % ReadCRSMatrix_HDF5(TRIM(crsFile) )
+               CALL diffusionOp % ReadCRSMatrix_HDF5(TRIM(crsFile), 0, 1 )
 
                ! Extract advection operator in region 
                CALL transportOp % SubSample( regionalTransportOp, &
@@ -770,6 +770,7 @@ CONTAINS
    TYPE( POP_FEOTS ) :: feots
    CHARACTER(10) :: ncFileTag
    CHARACTER(5)  :: fileIDChar
+   CHARACTER(5)  :: rankChar
    CHARACTER(200):: thisIRFFile
    INTEGER       :: funit, recordID, fileID, i, nIODumps
    INTEGER       :: mpiErr, myRank, nProcs, iter
@@ -786,10 +787,10 @@ CONTAINS
 #endif
 
       CALL feots % Build( cliParams, myRank, nProcs )
+      WRITE( rankChar, '(I5.5)' ) myRank
 
       recordID = 1
 
-         IF( myRank == 0 )THEN 
             fileID   = feots % params % iterInit
             ! /////////////////////////// Load in the initial conditions //////////////////// !
             WRITE( ncfileTag, '(I10.10)' ) fileID
@@ -798,25 +799,22 @@ CONTAINS
             ! and the number of records per netcdf file
             
            ! Tracer.init.nc is read for the mask and source terms
-            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.init.nc', .TRUE. )
+            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//rankChar//'.init.nc', .TRUE. )
             CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
             CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
             CALL feots % nativeSol % FinalizeNetCDF( )
 
 
-         ENDIF ! myRank == 0
          !***********
 
          IF( feots % params % iterInit == 0 )THEN
             tn = 0.0_prec
          ELSE
 
-            IF( myRank == 0 )THEN 
                ! This pickup file is read for the correct "initial condition"
-               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//ncFileTag//'.nc', .FALSE. )
+               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//rankChar//'.'//ncFileTag//'.nc', .FALSE. )
                CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
-            ENDIF
                tn = REAL(feots % params % iterInit,prec)*feots % params % dt
 
          ENDIF
@@ -824,51 +822,25 @@ CONTAINS
          ! /////////////////////////////////////////////////////////////////////////////// !
          
          ! Transfer the data from the native storage to the FEOTS storage
-         IF( myRank == 0 )THEN
-            CALL feots % MapAllToDOF( )
-         ENDIF
-#ifdef HAVE_MPI
-         CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
-         CALL feots % ScatterSolution( myRank, nProcs )
-         CALL feots % ScatterSource( myRank, nProcs )
-         CALL feots % ScatterMask( myRank, nProcs )
-         IF( myRank /= 0 )THEN
-            CALL feots % MapTracerToDOF( )
-         ENDIF
-#endif 
+         CALL feots % MapAllToDOF( )
          ! //// Forward Mode //// !
          PRINT*, '  Starting ForwardStep'
    
          DO iter = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
 
             !$OMP PARALLEL
-            IF( myRank /= 0 .OR. nProcs == 0)THEN
-               CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
-            ENDIF
+            CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
             !$OMP END PARALLEL 
  
+            CALL feots % MapTracerFromDOF( )
 
-            IF(myRank /= 0  .OR. nProcs == 0)THEN
-               CALL feots % MapTracerFromDOF( )
-            ENDIF
-
-#ifdef HAVE_MPI
-            CALL feots % GatherSolution( myRank, nProcs )
-#endif
-            IF( myRank == 0 )THEN
-
-               WRITE( ncfileTag, '(I10.10)' ) iter + feots % params % nStepsPerDump
-               CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
-                                                                  feots % mesh, &
-                                                                  TRIM(cliParams % outdir)//'/Tracer.'//ncFileTag//'.nc', &
-                                                                  .FALSE. )
-               CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, recordID )
-               CALL feots % nativeSol % FinalizeNetCDF( )
-            ENDIF
-
-#ifdef HAVE_MPI
-            CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
-#endif
+            WRITE( ncfileTag, '(I10.10)' ) iter + feots % params % nStepsPerDump
+            CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
+                                                               feots % mesh, &
+                                                               TRIM(cliParams % outdir)//'/Tracer.'//rankChar//'.'//ncFileTag//'.nc', &
+                                                               .FALSE. )
+            CALL feots % nativeSol % WriteNetCDFRecord( feots % mesh, recordID )
+            CALL feots % nativeSol % FinalizeNetCDF( )
 
          ENDDO
 

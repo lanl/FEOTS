@@ -14,7 +14,8 @@ module purge
 module use /home/joe/modulefiles
 module load gnu8/8.3.0 mpich/3.3.1 phdf5/1.10.5 netcdf/4.7.1 netcdf-fortran/4.5.2 feots/1.0.0
 
+mkdir -p /mnt/feots/simulation/zapiola
 IRF=$(sed -n 1p IRFs.txt)
 ./genmask --dbroot /mnt/feots/db/E3SMV0-HILAT-5DAVG  \
           --irf ${IRF} \
-          --out /mnt/feots/solution/zapiola
+          --out /mnt/feots/simulation/zapiola

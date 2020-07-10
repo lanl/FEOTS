@@ -94,7 +94,6 @@ MODULE TracerStorage_Class
       PROCEDURE :: Build => Build_TracerStorage
       PROCEDURE :: Trash => Trash_TracerStorage
 
-      PROCEDURE :: LoadSparseConnectivities => LoadSparseConnectivities_TracerStorage
       PROCEDURE :: CheckForNewOperator => CheckForNewOperator_TracerStorage
       PROCEDURE :: MaskField         => MaskField_TracerStorage
       PROCEDURE :: CalculateTendency => CalculateTendency_TracerStorage
@@ -188,26 +187,7 @@ MODULE TracerStorage_Class
 !==================================================================================================!
 !
 !
- SUBROUTINE LoadSparseConnectivities_TracerStorage( thisStorage, filebase )
- ! 
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( TracerStorage ), INTENT(inout) :: thisStorage
-   CHARACTER(*)                          :: fileBase
-   ! Local
-   CHARACTER(5) :: periodChar
-
-
-      WRITE( periodChar, '(I5.5)' )
-      PRINT*, '  Loading Operator : '//TRIM(fileBase)//'advect.'//periodChar//'.h5'
-      CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'advect.'//periodChar//'.h5' ) 
-      PRINT*, '  Loading Operator : '//TRIM(fileBase)//'diffusion.'//periodChar//'.h5'
-      CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'diffusion'//periodChar//'.h5' ) 
-      PRINT*, '  Done!'
- 
- END SUBROUTINE LoadSparseConnectivities_TracerStorage
-!
- SUBROUTINE CheckForNewOperator_TracerStorage( thisStorage, t, filebase, OpSwapped )
+ SUBROUTINE CheckForNewOperator_TracerStorage( thisStorage, t, filebase, OpSwapped, myRank, nProc )
  ! 
  ! This routine takes in the simulation time "t" and determines which operator
  ! period needs to be loaded. If the operator period changes, then a new
@@ -219,6 +199,7 @@ MODULE TracerStorage_Class
    REAL(prec), INTENT(in)                :: t
    CHARACTER(*)                          :: fileBase
    LOGICAL                               :: OpSwapped
+   INTEGER                               :: myRank, nProc
    ! Local
    INTEGER      :: nthCycle, newPeriod
    REAL(prec)   :: adjT
@@ -243,9 +224,9 @@ MODULE TracerStorage_Class
          WRITE( periodChar, '(I5.5)' ) newPeriod+1
 
         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//periodChar//'.h5'
-        CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//periodChar//'.h5' ) 
+        CALL thisStorage % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//periodChar//'.h5', myRank, nProc ) 
         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//periodChar//'.h5'
-        CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion.'//periodChar//'.h5' ) 
+        CALL thisStorage % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion.'//periodChar//'.h5', myRank, nProc ) 
          opSwapped = .TRUE.
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0
@@ -253,7 +234,6 @@ MODULE TracerStorage_Class
             thisStorage % currentPeriod = newPeriod
          ENDIF
 
-      PRINT*, '  Done!'
       ENDIF
  
  END SUBROUTINE CheckForNewOperator_TracerStorage

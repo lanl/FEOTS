@@ -1,7 +1,7 @@
 &POPMeshOptions
 MeshType    = 'PeriodicTripole',
 StencilType = 'LaxWendroff27',
-MaskFile    = 'Zapiola_mask.nc',
+MaskFile    = '/mnt/feots/simulation/zapiola/Zapiola_mask.nc',
 Regional    = .TRUE.,
 south       = -52.18,
 east        = -24.90,
@@ -12,9 +12,9 @@ north       = -28.06,
 TracerModel = 'DyeModel',
 dt          = 1080.0, 
 runMode     = 'Forward',
-nStepsPerDump   = 400,
+nStepsPerDump   = 1,
 iterInit        = 0,
-nTimeSteps      = 8400,
+nTimeSteps      = 1,
 nTracers        = 6,
 /
 &OperatorOptions
@@ -22,8 +22,8 @@ operatorPeriod = 86400.0,
 nOperatorsPerCycle = 105,
 /
 &FileOptions
-regionalmeshfile          ='/mnt/feots/solution/zapiola/mesh.nc',
-regionalOperatorDirectory ='/mnt/feots/solution/zapiola/',
+regionalmeshfile          ='/mnt/feots/simulation/zapiola/mesh.nc',
+regionalOperatorDirectory ='/mnt/feots/simulation/zapiola/',
 /
 &JFNKOptions
 /

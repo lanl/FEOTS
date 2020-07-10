@@ -56,9 +56,9 @@ USE POP_Native_Class
 USE FEOTS_CLI_Class
 
  IMPLICIT NONE
-#ifdef HAVE_MPI
-INCLUDE 'mpif.h'
-#endif
+!#ifdef HAVE_MPI
+!INCLUDE 'mpif.h'
+!#endif
 
 
 ! ==================================== POP_FEOTS Description ====================================== !
@@ -88,6 +88,7 @@ INCLUDE 'mpif.h'
       TYPE( POP_Mesh )          :: mesh
       TYPE( POP_Params )        :: params
       TYPE( POP_Native )        :: nativeSol
+      INTEGER :: myRank, nProcs
 
       ! Water Mass Tagging
       REAL(prec)                :: stateMask(1:3)
@@ -199,6 +200,8 @@ CONTAINS
    
 
       PRINT*, 'S/R : Build_POP_FEOTS : Start...'
+      this % myRank = myRank
+      this % nProcs = nProcs
 
       CALL this % params % Build(TRIM(cliParams % paramFile))
       this % params % dbRoot = cliParams % dbRoot
@@ -260,26 +263,13 @@ CONTAINS
          nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
       ENDIF
 
-      IF( myRank /= 0 )THEN
-         ! Each rank is only responsible for one tracer
-         this % params % nTracers = 1
-      ENDIF
+     ! this % params % nTracers = 1
 
       IF( this % params % WaterMassTagging )THEN
          
          PRINT*, '   Enabling water mass tagging.'
          ! Overwrite the number of tracers
-         IF( myRank == 0 )THEN
-            this % params % nTracers = this % params % nLayers*this % regionalMaps % nMasks
-#ifdef HAVE_MPI
-            IF( this % params % nTracers /= nProcs-1 )THEN
-               PRINT *, 'Number of tracers (plus one) does not match the number of MPI Ranks.'
-               PRINT *, 'nTracers = ', this % params % nTracers
-               PRINT *, 'nRanks   = ', nProcs
-               STOP 'Stopping!'
-            ENDIF
-#endif
-         ENDIF
+         this % params % nTracers = this % params % nLayers*this % regionalMaps % nMasks
 
          ALLOCATE( this % stateLowerBound(1:this % params % nLayers), &
                    this % stateUpperBound(1:this % params % nLayers) )
@@ -328,14 +318,6 @@ CONTAINS
          PRINT*, 'MPI currently only configured for Passive Dye Model.'
          STOP 'Stopping!'
       ENDIF
-      IF( myRank == 0 )THEN
-         IF( this % params % nTracers /= nProcs-1 )THEN
-            PRINT *, 'Number of tracers plus one does not match the number of MPI Ranks.'
-            PRINT *, 'nTracers = ', this % params % nTracers
-            PRINT *, 'nRanks   = ', nProcs
-            STOP 'Stopping!'
-         ENDIF
-      ENDIF
 #endif
 
       ! Allocates space for the solution storage as a 1-D array and allocates
@@ -370,9 +352,8 @@ CONTAINS
 
          IF( this % params % maskFile == '' )THEN
 
-           IF( myRank == 0 )THEN
-     
-                 DO iTracer = 1, this % params % nTracers
+#ifdef HAVE_MPI
+              DO iTracer = 1, this % params % nTracers
                        
                     DO m = 1, this % regionalMaps % bMap(iTracer) % nBCells
                        i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
@@ -381,22 +362,20 @@ CONTAINS
                        this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
                     ENDDO
               ENDDO
+#else
   
-           ELSE
-              iTracer = myRank 
+              iTracer = myRank+1 
               DO m = 1, this % regionalMaps % bMap(iTracer) % nBCells
                  i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
                  j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
                  k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
                  this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
               ENDDO
-  
-           ENDIF
+#endif
 
          ELSE
 
-           IF( myRank == 0 )THEN
-     
+#ifdef HAVE_MPI
               DO iMask = 1, this % regionalMaps % nMasks
                  DO iLayer = 1, this % params % nLayers
                        
@@ -410,9 +389,9 @@ CONTAINS
                  ENDDO
               ENDDO
   
-           ELSE
-              iMask   = (myRank-1)/(this % params % nLayers)+1
-              iLayer  = myRank - (iMask-1)*this % params % nLayers
+#else
+              iMask   = (myRank)/(this % params % nLayers)+1
+              iLayer  = myRank + 1 - (iMask-1)*this % params % nLayers
               iTracer = 1
               DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
                  i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
@@ -420,8 +399,7 @@ CONTAINS
                  k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
                  this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
               ENDDO
-  
-           ENDIF
+#endif
          ENDIF
 
       ENDIF
@@ -860,10 +838,12 @@ CONTAINS
             fileBase = TRIM(this % params % dbRoot)//'/ops'
          ENDIF
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//fileIDChar//'.h5' ) 
+         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//fileIDChar//'.h5', &
+                                                                      this % myRank, this % nProcs ) 
 
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5' ) 
+         CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5', &
+                                                                      this % myRank, this % nProcs ) 
 
          IF( this % params % waterMassTagging )THEN
 
@@ -913,11 +893,11 @@ CONTAINS
          IF( this % params % Regional ) THEN
             CALL this % solution % CheckForNewOperator( tn, &
                                 TRIM( this % params % regionalOperatorDirectory), &
-                                operatorsSwapped )
+                                operatorsSwapped, this % myRank, this % nProcs )
          ELSE
             CALL this % solution % CheckForNewOperator( tn, &
                                 TRIM( this % params % dbRoot )//'/ops/', &
-                                operatorsSwapped )
+                                operatorsSwapped, this % myRank, this % nProcs )
          ENDIF
 
          IF( this % params % waterMassTagging .AND. operatorsSwapped )THEN

@@ -114,6 +114,7 @@ MODULE CRSMatrix_Class
    END TYPE CRSMatrix
 
    
+ INTEGER, PRIVATE, PARAMETER :: maxRetries = 10
 
  CONTAINS
 !
@@ -325,18 +326,31 @@ MODULE CRSMatrix_Class
 !==================================================================================================!
 !
 !
- SUBROUTINE ReadCRSMatrix_HDF5( myMatrix, filename )
+ SUBROUTINE ReadCRSMatrix_HDF5( myMatrix, filename, my_RankID, nMPI_Ranks )
    IMPLICIT NONE
    CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
    CHARACTER(*), INTENT(in)          :: filename
+   INTEGER, INTENT(in)               :: my_RankID
+   INTEGER, INTENT(in)               :: nMPI_Ranks
    ! Local
    INTEGER(HID_T) :: file_id
    INTEGER(HSIZE_T) :: rdim(1:2), edim(1:1)
    INTEGER(HID_T)   :: dataset_id, filespace
+   INTEGER(HID_T) :: plist_id
    INTEGER          :: error
+   INTEGER :: i
+   LOGICAL :: openSuccess
+ 
 
      CALL h5open_f(error)
+#ifdef HAVE_MPI
+     CALL h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+     CALL h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+     CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error,access_prp=plist_id)
+     CALL h5pclose_f(plist_id,error)
+#else
      CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error)
+#endif
 
      CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/rowBounds', 2, rdim )
      CALL Get_HDF5_Obj_Dimensions( file_id,'/sparse_crs/elements', 1, edim )
@@ -428,296 +442,4 @@ MODULE CRSMatrix_Class
 
  END SUBROUTINE WriteCRSMatrix_HDF5
 
- SUBROUTINE ReadHeader( fileBase, nRow, nCol, nElems )
- ! S/R ReadHeader
- !
- !   
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CHARACTER(*), INTENT(in)          :: fileBase
-   INTEGER, INTENT(out)              :: nRow, nCol, nElems
-   ! Local
-   INTEGER :: fUnit
-
-      OPEN( UNIT = NewUnit(fUnit), & 
-            FILE = TRIM(fileBase)//'.head', &
-            FORM = 'FORMATTED', &
-            ACCESS = 'SEQUENTIAL', &
-            STATUS = 'OLD', &
-            ACTION = 'READ' )
-
-      READ( fUnit, * ) nrow, ncol, nElems
-
-      CLOSE( fUnit )
-
- END SUBROUTINE ReadHeader
-!
- SUBROUTINE WriteHeader_CRSMatrix( myMatrix, fileBase )
- ! S/R WriteHeader
- !
- !   
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
-   CHARACTER(*), INTENT(in)          :: fileBase
-   ! Local
-   INTEGER :: fUnit
-
-      OPEN( UNIT = NewUnit(fUnit), & 
-            FILE = TRIM(fileBase)//'.head', &
-            FORM = 'FORMATTED', &
-            ACCESS = 'SEQUENTIAL', &
-            STATUS = 'REPLACE', &
-            ACTION = 'WRITE' )
-
-      WRITE( fUnit, * ) myMatrix % nRows, myMatrix % nCols, myMatrix % nElems
-
-      CLOSE( fUnit )
-
- END SUBROUTINE WriteHeader_CRSMatrix
-!
- SUBROUTINE ReadSparseConnectivity_CRSMatrix( myMatrix, fileBase )
- ! S/R ReadSparseConnectivity
- !
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
-   CHARACTER(*), INTENT(in)          :: fileBase
-   ! Local
-   INTEGER :: i
-   INTEGER :: recID
-   INTEGER :: fUnit
-
-
-      OPEN( UNIT = NewUnit(fUnit), & 
-            FILE = TRIM(fileBase)//'.conn', &
-            FORM = 'UNFORMATTED', &
-            ACCESS = 'DIRECT', &
-            STATUS = 'OLD', &
-            ACTION = 'READ', &
-            RECL = 4 )
-
-      recID  = 1
-
-      DO i = 1, myMatrix % nRows
-         READ( fUnit, REC = recID ) myMatrix %  rowBounds(1,i)
-         recID = recID + 1
-         READ( fUnit, REC = recID ) myMatrix %  rowBounds(2,i)
-         recID = recID + 1
-      ENDDO
- 
-      DO i = 1, myMatrix % nElems
-         READ( fUnit, REC=recID ) myMatrix % col(i)
-         recID = recID + 1
-      ENDDO
-
-      CLOSE( fUnit )
-
-      !DO i = 1, myMatrix % nRows-1
-      !   myMatrix % rowBounds(i,2) = myMatrix % rowBounds(i+1,1)-1
-      !ENDDO
-
-
- END SUBROUTINE ReadSparseConnectivity_CRSMatrix
-!
- SUBROUTINE WriteSparseConnectivity_CRSMatrix( myMatrix, fileBase )
- ! S/R WriteSparseConnectivity
- !
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
-   CHARACTER(*), INTENT(in)          :: fileBase
-   ! Local
-   INTEGER :: i
-   INTEGER :: recID
-   INTEGER :: fUnit
-
-
-      OPEN( UNIT = NewUnit(fUnit), & 
-            FILE = TRIM(fileBase)//'.conn', &
-            FORM = 'UNFORMATTED', &
-            ACCESS = 'DIRECT', &
-            STATUS = 'REPLACE', &
-            ACTION = 'WRITE', &
-            RECL = 4 )
-
-      recID  = 1
-
-      DO i = 1, myMatrix % nRows
-         WRITE( fUnit, REC = recID ) myMatrix %  rowBounds(1,i)
-         recID = recID + 1
-         WRITE( fUnit, REC = recID ) myMatrix %  rowBounds(2,i)
-         recID = recID + 1
-      ENDDO
- 
-      DO i = 1, myMatrix % nElems
-         WRITE( fUnit, REC=recID ) myMatrix % col(i)
-         recID = recID + 1
-      ENDDO
-
-      CLOSE( fUnit )
-
-
- END SUBROUTINE WriteSparseConnectivity_CRSMatrix
-!
- SUBROUTINE ReadMatrixData_CRSMatrix( myMatrix, fileBase )
- ! S/R ReadMatrixData
- !
- !    This subroutine reads the "fileBase.data" file that contains the matrix element data. As a 
- !    prerequisite to calling this routine, the "% nElems" attribute needs to be filled in and 
- !    memory for the "% A" attribute should be allocated.
- !    
- !    Usage :
- !       CALL myMatrix % ReadMatrixData( fileBase )
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
-   CHARACTER(*), INTENT(in)          :: fileBase
-   ! Local
-   INTEGER :: ioerr, nChunks, recLength, nRealPerChunk
-   INTEGER :: fUnit, dataLength, s1, s2, i
-   INTEGER :: row, iEl
-   REAL(prec), ALLOCATABLE :: localIOarray(:)
-
-       dataLength = myMatrix % nElems
-       IF( prec==SP )THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nReal4PerChunk)
-         IF( nChunks*nReal4PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength   = nChunks*nReal4PerChunk
-         recLength    = nReal4PerChunk*prec
-         nRealPerChunk = nReal4PerChunk
-
-      ELSEIF( prec == DP )THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nReal8PerChunk)
-         IF( nChunks*nReal8PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength = nChunks*nReal8PerChunk
-         recLength  = nReal8PerChunk*prec
-         nRealPerChunk = nReal8PerChunk
-
-      ELSE
-         STOP
-      ENDIF
-
-      ALLOCATE( localIOarray(1:datalength) )
-      localIOarray = 0.0_prec
-      !localIOarray(1:myMatrix % nElems) = myMatrix % A(1:myMatrix % nElems) 
-
-      OPEN( UNIT = NewUnit(fUnit), & 
-            FILE = TRIM(fileBase)//'.data', &
-            FORM = 'UNFORMATTED', &
-            ACCESS = 'DIRECT', &
-            STATUS = 'OLD', &
-            ACTION = 'READ', &
-            RECL = recLength )
-      
-      DO i = 1, nChunks
-         s1 = 1  + (nRealPerChunk)*(i-1)
-         s2 = s1 + nRealPerChunk - 1
-         READ( fUnit, REC=i, IOSTAT = ioerr ) localIOarray(s1:s2)
-      ENDDO
-      CLOSE( fUnit )
-
- 
-      myMatrix % A = 0.0_prec
-      myMatrix % A(1:myMatrix % nElems) = localIOarray(1:myMatrix % nElems)
- 
-!      DO row = 1, myMatrix % nRows
-!         
-!         DO iel = myMatrix % rowBounds(1,row), myMatrix % rowBounds(2,row)
-!            IF( ABS( myMatrix % A(iel) ) > 4.0_prec*10.0_prec**(-4) )THEN
-!              PRINT*, myMatrix % A(iel), row, myMatrix % col(iel)
-!            ENDIF
-!         ENDDO
-!
-!      ENDDO
-      
-     
-      DEALLOCATE( localIOarray )
-
- END SUBROUTINE ReadMatrixData_CRSMatrix
-!
- SUBROUTINE WriteMatrixData_CRSMatrix( myMatrix, fileBase )
- ! S/R WriteMatrixData
- !
- !    Usage :
- !       CALL myMatrix % WriteMatrixData( fileBase )
- !
- ! =============================================================================================== !
-   IMPLICIT NONE
-   CLASS( CRSMatrix ), INTENT(in) :: myMatrix
-   CHARACTER(*), INTENT(in)       :: fileBase
-   ! Local
-   INTEGER :: ioerr, nChunks, recLength, nRealPerChunk
-   INTEGER :: fUnit, dataLength, s1, s2, i
-   REAL(prec), ALLOCATABLE :: localIOarray(:)
-
-       dataLength = myMatrix % nElems
-       IF( prec==SP )THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nReal4PerChunk)
-         IF( nChunks*nReal4PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength   = nChunks*nReal4PerChunk
-         recLength    = nReal4PerChunk*prec
-         nRealPerChunk = nReal4PerChunk
-
-      ELSEIF( prec == DP )THEN
-
-         ! Make sure that datalength is an integer multiple of nInt4PerChunk 
-         nChunks    = (datalength/nReal8PerChunk)
-         IF( nChunks*nReal8PerChunk < datalength )THEN
-            nChunks = nChunks+1
-         ENDIF
-         dataLength = nChunks*nReal8PerChunk
-         recLength  = nReal8PerChunk*prec
-         nRealPerChunk = nReal8PerChunk
-
-      ELSE
-         STOP
-      ENDIF
-
-      ALLOCATE( localIOarray(1:datalength) )
-      localIOarray = 0.0_prec
-      localIOarray(1:myMatrix % nElems) = myMatrix % A(1:myMatrix % nElems) 
-
-      OPEN( UNIT = NewUnit(fUnit), & 
-            FILE = TRIM(fileBase)//'.data', &
-            FORM = 'UNFORMATTED', &
-            ACCESS = 'DIRECT', &
-            STATUS = 'REPLACE', &
-            ACTION = 'WRITE', &
-            RECL = recLength )
-      
-      DO i = 1, nChunks
-         s1 = 1  + (nRealPerChunk)*(i-1)
-         s2 = s1 + nRealPerChunk - 1
-         WRITE( fUnit, REC=i, IOSTAT = ioerr ) localIOarray(s1:s2)
-      ENDDO
-      CLOSE( fUnit )
-
-      DEALLOCATE( localIOarray )
-
- END SUBROUTINE WriteMatrixData_CRSMatrix
-!
-!
-!==================================================================================================!
-!------------------------------------ File I/O Routines  ------------------------------------------!
-!==================================================================================================!
-!
-!
 END MODULE CRSMatrix_Class

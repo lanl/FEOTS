@@ -45,6 +45,9 @@ USE HDF5
 USE netcdf
 
 IMPLICIT NONE
+#ifdef HAVE_MPI
+INCLUDE 'mpif.h'
+#endif
 
 
    INTERFACE Invert
