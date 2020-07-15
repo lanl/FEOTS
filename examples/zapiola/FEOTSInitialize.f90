@@ -22,8 +22,6 @@ IMPLICIT NONE
       CALL cliParams % GetCLIConf( )
       CALL feots % Build( cliParams, myRank, nProcs )
 
-      print*, 'Check!'
-      
       CALL SourceTerms( feots )
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
@@ -62,42 +60,42 @@ CONTAINS
 
 ! Southern boundary
 
-         IF( k .le. 63 .AND. myRank==1 ) THEN
+         IF( k .le. 63 .AND. myRank==0 ) THEN
 
-             print*, 'RANK, I,J,K', iTracer, i, j, k
+            ! print*, 'RANK, I,J,K', iTracer, i, j, k
             myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
-         ELSEIF ( k .gt. 63 .AND. myRank==2 ) THEN
+         ELSEIF ( k .gt. 63 .AND. myRank==1 ) THEN
 
-             print*, 'RANK, I,J,K', iTracer, i, j, k
+            ! print*, 'RANK, I,J,K', iTracer, i, j, k
             myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
          ENDIF
 
 ! Eastern boundary
 
-         IF ( k .le. 63 .AND. myRank == 3 ) THEN
+         IF ( k .le. 63 .AND. myRank == 2 ) THEN
 
-             print*, 'RANK, I,J,K', iTracer, i, j, k
+            ! print*, 'RANK, I,J,K', iTracer, i, j, k
             myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
-         ELSEIF ( k .gt. 63 .AND.  myRank == 4 ) THEN
+         ELSEIF ( k .gt. 63 .AND.  myRank == 3 ) THEN
 
-             print*, 'RANK, I,J,K', iTracer, i, j, k
+            ! print*, 'RANK, I,J,K', iTracer, i, j, k
             myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
          ENDIF
 
 ! Northern boundary
 
-         IF (k .le. 63 .AND. myRank == 5 ) THEN
+         IF (k .le. 63 .AND. myRank == 4 ) THEN
 
-             print*, 'RANK, I,J,K', iTracer, i, j, k
+             ! print*, 'RANK, I,J,K', iTracer, i, j, k
             myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
-         ELSEIF ( k .gt. 63 .AND. myRank == 6 ) THEN
+         ELSEIF ( k .gt. 63 .AND. myRank == 5 ) THEN
 
-             print*, 'RANK, I,J,K', iTracer, i, j, k
+             ! print*, 'RANK, I,J,K', iTracer, i, j, k
             myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
 
          ENDIF

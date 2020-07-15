@@ -263,7 +263,6 @@ CONTAINS
          nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
       ENDIF
 
-     ! this % params % nTracers = 1
 
       IF( this % params % WaterMassTagging )THEN
          
@@ -318,6 +317,12 @@ CONTAINS
          PRINT*, 'MPI currently only configured for Passive Dye Model.'
          STOP 'Stopping!'
       ENDIF
+      IF( nProcs /= this % params % nTracers )THEN
+         PRINT*, 'Number of MPI ranks must equal the number of tracers.', this % params % nTracers
+         STOP 'Stopping!'
+      ENDIF
+      ! Reset the number of tracers (for each rank) to 1
+      this % params % nTracers = 1
 #endif
 
       ! Allocates space for the solution storage as a 1-D array and allocates
@@ -334,9 +339,6 @@ CONTAINS
                                         this % params % operatorPeriod, &
                                         this % params % dt )
 
-#ifdef HAVE_MPI
-      this % solution % nTracers = 1
-#endif
 
       IF( this % params % TracerModel == RadionuclideModel .OR. &
           this % params % TracerModel == SettlingModel )THEN 
@@ -345,7 +347,7 @@ CONTAINS
       ENDIF
 
       ! Allocates space for the solution storage on the native mesh 
-      CALL this % nativeSol % Build( this % mesh, this % params % nTracers )
+      CALL this % nativeSol % Build( this % mesh, this % params % nTracers, myRank )
       this % nativeSol % mask = 1.0_prec
 
       IF( this % params % Regional )THEN
@@ -1163,8 +1165,8 @@ CONTAINS
        !$OMP BARRIER
        residual_magnitude = this % GetMax(rk)
        !$OMP FLUSH(residual_magnitude)
-       PRINT*, 'Residual :', residual_magnitude 
        IF( residual_magnitude <= cg_tolerance )THEN
+         PRINT*, 'Residual :', residual_magnitude 
          RETURN
        ENDIF
 

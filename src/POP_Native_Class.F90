@@ -51,6 +51,7 @@ USE netcdf
 
    TYPE POP_Native
       INTEGER                  :: nX, nY, nZ, nTracers
+      INTEGER, ALLOCATABLE     :: tracerIds(:)
       REAL(prec), ALLOCATABLE  :: tracer(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: mask(:,:,:,:)
       REAL(prec), ALLOCATABLE  :: source(:,:,:,:)
@@ -99,7 +100,7 @@ CONTAINS
 !==================================================================================================!
 !
 !
- SUBROUTINE Build_POP_Native( this, mesh, nTracers ) 
+ SUBROUTINE Build_POP_Native( this, mesh, nTracers, myRank ) 
  ! S/R Build
  !
  ! =============================================================================================== !
@@ -107,6 +108,7 @@ CONTAINS
    CLASS( POP_Native ), INTENT(out) :: this
    TYPE( POP_Mesh ), INTENT(in)     :: mesh
    INTEGER, INTENT(in)              :: nTracers
+   INTEGER, INTENT(in)              :: myRank
    ! Local 
    INTEGER :: nX, nY, nZ
 
@@ -126,7 +128,8 @@ CONTAINS
                 this % volume(1:nX,1:nY,1:nZ), &
                 this % temperature(1:nX,1:nY,1:nZ), &
                 this % salinity(1:nX,1:nY,1:nZ), &
-                this % density(1:nX,1:nY,1:nZ) )
+                this % density(1:nX,1:nY,1:nZ), &
+                this % tracerIds(1:nTracers) )
 
       this % tracer       = 0.0_prec
       this % mask         = 1.0_prec
@@ -136,6 +139,14 @@ CONTAINS
       this % temperature  = 0.0_prec
       this % salinity     = 0.0_prec
       this % density     = 0.0_prec
+
+#ifdef HAVE_MPI
+      this % tracerIds = myRank
+#else
+      DO i =1, nTracers
+         this % tracerIds(i) = i-1
+      ENDDO
+#endif      
 
       PRINT*, 'S/R : Build_POP_Native : Finish.'
 
@@ -156,6 +167,7 @@ CONTAINS
       IF(ALLOCATED(this % temperature)) DEALLOCATE(this % temperature)
       IF(ALLOCATED(this % salinity)) DEALLOCATE(this % salinity)
       IF(ALLOCATED(this % density )) DEALLOCATE(this % density)
+      IF(ALLOCATED(this % tracerIds )) DEALLOCATE(this % tracerIds)
 
  END SUBROUTINE Trash_POP_Native
 !
@@ -279,7 +291,7 @@ CONTAINS
          IF( initOn ) THEN     
 
             DO i = 1, this % nTracers
-               WRITE( tracerid, '(I2.2)') i
+               WRITE( tracerid, '(I2.2)') this % tracerIds(i)
                CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
                                          (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
                                          tracer_varid_PN(i) ) )
@@ -337,7 +349,7 @@ CONTAINS
          ELSE
 
             DO i = 1, this % nTracers
-               WRITE( tracerid, '(I2.2)') i
+               WRITE( tracerid, '(I2.2)') this % tracerIds(i)
                CALL Check( nf90_def_var( ncid_PN, "DyeTracer_"//tracerid, NF90_DOUBLE, &
                                          (/ x_dimid_PN, y_dimid_PN, z_dimid_PN, rec_dimid_PN /), &
                                          tracer_varid_PN(i) ) )
@@ -438,7 +450,7 @@ CONTAINS
       ELSEIF( modelType == ImpulseField )THEN
       
          DO i = 1, this % nTracers
-            WRITE( tracerid, '(I2.2)') i
+            WRITE( tracerid, '(I2.2)')i
             CALL Check( nf90_inq_varid( ncid_PN, "ADV_3D_IRF_"//tracerid, &
                                         tracer_varid_PN(i) ) )
          ENDDO
@@ -474,7 +486,7 @@ CONTAINS
          IF( initOn )THEN
       
             DO i = 1, this % nTracers
-               WRITE( tracerid, '(I2.2)') i
+               WRITE( tracerid, '(I2.2)') this % tracerIds(i)
                CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
                                          tracer_varid_PN(i) ) )
                CALL Check( nf90_inq_varid( ncid_PN, "Source_"//tracerid, &
@@ -488,7 +500,7 @@ CONTAINS
          ELSE
 
             DO i = 1, this % nTracers
-               WRITE( tracerid, '(I2.2)') i
+               WRITE( tracerid, '(I2.2)') this % tracerIds(i)
                CALL Check( nf90_inq_varid( ncid_PN, "DyeTracer_"//tracerid, &
                                          tracer_varid_PN(i) ) )
             ENDDO

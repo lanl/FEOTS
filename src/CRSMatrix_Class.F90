@@ -344,10 +344,14 @@ MODULE CRSMatrix_Class
 
      CALL h5open_f(error)
 #ifdef HAVE_MPI
-     CALL h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-     CALL h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-     CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error,access_prp=plist_id)
-     CALL h5pclose_f(plist_id,error)
+     if( nMPI_Ranks > 1 )THEN
+         CALL h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+         CALL h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+         CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error,access_prp=plist_id)
+         CALL h5pclose_f(plist_id,error)
+     else
+         CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error)
+     endif
 #else
      CALL h5fopen_f(TRIM(filename), H5F_ACC_RDWR_F, file_id, error)
 #endif

@@ -1,0 +1,169 @@
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+#0  0x2b09668db3ff in ???
+	at /usr/src/debug/glibc-2.17-c758a686/signal/../sysdeps/unix/sysv/linux/x86_64/sigaction.c:0
+#0  0x2b784eb3a3ff in ???
+	at /usr/src/debug/glibc-2.17-c758a686/signal/../sysdeps/unix/sysv/linux/x86_64/sigaction.c:0
+#0  0x2b73fb2793ff in ???
+	at /usr/src/debug/glibc-2.17-c758a686/signal/../sysdeps/unix/sysv/linux/x86_64/sigaction.c:0
+#0  0x2b59d96c83ff in ???
+	at /usr/src/debug/glibc-2.17-c758a686/signal/../sysdeps/unix/sysv/linux/x86_64/sigaction.c:0
+#0  0x2aaedc4823ff in ???
+	at /usr/src/debug/glibc-2.17-c758a686/signal/../sysdeps/unix/sysv/linux/x86_64/sigaction.c:0
+#0  0x2b0cb4d673ff in ???
+	at /usr/src/debug/glibc-2.17-c758a686/signal/../sysdeps/unix/sysv/linux/x86_64/sigaction.c:0
+#1  0x2b096692aaec in __GI___libc_free
+	at /usr/src/debug/glibc-2.17-c758a686/malloc/malloc.c:2941
+#1  0x2b784eb89aec in __GI___libc_free
+	at /usr/src/debug/glibc-2.17-c758a686/malloc/malloc.c:2941
+#1  0x2b73fb2c8aec in __GI___libc_free
+	at /usr/src/debug/glibc-2.17-c758a686/malloc/malloc.c:2941
+#1  0x2b59d9717aec in __GI___libc_free
+	at /usr/src/debug/glibc-2.17-c758a686/malloc/malloc.c:2941
+#1  0x2aaedc4d1aec in __GI___libc_free
+	at /usr/src/debug/glibc-2.17-c758a686/malloc/malloc.c:2941
+#1  0x2b0cb4db6aec in __GI___libc_free
+	at /usr/src/debug/glibc-2.17-c758a686/malloc/malloc.c:2941
+#2  0x4646b3 in __pop_feots_class_MOD___final_pop_feots_class_Pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:2258
+#3  0x477de8 in __pop_feots_class_MOD_build_pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:182
+#2  0x4646b3 in __pop_feots_class_MOD___final_pop_feots_class_Pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:2258
+#3  0x477de8 in __pop_feots_class_MOD_build_pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:182
+#2  0x4646b3 in __pop_feots_class_MOD___final_pop_feots_class_Pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:2258
+#3  0x477de8 in __pop_feots_class_MOD_build_pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:182
+#2  0x4646b3 in __pop_feots_class_MOD___final_pop_feots_class_Pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:2258
+#3  0x477de8 in __pop_feots_class_MOD_build_pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:182
+#2  0x4646b3 in __pop_feots_class_MOD___final_pop_feots_class_Pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:2258
+#3  0x477de8 in __pop_feots_class_MOD_build_pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:182
+#2  0x4646b3 in __pop_feots_class_MOD___final_pop_feots_class_Pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:2258
+#3  0x477de8 in __pop_feots_class_MOD_build_pop_feots
+	at /users/jschoonover/FEOTS/src/POP_FEOTS_Class.F90:182
+#4  0x47c115 in __feots_driver_routines_MOD_feotsintegrate
+	at /users/jschoonover/FEOTS/src/FEOTS_Driver_Routines.F90:789
+#4  0x47c115 in __feots_driver_routines_MOD_feotsintegrate
+	at /users/jschoonover/FEOTS/src/FEOTS_Driver_Routines.F90:789
+#5  0x4884ae in feots
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:43
+#4  0x47c115 in __feots_driver_routines_MOD_feotsintegrate
+	at /users/jschoonover/FEOTS/src/FEOTS_Driver_Routines.F90:789
+#5  0x4884ae in feots
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:43
+#6  0x4884e7 in main
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:3
+#5  0x4884ae in feots
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:43
+#6  0x4884e7 in main
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:3
+#6  0x4884e7 in main
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:3
+#4  0x47c115 in __feots_driver_routines_MOD_feotsintegrate
+	at /users/jschoonover/FEOTS/src/FEOTS_Driver_Routines.F90:789
+#5  0x4884ae in feots
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:43
+#6  0x4884e7 in main
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:3
+#4  0x47c115 in __feots_driver_routines_MOD_feotsintegrate
+	at /users/jschoonover/FEOTS/src/FEOTS_Driver_Routines.F90:789
+#5  0x4884ae in feots
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:43
+#6  0x4884e7 in main
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:3
+#4  0x47c115 in __feots_driver_routines_MOD_feotsintegrate
+	at /users/jschoonover/FEOTS/src/FEOTS_Driver_Routines.F90:789
+#5  0x4884ae in feots
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:43
+#6  0x4884e7 in main
+	at /users/jschoonover/FEOTS/src/FEOTS.F90:3
+srun: error: ba368: tasks 0-5: Segmentation fault

@@ -75,7 +75,7 @@ CONTAINS
 
      CALL globalMesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc' )
 
-     CALL globalState % Build( globalMesh, 1 ) 
+     CALL globalState % Build( globalMesh, 1, 0 ) 
 
      thisIRFFile = cliParams % irfFile
      PRINT*,' Loading '//TRIM(cliParams % irfFile)
@@ -169,7 +169,7 @@ CONTAINS
       ! Write the graph to file for later use
       CALL graph % WriteGraph_HDF5( TRIM(cliParams %dbRoot)//'/irf/impulse/graph.h5' )
 
-      CALL impulseFields % Build( mesh, graph % nColors )
+      CALL impulseFields % Build( mesh, graph % nColors, 0 )
       CALL impulseFields % InitializeForNetCDFWrite( ImpulseField, &
                                                      mesh, &
                                                      TRIM(cliParams % dbRoot)//'/irf/impulse/ImpulseFields.nc', &
@@ -368,7 +368,7 @@ CONTAINS
       ! When building this data structure for the irf-fields, nColors
       ! corresponds to the number of irf fields-we add an additionation
       ! "POP_Native" attribute for the vertical diffusivity
-      CALL irfFields % Build( mesh, graph % nColors+1 )
+      CALL irfFields % Build( mesh, graph % nColors+1, 0 )
       diff_id = graph % nColors + 1
       
       ! /////////////////////// Operator Diagnosis //////////////////////////// !
@@ -799,7 +799,7 @@ CONTAINS
             ! and the number of records per netcdf file
             
            ! Tracer.init.nc is read for the mask and source terms
-            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//rankChar//'.init.nc', .TRUE. )
+            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,TRIM(cliParams % outDir)//'/Tracer.'//rankChar//'.init.nc', .TRUE. )
             CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
             CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
             CALL feots % nativeSol % FinalizeNetCDF( )
@@ -812,7 +812,7 @@ CONTAINS
          ELSE
 
                ! This pickup file is read for the correct "initial condition"
-               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//rankChar//'.'//ncFileTag//'.nc', .FALSE. )
+               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,TRIM(cliParams % outDir)//'/Tracer.'//rankChar//'.'//ncFileTag//'.nc', .FALSE. )
                CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
                CALL feots % nativeSol % FinalizeNetCDF( )
                tn = REAL(feots % params % iterInit,prec)*feots % params % dt
