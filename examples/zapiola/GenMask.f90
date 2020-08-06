@@ -72,7 +72,7 @@ IMPLICIT NONE
       maskField  = 0
       regionMask = 0
 
-      CALL LoadRegionMask( mesh, regionMask, TRIM(cliParams % irfFile) )
+!      CALL LoadRegionMask( mesh, regionMask, TRIM(cliParams % irfFile) )
 
 
          DO j = 1, mesh % nY

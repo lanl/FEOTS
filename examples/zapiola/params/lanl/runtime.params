@@ -23,7 +23,7 @@ nOperatorsPerCycle = 73,
 /
 &FileOptions
 regionalmeshfile          ='Zapiola_mesh.nc',
-regionalOperatorDirectory ='/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg_LW27pt/Zapiola/',
+regionalOperatorDirectory ='/lustre/scratch3/turquoise/jschoonover/zapiola/',
 /
 &JFNKOptions
 /

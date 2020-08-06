@@ -49,26 +49,26 @@ CONTAINS
    ! Local
    INTEGER  :: i, j, k, m, nn, iTracer
 
-      iTracer = 1  !1, myFeots % params % nTracers
-        PRINT*, 'RANK, nPCELLS', iTracer, myFeots % regionalMaps % bMap(iTracer) % nPCells
-        DO m = 1, myFeots % regionalMaps % bMap(iTracer) % nPCells
+      iTracer = myRank+1  !1, myFeots % params % nTracers
+      PRINT*, 'RANK, nPCELLS', myRank, myFeots % regionalMaps % bMap(iTracer) % nPCells
+      DO m = 1, myFeots % regionalMaps % bMap(iTracer) % nPCells
 
-               nn = myFeots % regionalMaps % bMap(iTracer) % prescribedCells(m)
-               i   = myFeots % regionalMaps % dofToLocalIJK(1,nn)
-               j   = myFeots % regionalMaps % dofToLocalIJK(2,nn)
-               k   = myFeots % regionalMaps % dofToLocalIJK(3,nn)
+         nn = myFeots % regionalMaps % bMap(iTracer) % prescribedCells(m)
+         i   = myFeots % regionalMaps % dofToLocalIJK(1,nn)
+         j   = myFeots % regionalMaps % dofToLocalIJK(2,nn)
+         k   = myFeots % regionalMaps % dofToLocalIJK(3,nn)
 
 ! Southern boundary
 
          IF( k .le. 63 .AND. myRank==0 ) THEN
 
             ! print*, 'RANK, I,J,K', iTracer, i, j, k
-            myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+            myFeots % nativeSol % tracer(i,j,k,1) = 1.0_prec
 
          ELSEIF ( k .gt. 63 .AND. myRank==1 ) THEN
 
             ! print*, 'RANK, I,J,K', iTracer, i, j, k
-            myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+            myFeots % nativeSol % tracer(i,j,k,1) = 1.0_prec
 
          ENDIF
 
@@ -77,12 +77,12 @@ CONTAINS
          IF ( k .le. 63 .AND. myRank == 2 ) THEN
 
             ! print*, 'RANK, I,J,K', iTracer, i, j, k
-            myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+            myFeots % nativeSol % tracer(i,j,k,1) = 1.0_prec
 
          ELSEIF ( k .gt. 63 .AND.  myRank == 3 ) THEN
 
             ! print*, 'RANK, I,J,K', iTracer, i, j, k
-            myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+            myFeots % nativeSol % tracer(i,j,k,1) = 1.0_prec
 
          ENDIF
 
@@ -91,19 +91,18 @@ CONTAINS
          IF (k .le. 63 .AND. myRank == 4 ) THEN
 
              ! print*, 'RANK, I,J,K', iTracer, i, j, k
-            myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+            myFeots % nativeSol % tracer(i,j,k,1) = 1.0_prec
 
          ELSEIF ( k .gt. 63 .AND. myRank == 5 ) THEN
 
              ! print*, 'RANK, I,J,K', iTracer, i, j, k
-            myFeots % nativeSol % tracer(i,j,k,iTracer) = 1.0_prec
+            myFeots % nativeSol % tracer(i,j,k,1) = 1.0_prec
 
          ENDIF
 
 
         ENDDO
-    !ENDDO
-    !ENDIF
+
  END SUBROUTINE SourceTerms
 !  
 

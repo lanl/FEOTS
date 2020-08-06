@@ -12,7 +12,7 @@ module use /users/jschoonover/modulefiles
 module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
 
 DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
-OUTDIR=/usr/projects/cesm/FastSolver/feots/database/POP_0.3_Operators_5DayAvg_LW27pt/Zapiola/
+OUTDIR=/lustre/scratch3/turquoise/${USER}/zapiola
 
 srun -n${SLURM_NTASKS} feots integrate --dbroot ${DBROOT}  \
                                        --out ${OUTDIR} \
