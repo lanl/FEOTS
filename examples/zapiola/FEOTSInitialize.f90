@@ -50,13 +50,13 @@ CONTAINS
    INTEGER  :: i, j, k, m, nn, iTracer
 
       iTracer = myRank+1  !1, myFeots % params % nTracers
-      PRINT*, 'RANK, nPCELLS', myRank, myFeots % regionalMaps % bMap(iTracer) % nPCells
-      DO m = 1, myFeots % regionalMaps % bMap(iTracer) % nPCells
+      PRINT*, 'RANK, nPCELLS', myRank, myFeots % feotsMap % bMap(iTracer) % nPCells
+      DO m = 1, myFeots % feotsMap % bMap(iTracer) % nPCells
 
-         nn = myFeots % regionalMaps % bMap(iTracer) % prescribedCells(m)
-         i   = myFeots % regionalMaps % dofToLocalIJK(1,nn)
-         j   = myFeots % regionalMaps % dofToLocalIJK(2,nn)
-         k   = myFeots % regionalMaps % dofToLocalIJK(3,nn)
+         nn = myFeots % feotsMap % bMap(iTracer) % prescribedCells(m)
+         i   = myFeots % feotsMap % dofToLocalIJK(1,nn)
+         j   = myFeots % feotsMap % dofToLocalIJK(2,nn)
+         k   = myFeots % feotsMap % dofToLocalIJK(3,nn)
 
 ! Southern boundary
 

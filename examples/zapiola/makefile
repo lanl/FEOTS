@@ -8,6 +8,9 @@ OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fb
 LIB+=$(shell nc-config --flibs) ${FEOTS_LIB}
 INC+=$(shell nc-config --fflags) ${FEOTS_INCLUDE}
 
+
+.PHONY: clean
+
 all :
 	make init
 	make genmask
@@ -24,6 +27,5 @@ genmask : GenMask.o
 GenMask.o :
 	${FC} ${OPT} -c GenMask.f90 ${INC} ${LIB} -o $@	     
 
-
 clean :
-	rm *.o init
+	rm *.o init genmask

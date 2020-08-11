@@ -56,9 +56,6 @@ USE POP_Native_Class
 USE FEOTS_CLI_Class
 
  IMPLICIT NONE
-!#ifdef HAVE_MPI
-!INCLUDE 'mpif.h'
-!#endif
 
 
 ! ==================================== POP_FEOTS Description ====================================== !
@@ -82,33 +79,22 @@ USE FEOTS_CLI_Class
 
    TYPE POP_FEOTS
      
-      TYPE( TracerStorage )     :: solution
-      TYPE( TracerStorage )     :: tAvgSolution
-      TYPE( POP_Regional )      :: regionalMaps
-      TYPE( POP_Mesh )          :: mesh
-      TYPE( POP_Params )        :: params
-      TYPE( POP_Native )        :: nativeSol
+      TYPE( TracerStorage ) :: solution
+      TYPE( POP_Regional ) :: feotsMap
+      TYPE( POP_Mesh ) :: mesh
+      TYPE( POP_Params ) :: params
+      TYPE( POP_Native ) :: nativeSol
       INTEGER :: myRank, nProcs
 
-      ! Water Mass Tagging
-      REAL(prec)                :: stateMask(1:3)
-      REAL(prec), ALLOCATABLE   :: stateLowerBound(:)
-      REAL(prec), ALLOCATABLE   :: stateUpperBound(:)
+      !! Water Mass Tagging
+      !REAL(prec)                :: stateMask(1:3)
+      !REAL(prec), ALLOCATABLE   :: stateLowerBound(:)
+      !REAL(prec), ALLOCATABLE   :: stateUpperBound(:)
 
       CONTAINS
 
       PROCEDURE :: Build => Build_POP_FEOTS
       PROCEDURE :: Trash => Trash_POP_FEOTS
-
-      PROCEDURE :: SetupSettlingOperator => SetupSettlingOperator_POP_FEOTS
-
-#ifdef HAVE_MPI
-      PROCEDURE :: BroadcastOperators => BroadcastOperators_POP_FEOTS 
-      PROCEDURE :: ScatterSolution    => ScatterSolution_POP_FEOTS 
-      PROCEDURE :: GatherSolution     => GatherSolution_POP_FEOTS 
-      PROCEDURE :: ScatterMask        => ScatterMask_POP_FEOTS 
-      PROCEDURE :: ScatterSource      => ScatterSource_POP_FEOTS 
-#endif
 
       PROCEDURE :: MapAllToDOF      => MapAllToDOF_POP_FEOTS
       PROCEDURE :: MapTracerToDOF   => MapTracerToDOF_POP_FEOTS
@@ -140,35 +126,7 @@ USE FEOTS_CLI_Class
 
    END TYPE POP_FEOTS
 
-#ifdef HAVE_OPENMP
-! These arrays are used by the Adams-Bashforth integrators. In order to reduce
-! overhead associated with OpenMP and maintain correctness, these arrays need
-! to be shared amongst the OpenMP threads. When declared locally within the 
-! subroutine, as in the serial code, these arrays become thread private and each
-! thread only sees partial updates of each array. When declared here, these
-! arrays have global scope and become shared amongst OpenMP threads.
-   REAL(prec), ALLOCATABLE :: trm1(:,:)
-   REAL(prec), ALLOCATABLE :: trm2(:,:)
-   REAL(prec), ALLOCATABLE :: vol(:)
-   REAL(prec), ALLOCATABLE :: weightedTracers(:,:)
-   REAL(prec), ALLOCATABLE :: dCdt(:,:)
-   REAL(prec), ALLOCATABLE :: diffTendency(:,:)
-   REAL(prec), ALLOCATABLE :: dVdt(:)
-
-   REAL(prec), ALLOCATABLE :: Ax(:,:)
-   REAL(prec), ALLOCATABLE :: r (:,:)
-   REAL(prec), ALLOCATABLE :: z (:,:)
-   REAL(prec), ALLOCATABLE :: rk(:,:)
-   REAL(prec), ALLOCATABLE :: zk(:,:)
-   REAL(prec), ALLOCATABLE :: w (:,:)
-   REAL(prec), ALLOCATABLE :: p (:,:)
-   REAL(prec), ALLOCATABLE :: x (:,:)
-
-   ! Function JacobianAction
-   REAL(prec)              :: scFac, vmag, e
-#endif
-
-   REAL(prec), PARAMETER, PRIVATE :: cg_tolerance = 1.0D-8
+   REAL(prec), PARAMETER, PRIVATE :: cg_tolerance = 1.0D-7
    INTEGER, PARAMETER, PRIVATE    :: cg_itermax   = 50000
 
 CONTAINS
@@ -192,8 +150,7 @@ CONTAINS
    INTEGER    :: nDOF, iLayer, iMask, iTracer
    REAL(prec) :: opPeriod, dt
    INTEGER    :: nOps, i, j, k, m, stencilSize, fUnit
-   INTEGER    :: trackingVar
-   INTEGER, ALLOCATABLE :: nEl(:)
+   INTEGER    :: trackingVar, tracerID
    CHARACTER(200) :: oceanStateFile
    CHARACTER(20)  :: trackingVar_Char
    CHARACTER(5)   :: fileIDChar
@@ -206,6 +163,17 @@ CONTAINS
       CALL this % params % Build(TRIM(cliParams % paramFile))
       this % params % dbRoot = cliParams % dbRoot
 
+      IF( this % params % TracerModel /= DyeModel )THEN
+         PRINT*, 'MPI currently only configured for Passive Dye Model.'
+         STOP 'Stopping!'
+      ENDIF
+
+      IF( nProcs /= this % params % nTracers )THEN
+         PRINT*, 'Number of MPI ranks must equal the number of tracers.', this % params % nTracers
+         STOP 'Stopping!'
+      ENDIF
+
+
       IF( this % params % StencilType == LaxWendroff )THEN
          stencilSize = 9
       ELSEIF( this % params % StencilType == LaxWendroff27 )THEN
@@ -217,223 +185,135 @@ CONTAINS
       ENDIF
 
       IF( this % params % Regional )THEN
-         IF( TRIM(this % params % maskfile) == '' )THEN
-            CALL this % mesh % Load( TRIM(this % params % RegionalMeshFile) )
-            CALL this % regionalMaps % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings', maskProvided=.FALSE. )
-         ELSE
-            CALL this % mesh % LoadWithMask( TRIM(this % params % RegionalMeshFile) )
-            CALL this % regionalMaps % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
-         ENDIF
+         CALL this % mesh % LoadWithMask( TRIM(this % params % RegionalMeshFile) )
+         CALL this % feotsMap % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
 
-         this % mesh % DOFtoIJK = this % regionalMaps % dofToLocalIJK
-         DO m = 1, this % regionalMaps % nCells
-            i = this % regionalMaps % dofToLocalIJK(1,m)
-            j = this % regionalMaps % dofToLocalIJK(2,m)
-            k = this % regionalMaps % dofToLocalIJK(3,m)
-            !PRINT*, m, i, j, k
+         !!this % mesh % DOFtoIJK = this % feotsMap % dofToLocalIJK
+         DO m = 1, this % feotsMap % nCells
+            i = this % feotsMap % dofToLocalIJK(1,m)
+            j = this % feotsMap % dofToLocalIJK(2,m)
+            k = this % feotsMap % dofToLocalIJK(3,m)
             this % mesh % IJKtoDOF(i,j,k) = m
             this % mesh % DOFtoIJK(1,m)   = i
             this % mesh % DOFtoIJK(2,m)   = j
             this % mesh % DOFtoIJK(3,m)   = k
          ENDDO
-         nDOF = this % regionalMaps % nCells
+         nDOF = this % feotsMap % nCells
          this % mesh % nDOF = nDOF
       ELSE
          CALL this % mesh % Load( TRIM(this % params % dbRoot)//'/mesh/mesh.nc' )
          nDOF = this % mesh % nDOF
       ENDIF
 
-      IF( this % params % TracerModel == DyeModel )THEN
-         nOps   = 2
-         ALLOCATE( nEl(1:2) )
-         nEl(1) = nDOF*stencilSize !  number of nonzero entries in sparse advection operator
-         nEl(2) = nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
-      ELSEIF( this % params % TracerModel == RadionuclideModel )THEN
-         nOps = 4
-         ALLOCATE( nEl(1:4) )
-         nEl(1) = nDOF*stencilSize !  number of nonzero entries in sparse advection operator
-         nEl(2) = nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
-         nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
-         nEl(4) = nDOF*2 ! number of nonzero entries in sparse scavenging operator
-      ELSEIF( this % params % TracerModel == SettlingModel )THEN
-         nOps = 3
-         ALLOCATE( nEl(1:3) )
-         nEl(1) = nDOF*stencilSize !  number of nonzero entries in sparse advection operator
-         nEl(2) = nDOF*3 ! number of nonzero entries in sparse vertical diffusion operator
-         nEl(3) = nDOF*2 ! number of nonzero entries in sparse settling operator
-      ENDIF
-
-
-      IF( this % params % WaterMassTagging )THEN
-         
-         PRINT*, '   Enabling water mass tagging.'
-         ! Overwrite the number of tracers
-         this % params % nTracers = this % params % nLayers*this % regionalMaps % nMasks
-
-         ALLOCATE( this % stateLowerBound(1:this % params % nLayers), &
-                   this % stateUpperBound(1:this % params % nLayers) )
-         this % stateLowerBound = 0.0_prec
-         this % stateUpperBound = 0.0_prec
-         
-         !IF( LoadForDriver )THEN
-            OPEN( UNIT   = NewUnit( fUnit ), &
-                  FILE   = 'watermass.config', &
-                  FORM   = 'FORMATTED', &
-                  STATUS = 'OLD', &
-                  ACTION = 'READ' )
-
-            READ( fUnit, '(A20)' ) trackingVar_Char
-            PRINT*, '   Tagging water masses with '//TRIM( trackingVar_Char )
-            trackingVar = GetFlagforChar( TRIM(trackingVar_Char) ) 
-            IF( trackingVar == Temperature ) THEN
-               this % stateMask(1) = 1.0_prec
-               this % stateMask(2) = 0.0_prec
-               this % stateMask(3) = 0.0_prec
-            ELSEIF( trackingVar == Salinity ) THEN
-               this % stateMask(1) = 0.0_prec
-               this % stateMask(2) = 1.0_prec
-               this % stateMask(3) = 0.0_prec
-            ELSEIF( trackingVar == Density ) THEN
-               this % stateMask(1) = 0.0_prec
-               this % stateMask(2) = 0.0_prec
-               this % stateMask(3) = 1.0_prec
-            ELSE
-               PRINT*, 'Bad Water Mass Tracking variable.'
-               STOP 'STOPPING!'
-            ENDIF
-
-            PRINT*, '         Layer |        Lower Bound           |    Upper Bound' 
-            DO i = 1, this % params % nLayers
-               READ( fUnit, * ) this % stateLowerBound(i), this % stateUpperBound(i)
-               PRINT*, i, '   |', this % stateLowerBound(i),'   |', this % stateUpperBound(i)
-            ENDDO
-
-            CLOSE( fUnit )
-         !ENDIF
-      ENDIF
-
-#ifdef HAVE_MPI
-      IF( this % params % TracerModel /= DyeModel )THEN
-         PRINT*, 'MPI currently only configured for Passive Dye Model.'
-         STOP 'Stopping!'
-      ENDIF
-      IF( nProcs /= this % params % nTracers )THEN
-         PRINT*, 'Number of MPI ranks must equal the number of tracers.', this % params % nTracers
-         STOP 'Stopping!'
-      ENDIF
-      ! Reset the number of tracers (for each rank) to 1
-      this % params % nTracers = 1
-#endif
-
       ! Allocates space for the solution storage as a 1-D array and allocates
       ! space for the transport operators 
-      CALL this % solution % Build( nDOF, nOps, nEl, &
+      CALL this % solution % Build( nDOF, nOps, (/nDOF*stencilSize,nDOF*3/), &
                                     this % params % nOperatorsPerCycle, &
                                     this % params % nTracers, & 
                                     this % params % operatorPeriod, &
-                                    this % params % dt )
+                                    this % params % dt, &
+                                    myRank, nProcs )
 
-      CALL this % tAvgSolution % Build( nDOF, nOps, nEl, &
-                                        this % params % nOperatorsPerCycle, &
-                                        this % params % nTracers, & 
-                                        this % params % operatorPeriod, &
-                                        this % params % dt )
+      CALL this % nativeSol % Build( this % mesh, this % params % nTracers, myRank, nProcs )
 
+      DO iTracer = 1, this % nativeSol  % nTracers
+        tracerID = this % nativeSol % tracerIds(iTracer)
+        DO m = 1, this % feotsMap % bMap(tracerID) % nBCells
+          i = this % feotsMap % dofToLocalIJK(1,this % feotsMap % bMap(tracerID) % boundaryCells(m))
+          j = this % feotsMap % dofToLocalIJK(2,this % feotsMap % bMap(tracerID) % boundaryCells(m))
+          k = this % feotsMap % dofToLocalIJK(3,this % feotsMap % bMap(tracerID) % boundaryCells(m))
+          this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+        ENDDO
+      ENDDO
+!
 
-      IF( this % params % TracerModel == RadionuclideModel .OR. &
-          this % params % TracerModel == SettlingModel )THEN 
-         PRINT*, '  Setting up Settling Operator'
-         CALL this % SetupSettlingOperator( )
-      ENDIF
+!      IF( this % params % WaterMassTagging )THEN
+!         
+!         PRINT*, '   Enabling water mass tagging.'
+!         ! Overwrite the number of tracers
+!         this % params % nTracers = this % params % nLayers*this % feotsMap % nMasks
+!
+!         ALLOCATE( this % stateLowerBound(1:this % params % nLayers), &
+!                   this % stateUpperBound(1:this % params % nLayers) )
+!         this % stateLowerBound = 0.0_prec
+!         this % stateUpperBound = 0.0_prec
+!         
+!         !IF( LoadForDriver )THEN
+!            OPEN( UNIT   = NewUnit( fUnit ), &
+!                  FILE   = 'watermass.config', &
+!                  FORM   = 'FORMATTED', &
+!                  STATUS = 'OLD', &
+!                  ACTION = 'READ' )
+!
+!            READ( fUnit, '(A20)' ) trackingVar_Char
+!            PRINT*, '   Tagging water masses with '//TRIM( trackingVar_Char )
+!            trackingVar = GetFlagforChar( TRIM(trackingVar_Char) ) 
+!            IF( trackingVar == Temperature ) THEN
+!               this % stateMask(1) = 1.0_prec
+!               this % stateMask(2) = 0.0_prec
+!               this % stateMask(3) = 0.0_prec
+!            ELSEIF( trackingVar == Salinity ) THEN
+!               this % stateMask(1) = 0.0_prec
+!               this % stateMask(2) = 1.0_prec
+!               this % stateMask(3) = 0.0_prec
+!            ELSEIF( trackingVar == Density ) THEN
+!               this % stateMask(1) = 0.0_prec
+!               this % stateMask(2) = 0.0_prec
+!               this % stateMask(3) = 1.0_prec
+!            ELSE
+!               PRINT*, 'Bad Water Mass Tracking variable.'
+!               STOP 'STOPPING!'
+!            ENDIF
+!
+!            PRINT*, '         Layer |        Lower Bound           |    Upper Bound' 
+!            DO i = 1, this % params % nLayers
+!               READ( fUnit, * ) this % stateLowerBound(i), this % stateUpperBound(i)
+!               PRINT*, i, '   |', this % stateLowerBound(i),'   |', this % stateUpperBound(i)
+!            ENDDO
+!
+!            CLOSE( fUnit )
+!         !ENDIF
+!      ENDIF
+!
+!      IF( this % params % TracerModel == RadionuclideModel .OR. &
+!          this % params % TracerModel == SettlingModel )THEN 
+!         PRINT*, '  Setting up Settling Operator'
+!         CALL this % SetupSettlingOperator( )
+!      ENDIF
 
       ! Allocates space for the solution storage on the native mesh 
-      CALL this % nativeSol % Build( this % mesh, this % params % nTracers, myRank )
-      this % nativeSol % mask = 1.0_prec
+!#ifdef HAVE_MPI
+!      CALL this % nativeSol % Build( this % mesh, 1, myRank )
+!#else
+      !ELSE
+  
 
-      IF( this % params % Regional )THEN
+  ! IF( this % params % waterMassTagging )THEN
 
-         IF( this % params % maskFile == '' )THEN
+  !    WRITE(fileIDChar, '(I5.5)' ) 1
+  !    oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+  !    PRINT*, 'Loading initial ocean state : ', TRIM(oceanStateFile)
+  !    CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+
+  !    DO iMask = 1, this % feotsMap % nMasks
+  !       DO iLayer = 1, this % params % nLayers
+  !             
+  !          iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+  !          DO m = 1, this % feotsMap % bMap(iMask) % nBCells
+  !             i = this % feotsMap % dofToLocalIJK(1,this % feotsMap % bMap(iMask) % boundaryCells(m))
+  !             j = this % feotsMap % dofToLocalIJK(2,this % feotsMap % bMap(iMask) % boundaryCells(m))
+  !             k = this % feotsMap % dofToLocalIJK(3,this % feotsMap % bMap(iMask) % boundaryCells(m))
+  !             this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+  !          ENDDO
+  !       ENDDO
+  !    ENDDO
+
+  ! ENDIF
 
 #ifdef HAVE_MPI
-              DO iTracer = 1, this % params % nTracers
-                       
-                    DO m = 1, this % regionalMaps % bMap(iTracer) % nBCells
-                       i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
-                       j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
-                       k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
-                       this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
-                    ENDDO
-              ENDDO
-#else
-  
-              iTracer = myRank+1 
-              DO m = 1, this % regionalMaps % bMap(iTracer) % nBCells
-                 i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
-                 j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
-                 k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iTracer) % boundaryCells(m))
-                 this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
-              ENDDO
+      ! Reset the number of tracers (for each rank) to 1
+      this % params % nTracers = 1
 #endif
-
-         ELSE
-
-#ifdef HAVE_MPI
-              DO iMask = 1, this % regionalMaps % nMasks
-                 DO iLayer = 1, this % params % nLayers
-                       
-                    iTracer = iLayer + (iMask-1)*( this % params % nLayers )
-                    DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
-                       i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                       j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                       k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                       this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
-                    ENDDO
-                 ENDDO
-              ENDDO
-  
-#else
-              iMask   = (myRank)/(this % params % nLayers)+1
-              iLayer  = myRank + 1 - (iMask-1)*this % params % nLayers
-              iTracer = 1
-              DO m = 1, this % regionalMaps % bMap(iMask) % nBCells
-                 i = this % regionalMaps % dofToLocalIJK(1,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                 j = this % regionalMaps % dofToLocalIJK(2,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                 k = this % regionalMaps % dofToLocalIJK(3,this % regionalMaps % bMap(iMask) % boundaryCells(m))
-                 this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
-              ENDDO
-#endif
-         ENDIF
-
-      ENDIF
-
-   IF( this % params % waterMassTagging )THEN
-
-      WRITE(fileIDChar, '(I5.5)' ) 1
-      oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
-      PRINT*, 'Loading initial ocean state : ', TRIM(oceanStateFile)
-      CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
-
-   ENDIF
-
-#ifdef HAVE_OPENMP
-   ALLOCATE( trm1(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             trm2(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             vol(1:this % solution % nDOF), &
-             weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             dCdt(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             dVdt(1:this % solution % nDOF) )
-
-   ALLOCATE( Ax(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             r(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             z(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             rk(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             zk(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             w(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             x(1:this % solution % nDOF, 1:this % solution % nTracers), &
-             p(1:this % solution % nDOF, 1:this % solution % nTracers) )
-#endif
-
       PRINT*, 'S/R : Build_POP_FEOTS : Finish.'
 
  END SUBROUTINE Build_POP_FEOTS
@@ -446,81 +326,59 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
 
       CALL this % mesh % Trash( )
+      CALL this % feotsMap % Trash( )
       CALL this % solution % Trash( )
-      IF( this % params % Regional )THEN
-         CALL this % regionalMaps % Trash( )
-      ENDIF
-      CALL this % NativeSol % Trash( )     
-
-      CALL this % tAvgSolution % Trash( )
-
-#ifdef HAVE_OPENMP
-  DEALLOCATE( trm1, &
-              trm2, &
-              vol, &
-              weightedTracers, &
-              dCdt, &
-              dVdt )
-
-  DEALLOCATE( Ax, &
-              r, & 
-              z, & 
-              rk, &
-              zk, &
-              w, & 
-              x, & 
-              p  )
-#endif
+      CALL this % nativeSol % Trash( )     
 
  END SUBROUTINE Trash_POP_FEOTS
 !
- SUBROUTINE SetupSettlingOperator_POP_FEOTS( this )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ), INTENT(inout) :: this
-   ! Local
-   REAL(prec) :: ws, fac
-   INTEGER    :: iel, row, col, i, j, k
-
-      ws = this % params % settlingVelocity
-
-      iel = 0
-      DO row = 1, this % mesh % nDOF
-
-         i = this % mesh % DOFtoIJK(1,row) ! 
-         j = this % mesh % DOFtoIJK(2,row) ! 
-         k = this % mesh % DOFtoIJK(3,row) ! vertical level
-         
-         IF( k > 1 )THEN
-
-            fac = ws/( this % mesh % z(k) - this % mesh % z(k-1) )
-          
-            col = this % mesh % IJKtoDOF(i,j,k-1)
-            iel = iel + 1
-            this % solution % transportOps(3) % rowBounds(1,row) = iel
-            this % solution % transportOps(3) % A(iel)           = fac              
-            this % solution % transportOps(3) % col(iel)         = col ! sub-diagonal   
- 
-            iel = iel + 1
-            this % solution % transportOps(3) % rowBounds(2,row) = iel
-            this % solution % transportOps(3) % A(iel)           = -fac              
-            this % solution % transportOps(3) % col(iel)         = row ! diagonal              
- 
-         ELSE
-
-            ! Here, k=1, ie we're at the top-most layer. The flux through the
-            ! face is zero
-            fac = ws/( this % mesh % z(k)  )
-            iel = iel + 1
-            this % solution % transportOps(3) % rowBounds(1,row) = iel
-            this % solution % transportOps(3) % rowBounds(2,row) = iel
-            this % solution % transportOps(3) % A(iel)           = -fac              
-            this % solution % transportOps(3) % col(iel)         = row ! diagonal              
- 
-         ENDIF
-
-      ENDDO
-
- END SUBROUTINE SetupSettlingOperator_POP_FEOTS
+! SUBROUTINE SetupSettlingOperator_POP_FEOTS( this )
+!   IMPLICIT NONE
+!   CLASS( POP_FEOTS ), INTENT(inout) :: this
+!   ! Local
+!   REAL(prec) :: ws, fac
+!   INTEGER    :: iel, row, col, i, j, k
+!
+!      ws = this % params % settlingVelocity
+!
+!      iel = 0
+!      DO row = 1, this % mesh % nDOF
+!
+!         i = this % mesh % DOFtoIJK(1,row) ! 
+!         j = this % mesh % DOFtoIJK(2,row) ! 
+!         k = this % mesh % DOFtoIJK(3,row) ! vertical level
+!         
+!         IF( k > 1 )THEN
+!
+!            fac = ws/( this % mesh % z(k) - this % mesh % z(k-1) )
+!          
+!            col = this % mesh % IJKtoDOF(i,j,k-1)
+!            iel = iel + 1
+!            this % solution % transportOps(3) % rowBounds(1,row) = iel
+!            this % solution % transportOps(3) % A(iel)           = fac              
+!            this % solution % transportOps(3) % col(iel)         = col ! sub-diagonal   
+! 
+!            iel = iel + 1
+!            this % solution % transportOps(3) % rowBounds(2,row) = iel
+!            this % solution % transportOps(3) % A(iel)           = -fac              
+!            this % solution % transportOps(3) % col(iel)         = row ! diagonal              
+! 
+!         ELSE
+!
+!            ! Here, k=1, ie we're at the top-most layer. The flux through the
+!            ! face is zero
+!            fac = ws/( this % mesh % z(k)  )
+!            iel = iel + 1
+!            this % solution % transportOps(3) % rowBounds(1,row) = iel
+!            this % solution % transportOps(3) % rowBounds(2,row) = iel
+!            this % solution % transportOps(3) % A(iel)           = -fac              
+!            this % solution % transportOps(3) % col(iel)         = row ! diagonal              
+! 
+!         ENDIF
+!
+!      ENDDO
+!
+! END SUBROUTINE SetupSettlingOperator_POP_FEOTS
 !
 !
 !==================================================================================================!
@@ -528,195 +386,6 @@ CONTAINS
 !==================================================================================================!
 !
 !
-#ifdef HAVE_MPI
- SUBROUTINE BroadCastOperators_POP_FEOTS( this, myRank, nProcs )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ), INTENT(inout) :: this
-   INTEGER, INTENT(in)               :: myRank, nProcs
-   ! Local
-   INTEGER :: iOp
-
-      DO iOp = 1, this % solution % nOps
-  
-         CALL MPI_Bcast( this % solution % transportOps(iOp) % A, &
-                         this % solution % transportOps(iOp) % nElems, &
-                         MPI_DOUBLE, &
-                         0, MPI_COMM_WORLD )
-      ENDDO
- 
- END SUBROUTINE BroadcastOperators_POP_FEOTS
-!
- SUBROUTINE ScatterSolution_POP_FEOTS( this, myRank, nProcs )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ), INTENT(inout) :: this
-   INTEGER, INTENT(in)               :: myRank, nProcs
-   ! Local
-   INTEGER :: mpiErr, i, recvReq
-   INTEGER :: sendReq(1:nProcs-1)
-   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
-   INTEGER :: theStat(MPI_STATUS_SIZE)
-
-
-   IF( myRank == 0 )THEN
-
-      DO i = 1, this % params % nTracers
-         CALL MPI_ISEND( this % nativeSol % tracer(:,:,:,i), &
-                         this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
-                         MPI_DOUBLE, &
-                         i, 0, MPI_COMM_WORLD, &
-                         sendReq(i), mpiErr )
-      ENDDO
-      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
-   ELSE
-
-      CALL MPI_IRECV( this % nativeSol % tracer(:,:,:,1), &
-                     this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
-                     MPI_DOUBLE, &
-                     0, 0, MPI_COMM_WORLD, &
-                     recvReq, mpiErr )
-      CALL MPI_WAIT( recvReq, theStat, mpiErr )
-   ENDIF
- 
- 
- END SUBROUTINE ScatterSolution_POP_FEOTS
-!
- SUBROUTINE GatherSolution_POP_FEOTS( this, myRank, nProcs )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ), INTENT(inout) :: this
-   INTEGER, INTENT(in)               :: myRank, nProcs
-   ! Local
-   INTEGER :: mpiErr, i, sendReq
-   INTEGER :: recvReq(1:nProcs)
-   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs)
-   INTEGER :: theStat(MPI_STATUS_SIZE)
-
-
-   PRINT*, 'RANK Checking in :',myRank
-      
-   IF( myRank == 0 )THEN
-
-      DO i = 1, this % params % nTracers
-         CALL MPI_IRECV( this % nativeSol % tracer(:,:,:,i), &
-                         this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
-                         MPI_DOUBLE, &
-                         i, 0, MPI_COMM_WORLD, &
-                         recvReq(i), mpiErr )
-      ENDDO
-      CALL MPI_IRECV( this % nativeSol % volume, &
-                         this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
-                         MPI_DOUBLE, &
-                         1, 1, MPI_COMM_WORLD, &
-                         recvReq(this % params % nTracers+1), mpiErr )
-      CALL MPI_WAITALL( nProcs, recvReq, theStats, mpiErr )
-   ELSE
-
-      CALL MPI_ISEND( this % nativeSol % tracer(:,:,:,1), &
-                     this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
-                     MPI_DOUBLE, &
-                     0, 0, MPI_COMM_WORLD, &
-                     sendReq, mpiErr )
-      CALL MPI_WAIT( sendReq, theStat, mpiErr )
-
-      IF( myRank == 1 )THEN
-        CALL MPI_ISEND( this % nativeSol % volume, &
-                       this % mesh % nX*this % mesh % nY*this % mesh % nZ, &
-                       MPI_DOUBLE, &
-                       0, 1, MPI_COMM_WORLD, &
-                       sendReq, mpiErr )
-        CALL MPI_WAIT( sendReq, theStat, mpiErr )
-      ENDIF
-   ENDIF
-
-   PRINT*, 'RANK Checking out :',myRank
-
- 
- END SUBROUTINE GatherSolution_POP_FEOTS
-!
- SUBROUTINE ScatterMask_POP_FEOTS( this, myRank, nProcs )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ), INTENT(inout) :: this
-   INTEGER, INTENT(in)               :: myRank, nProcs
-   ! Local
-   INTEGER :: mpiErr, i, recvReq
-   INTEGER :: sendReq(1:nProcs-1)
-   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
-   INTEGER :: theStat(MPI_STATUS_SIZE)
-
-
-   IF( myRank == 0 )THEN
-
-      DO i = 1, this % params % nTracers
-         CALL MPI_ISEND( this % solution % mask(:,i), &
-                         this % solution % nDOF, &
-                         MPI_DOUBLE, &
-                         i, 0, MPI_COMM_WORLD, &
-                         sendReq(i), mpiErr )
-      ENDDO
-      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
-   ELSE
-
-      CALL MPI_IRECV( this % solution % mask(:,1), &
-                      this % solution % nDOF, &
-                      MPI_DOUBLE, &
-                      0, 0, MPI_COMM_WORLD, &
-                      recvReq, mpiErr )
-      CALL MPI_WAIT( recvReq, theStat, mpiErr )
-   ENDIF
-
- END SUBROUTINE ScatterMask_POP_FEOTS
-!
- SUBROUTINE ScatterSource_POP_FEOTS( this, myRank, nProcs )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ), INTENT(inout) :: this
-   INTEGER, INTENT(in)               :: myRank, nProcs
-   ! Local
-   INTEGER :: mpiErr, i, recvReq
-   INTEGER :: sendReq(1:nProcs-1)
-   INTEGER :: theStats(MPI_STATUS_SIZE,1:nProcs-1)
-   INTEGER :: theStat(MPI_STATUS_SIZE)
-
-
-   IF( myRank == 0 )THEN
-
-      DO i = 1, this % params % nTracers
-         CALL MPI_ISEND( this % solution % source(:,i), &
-                         this % solution % nDOF, &
-                         MPI_DOUBLE, &
-                         i, 0, MPI_COMM_WORLD, &
-                         sendReq(i), mpiErr )
-      ENDDO
-      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
-   ELSE
-
-      CALL MPI_IRECV( this % solution % source(:,1), &
-                      this % solution % nDOF, &
-                      MPI_DOUBLE, &
-                      0, 0, MPI_COMM_WORLD, &
-                      recvReq, mpiErr )
-      CALL MPI_WAIT( recvReq, theStat, mpiErr )
-   ENDIF
-   IF( myRank == 0 )THEN
-
-      DO i = 1, this % params % nTracers
-         CALL MPI_ISEND( this % solution % rFac(:,i), &
-                         this % solution % nDOF, &
-                         MPI_DOUBLE, &
-                         i, 0, MPI_COMM_WORLD, &
-                         sendReq(i), mpiErr )
-      ENDDO
-      CALL MPI_WAITALL( nProcs-1, sendReq, theStats, mpiErr )
-   ELSE
-
-      CALL MPI_IRECV( this % solution % rFac(:,1), &
-                      this % solution % nDOF, &
-                      MPI_DOUBLE, &
-                      0, 0, MPI_COMM_WORLD, &
-                      recvReq, mpiErr )
-      CALL MPI_WAIT( recvReq, theStat, mpiErr )
-   ENDIF
-
- END SUBROUTINE ScatterSource_POP_FEOTS
-#endif
  SUBROUTINE MapAllToDOF_POP_FEOTS( this )
  ! S/R MapAllToDOF
  !
@@ -743,7 +412,7 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DO i = 1, this % params % nTracers 
+      DO i = 1, this % solution % nTracers 
          this % solution % tracers(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % tracer(:,:,:,i) )
       ENDDO
       this % solution % volume = this % mesh % MapFromIJKtoDOF( this % nativeSol % volume )
@@ -764,7 +433,7 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DO i = 1, this % params % nTracers
+      DO i = 1, this % solution % nTracers
          this % solution % mask(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % mask(:,:,:,i) )
       ENDDO
    
@@ -784,7 +453,7 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-      DO i = 1, this % params % nTracers
+      DO i = 1, this % solution % nTracers
          this % solution % source(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % source(:,:,:,i) )
          this % solution % rFac(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % rFac(:,:,:,i) )
       ENDDO
@@ -803,15 +472,9 @@ CONTAINS
    ! Local
    INTEGER :: i
 
-#ifdef TIME_AVG
-      DO i = 1, this % params % nTracers
-         this % nativeSol % tracer(:,:,:,i) = this % mesh % MapFromDOFtoIJK( this % tAvgSolution % tracers(:,i) )
-      ENDDO
-#else 
-      DO i = 1, this % params % nTracers
+      DO i = 1, this % solution % nTracers
          this % nativeSol % tracer(:,:,:,i) = this % mesh % MapFromDOFtoIJK( this % solution % tracers(:,i) )
       ENDDO
-#endif
       this % nativeSol % volume = this % mesh % MapFromDOFtoIJK( this % solution % volume )
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
@@ -840,56 +503,56 @@ CONTAINS
             fileBase = TRIM(this % params % dbRoot)//'/ops'
          ENDIF
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(1) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//fileIDChar//'.h5', &
+         CALL this % solution % transportOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//fileIDChar//'.h5', &
                                                                       this % myRank, this % nProcs ) 
 
          PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//fileIDChar//'.h5'
-         CALL this % solution % transportOps(2) % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5', &
+         CALL this % solution % diffusionOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5', &
                                                                       this % myRank, this % nProcs ) 
 
-         IF( this % params % waterMassTagging )THEN
-
-            WRITE(fileIDChar, '(I5.5)' ) operatorPeriod
-            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
-            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
-            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
-
-            ! Set any prescribed cells here
-#ifndef HAVE_MPI
-            DO iMask = 1, this % regionalMaps % nMasks
-               DO iLayer = 1, this % params % nLayers
-                  
-                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
-#else
-                  iMask   = (myRank-1)/(this % params % nLayers)+1
-                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
-                  iTracer = 1
-#endif
-
-                  DO m = 1, this % regionalMaps % bMap(iMask) % nPCells
-
-                     dof = this % regionalMaps % bMap(iMask) % prescribedCells(m)
-                     i   = this % regionalMaps % dofToLocalIJK(1,dof)
-                     j   = this % regionalMaps % dofToLocalIJK(2,dof)
-                     k   = this % regionalMaps % dofToLocalIJK(3,dof)
-
-                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
-                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
-                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
-                  
-                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
-
-                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
-                         trackingVar < this % stateUpperBound(iLayer) )THEN
-                        this % solution % tracers(dof,iTracer) = 1.0_prec
-                     ENDIF
-
-                  ENDDO
-#ifndef HAVE_MPI
-               ENDDO 
-            ENDDO
-#endif
-         ENDIF
+!         IF( this % params % waterMassTagging )THEN
+!
+!            WRITE(fileIDChar, '(I5.5)' ) operatorPeriod
+!            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+!            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
+!            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+!
+!            ! Set any prescribed cells here
+!#ifndef HAVE_MPI
+!            DO iMask = 1, this % feotsMap % nMasks
+!               DO iLayer = 1, this % params % nLayers
+!                  
+!                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+!#else
+!                  iMask   = (myRank-1)/(this % params % nLayers)+1
+!                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
+!                  iTracer = 1
+!#endif
+!
+!                  DO m = 1, this % feotsMap % bMap(iMask) % nPCells
+!
+!                     dof = this % feotsMap % bMap(iMask) % prescribedCells(m)
+!                     i   = this % feotsMap % dofToLocalIJK(1,dof)
+!                     j   = this % feotsMap % dofToLocalIJK(2,dof)
+!                     k   = this % feotsMap % dofToLocalIJK(3,dof)
+!
+!                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
+!                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
+!                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
+!                  
+!                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
+!
+!                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
+!                         trackingVar < this % stateUpperBound(iLayer) )THEN
+!                        this % solution % tracers(dof,iTracer) = 1.0_prec
+!                     ENDIF
+!
+!                  ENDDO
+!#ifndef HAVE_MPI
+!               ENDDO 
+!            ENDDO
+!#endif
+!         ENDIF
       ELSE   
          
          IF( this % params % Regional ) THEN
@@ -902,49 +565,49 @@ CONTAINS
                                 operatorsSwapped, this % myRank, this % nProcs )
          ENDIF
 
-         IF( this % params % waterMassTagging .AND. operatorsSwapped )THEN
-
-            WRITE(fileIDChar, '(I5.5)' ) this % solution % currentPeriod + 1 
-            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
-            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
-            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
-
-            ! Set any prescribed cells here
-#ifndef HAVE_MPI
-            DO iMask = 1, this % regionalMaps % nMasks
-               DO iLayer = 1, this % params % nLayers
-                  
-                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
-#else
-                  iMask   = (myRank-1)/(this % params % nLayers)+1
-                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
-                  iTracer = 1
-#endif
-
-                  DO m = 1, this % regionalMaps % bMap(iMask) % nPCells
-
-                     dof = this % regionalMaps % bMap(iMask) % prescribedCells(m)
-                     i   = this % regionalMaps % dofToLocalIJK(1,dof)
-                     j   = this % regionalMaps % dofToLocalIJK(2,dof)
-                     k   = this % regionalMaps % dofToLocalIJK(3,dof)
-
-                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
-                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
-                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
-                  
-                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
-
-                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
-                         trackingVar < this % stateUpperBound(iLayer) )THEN
-                        this % solution % tracers(dof,iTracer) = 1.0_prec
-                     ENDIF
-
-                  ENDDO
-#ifndef HAVE_MPI
-               ENDDO 
-            ENDDO
-#endif
-         ENDIF
+!         IF( this % params % waterMassTagging .AND. operatorsSwapped )THEN
+!
+!            WRITE(fileIDChar, '(I5.5)' ) this % solution % currentPeriod + 1 
+!            oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+!            PRINT*, 'Loading new ocean state : ', TRIM(oceanStateFile)
+!            CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
+!
+!            ! Set any prescribed cells here
+!#ifndef HAVE_MPI
+!            DO iMask = 1, this % feotsMap % nMasks
+!               DO iLayer = 1, this % params % nLayers
+!                  
+!                  iTracer = iLayer + (iMask-1)*( this % params % nLayers )
+!#else
+!                  iMask   = (myRank-1)/(this % params % nLayers)+1
+!                  iLayer  = myRank  - (iMask-1)*this % params % nLayers
+!                  iTracer = 1
+!#endif
+!
+!                  DO m = 1, this % feotsMap % bMap(iMask) % nPCells
+!
+!                     dof = this % feotsMap % bMap(iMask) % prescribedCells(m)
+!                     i   = this % feotsMap % dofToLocalIJK(1,dof)
+!                     j   = this % feotsMap % dofToLocalIJK(2,dof)
+!                     k   = this % feotsMap % dofToLocalIJK(3,dof)
+!
+!                     trackingVar = this % nativeSol % temperature(i,j,k)*this % statemask(1) +&
+!                                   this % nativeSol % salinity(i,j,k)*this % statemask(2) +&
+!                                   this % nativeSol % density(i,j,k)*this % statemask(3)                 
+!                  
+!                     this % solution % tracers(dof,iTracer) = 0.0_prec ! Reset prescribed values
+!
+!                     IF( trackingVar >= this % stateLowerBound(iLayer) .AND. &
+!                         trackingVar < this % stateUpperBound(iLayer) )THEN
+!                        this % solution % tracers(dof,iTracer) = 1.0_prec
+!                     ENDIF
+!
+!                  ENDDO
+!#ifndef HAVE_MPI
+!               ENDDO 
+!            ENDDO
+!#endif
+!         ENDIF
 
       ENDIF
       !$OMP END MASTER
@@ -990,7 +653,7 @@ CONTAINS
    INTEGER :: i, m
    REAL(prec) :: Dx(1:this % solution % nDOF, 1:this % solution % nTracers)
 
-     Dx = DiffusiveAction( this % solution % transportOps(2), x, this % solution % nTracers, this % solution % nDOF )
+     Dx = DiffusiveAction( this % solution % diffusionOp, x, this % solution % nTracers, this % solution % nDOF )
      DO m = 1, this % solution % nTracers
        !$OMP DO
        DO i = 1, this % solution % nDOF
@@ -1046,7 +709,6 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(in)            :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: Ax(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: r(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: z(1:this % solution % nDOF, 1:this % solution % nTracers)
@@ -1055,7 +717,6 @@ CONTAINS
    REAL(prec) :: w(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: p(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
-#endif
    REAL(prec) :: alpha, beta, residual_magnitude, sol_magnitude, update_magnitude
    INTEGER :: m, i, iter
    REAL(prec) :: mag_divisor
@@ -1107,6 +768,7 @@ CONTAINS
        !$OMP ENDDO
      ENDDO
      !$OMP BARRIER
+     rk = this % Mask( rk )
      residual_magnitude = this % GetMax(rk)
      !$OMP FLUSH(residual_magnitude)
 
@@ -1137,7 +799,7 @@ CONTAINS
        ENDDO  
 
        !$OMP BARRIER
-       Ax = DiffusiveAction( this % solution % transportOps(2), p, this % solution % nTracers, this % solution % nDOF )
+       Ax = DiffusiveAction( this % solution % diffusionOp, p, this % solution % nTracers, this % solution % nDOF )
        DO m = 1, this % solution % nTracers
          !$OMP DO
          DO i = 1, this % solution % nDOF
@@ -1147,6 +809,7 @@ CONTAINS
        ENDDO
 
        alpha = this % DotProduct(rk,zk)/this % DotProduct(p,w)
+       p = this % Mask( p )
 
        DO m = 1, this % solution % nTracers
          !$OMP DO
@@ -1163,10 +826,12 @@ CONTAINS
        ENDDO
      
        !$OMP BARRIER
+       rk = this % Mask( rk )
        residual_magnitude = this % GetMax(rk)
+       PRINT*, 'Residual :', residual_magnitude 
        !$OMP FLUSH(residual_magnitude)
        IF( residual_magnitude <= cg_tolerance )THEN
-         PRINT*, 'Residual :', residual_magnitude 
+         PRINT*, 'Vertical Mixing : Final Residual :', residual_magnitude
          RETURN
        ENDIF
 
@@ -1184,7 +849,7 @@ CONTAINS
    REAL(prec), INTENT(in)            :: dVdt(1:this % solution % nDOF)
    INTEGER, INTENT(in)               :: nTimeSteps
    ! Local
-   INTEGER    :: m, i
+   INTEGER    :: maskID, m, i
    REAL(prec) :: vol(1:this % solution % nDOF)
    REAL(prec) :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: Dx(1:this % solution % nDOF, 1:this % solution % nTracers)
@@ -1201,7 +866,7 @@ CONTAINS
            !$OMP DO
            DO i = 1, this % solution % nDOF
 
-             rhs(i,m)  = this % solution % mask(i,m)*((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
+             rhs(i,m)  = ((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
 
              ! Set the initial guess for the vertical diffusion
              this % solution % tracers(i,m) = rhs(i,m)/(1.0_prec+vol(i))
@@ -1218,16 +883,7 @@ CONTAINS
         !$OMP ENDDO
 
         ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
-        CALL this % VerticalMixing( rhs )
-
-        DO m = 1, this % solution % nTracers
-           !$OMP DO
-           DO i = 1, this % solution % nDOF
-              this % tAvgSolution % tracers(i,m) = this % tAvgSolution % tracers(i,m) + this % solution % tracers(i,m)/REAL(nTimeSteps,prec)
-           ENDDO
-           !$OMP ENDDO
-        ENDDO
-
+        !CALL this % VerticalMixing( rhs )
 
         !$OMP BARRIER
 
@@ -1244,7 +900,6 @@ CONTAINS
    REAL(prec), INTENT(inout)         :: tn
    INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1252,10 +907,8 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
-#endif
    INTEGER    :: iT
 
-      this % tAvgSolution % tracers = this % solution % tracers
 
       DO iT = 1, nTimeSteps
 
@@ -1282,7 +935,6 @@ CONTAINS
    REAL(prec), INTENT(inout)         :: tn
    INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1290,14 +942,12 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
-#endif
    INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
    CHARACTER(5)    :: fileIDChar
    REAL(prec)      :: trackingVar
 
-      this % tAvgSolution % tracers = this % solution % tracers
       DO iT = 1, nTimeSteps
 
          CALL this % LoadNewStates( tn, myRank )
@@ -1325,7 +975,7 @@ CONTAINS
          ENDIF
 
          !$OMP BARRIER
-         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
+         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt)
          !$OMP BARRIER
 
          CALL this % StepForward( dCdt, dVdt, nTimeSteps )
@@ -1349,7 +999,6 @@ CONTAINS
    REAL(prec), INTENT(inout)         :: tn
    INTEGER, INTENT(in)               :: nTimeSteps, myRank, nProcs
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1357,14 +1006,12 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
-#endif
    INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
    CHARACTER(5)    :: fileIDChar
    REAL(prec)      :: trackingVar
 
-      this % tAvgSolution % tracers = this % solution % tracers
       DO iT = 1, nTimeSteps
 
          CALL this % LoadNewStates( tn, myRank )
@@ -1404,7 +1051,7 @@ CONTAINS
          ENDIF
 
          !$OMP BARRIER
-         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
+         CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt)
          !$OMP BARRIER
 
          CALL this % StepForward( dCdt, dVdt, nTimeSteps )
@@ -1456,7 +1103,6 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1464,7 +1110,6 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
-#endif
    REAL(prec) :: tn, dt
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
@@ -1481,7 +1126,7 @@ CONTAINS
             tn = REAL(i-1,prec)*dt
 
             !$OMP BARRIER
-            CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
+            CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt)
             !$OMP BARRIER
          
             CALL this % StepForward( dCdt, dVdt, 1 )
@@ -1516,7 +1161,6 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1524,7 +1168,6 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
-#endif
    REAL(prec) :: tn, dt
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
@@ -1562,7 +1205,7 @@ CONTAINS
             ENDIF
 
             !$OMP BARRIER
-            CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt )
+            CALL this % solution % CalculateTendency( weightedTracers, tn, this % params % TracerModel, dCdt, dVdt)
             !$OMP BARRIER
 
             CALL this % StepForward( dCdt, dVdt, 1 )
@@ -1574,7 +1217,7 @@ CONTAINS
          dt = this % params % dt
          this % params % dt = this % params % operatorPeriod -tn
 
-         CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
+         CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt)
 
          CALL this % StepForward( dCdt, dVdt, 1 )
 
@@ -1596,7 +1239,6 @@ CONTAINS
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    INTEGER, INTENT(in)               :: myRank
    ! Local
-#ifndef HAVE_OPENMP
    REAL(prec) :: trm1(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: trm2(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: vol(1:this % solution % nDOF)
@@ -1604,7 +1246,6 @@ CONTAINS
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dVdt(1:this % solution % nDOF)
-#endif
    REAL(prec) :: tn, dt
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
@@ -1664,7 +1305,7 @@ CONTAINS
          dt = this % params % dt
          this % params % dt = this % params % operatorPeriod -tn
 
-         CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt )
+         CALL this % solution % CalculateTendency( this % solution % tracers, tn, this % params % TracerModel, dCdt, dVdt)
 
          CALL this % StepForward( dCdt, dVdt, 1 )
 
@@ -1723,9 +1364,7 @@ CONTAINS
    INTEGER           :: myRank
    ! Local
    INTEGER           :: i, j
-#ifndef HAVE_OPENMP
    REAL(prec)        :: scFac, vmag, e
-#endif
 
       scFac = 0.0_prec
       vmag  = 0.0_prec
@@ -1823,9 +1462,7 @@ CONTAINS
    REAL(prec) :: bhat(1:this % params % mInnerItersGMRES+1)
    REAL(prec) :: y(1:this % params % mInnerItersGMRES+1)
    REAL(prec) :: b, d, g, r0, rc, hki
-#ifndef HAVE_OPENMP
    REAL(prec) :: e, vmag, scFac
-#endif 
 
       ioerr = -2
       nIt = this % params % maxItersGMRES

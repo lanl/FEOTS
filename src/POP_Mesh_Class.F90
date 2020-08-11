@@ -46,7 +46,6 @@ MODULE POP_Mesh_Class
 USE ModelPrecision
 USE ConstantsDictionary
 USE BinaryIO
-! External Libraries
 USE netcdf 
 
 
