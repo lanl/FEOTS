@@ -8,8 +8,7 @@
 #SBATCH --output=logs-%j.txt   # Standard output and error log
 #SBATCH --account=feots
 #SBATCH --partition=operator-diagnosis
-###SBATCH --array=199-219%1
-#SBATCH --array=3-4%1
+#SBATCH --array=1-219%1
 
 
 module purge
