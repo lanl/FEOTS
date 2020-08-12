@@ -113,6 +113,7 @@ CONTAINS
     dbRootProvided = .FALSE.
     cliParams % irfProvided = .FALSE.
     oplevelProvided = .FALSE.
+    outProvided = .FALSE.
 
 
     nArg = command_argument_count( )

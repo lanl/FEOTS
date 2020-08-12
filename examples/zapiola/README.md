@@ -3,49 +3,61 @@
 ## Description
 
 
+
+## Directory Structure
+This example contains directories for 
+1. `params/` - Contains namelist parameter files for driving FEOTS simulations
+2. `slurm/` - Contains Slurm job submission scripts at various HPC centers
+3. `irfs/` - Contains IRF File lists for HPC centers that have a FEOTS database
+3. `scripts/` - Contains post-processing scripts for analyzing simulation output
+
+Underneath the `params/`,`slurm/`, and `irfs/` directories are subdirectories for namelist parameters, IRF file lists, and slurm job submission scripts specific to Google Cloud and LANL computing resources.
+
+```
+o zapiola
+|
+|
+o --- o params/
+|     |
+|     |
+o     o --- o google/
+|     |
+|     |
+o     o --- o lanl/
+|
+|
+o --- o slurm/
+|     |
+|     |
+o     o --- o google/
+|     |
+|     |
+o     o --- o lanl/
+|
+|
+o --- o irfs/
+|     |
+|     |
+o     o --- o google/
+|     |
+|     |
+o     o --- o lanl/
+|
+|
+o --- o scripts/
+```
+
+This example also contains
+1. `FEOTSInitialize.f90` - A program for generating the initial conditions for the Zapiola simulation
+2. `GenMask.f90` - A program for generating the regional mask for the Zapiola simulation
+3. `makefile` - A makefile for building the `init` and `genmask` programs
+
 ## Running this demo
-Make sure you have the FEOTS toolkit installed. The install path is referred to as ${FEOTS_INSTALL}, and it is assumed that `$FEOTS_INSTALL/bin` is in your default search path.
 
-Modify the `FEOTS_Settings` file to fit your system, then
-```
-$ module load <compiler> <mpi> <hdf5> <netcdf>
-```
-Upate the makefile in this directory to use the appropriate Fortran compiler (FC), and LIB and INCLUDE variables for NetCDF, HDF5, and FEOTS.
+### On Turquoise
+1. Create the region mask - ` sbatch slurm/lanl/01-genmask.slurm`
+2. Extract the regional operators from the global operators - ` sbatch slurm/lanl/02-regional-extraction.slurm`
+3. Create the initial conditions - ` sbatch slurm/lanl/03-init.slurm`
+4. Forward step the model - ` sbatch slurm/lanl/04-integrate.slurm`
 
-```
-$ make all
-```
-
-To run this demo (assuming you have global IRFs),
-```
-$ ./GenMask
-$ feots region-extraction
-$ export OMP_NUM_THREADS=8
-$ mpirun -np 7 -x OMP_NUM_THREADS ./init
-$ mpirun -np 7 -x OMP_NUM_THREADS feots integrate
-```
-
-For your convenience, `feots.slurm` is a batch submission file for slurm for this demo.
-
-
-## Modifying this demo
-The `runtime.params` namelist file controls most of the settings for this demo, including
-the lat/lon boundaries, time stepping settings, and location of your global and regional
-IRF files.
-
-### Mask Generation and Boundary Conditions
-Boundary conditions for this regional simulation are controlled both by the GenMask.f90
-program and the FEOTSInitialize.f90 program. The mask determines which lat/lon cells
-are in the domain and are active, prescribed, or open. Active cells are forward stepped
-in the driver. Prescribed cells are forced to retain the value initially prescribed to them.
-Open cells are prescribed cells with a concentration value of 0.
-
-The regional mask is generated in the GenMask.f90 program included in this sub-directory. The
-prescribed cells are set to be the cells along the south, east, and north boundaries of this
-domain. The width of the prescribed region is set in the `prescribed_width` parameter in the
-GenMask.f90 program. Currently, it is set to 0.5 degrees. 
-
-**If you change your mask at any time, you will have to re-run the RegionalExtraction program**
-
-
-
+To modify this experiment on Turquoise, you can edit `params/lanl/runtime.params`

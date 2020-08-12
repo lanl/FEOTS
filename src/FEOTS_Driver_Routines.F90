@@ -75,7 +75,7 @@ CONTAINS
 
      CALL globalMesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc' )
 
-     CALL globalState % Build( globalMesh, 1 ) 
+     CALL globalState % Build( globalMesh, 1, 0, 1 ) 
 
      thisIRFFile = cliParams % irfFile
      PRINT*,' Loading '//TRIM(cliParams % irfFile)
@@ -86,14 +86,14 @@ CONTAINS
      ! correction
      globalState % volume = globalState % volume/globalMesh % dzw(1)
 
-     DO m = 1, feots % regionalMaps % nCells
-        i = feots % regionalMaps % IJKinRegion(1,m)
-        j = feots % regionalMaps % IJKinRegion(2,m)
-        k = feots % regionalMaps % IJKinRegion(3,m)
+     DO m = 1, feots % feotsMap % nCells
+        i = feots % feotsMap % IJKinRegion(1,m)
+        j = feots % feotsMap % IJKinRegion(2,m)
+        k = feots % feotsMap % IJKinRegion(3,m)
 
-        i_local = feots % regionalMaps % dofToLocalIJK(1,m)
-        j_local = feots % regionalMaps % dofToLocalIJK(2,m)
-        k_local = feots % regionalMaps % dofToLocalIJK(3,m)
+        i_local = feots % feotsMap % dofToLocalIJK(1,m)
+        j_local = feots % feotsMap % dofToLocalIJK(2,m)
+        k_local = feots % feotsMap % dofToLocalIJK(3,m)
 
         feots % nativeSol % temperature(i_local,j_local,k_local) = globalState % temperature(i,j,k)
         feots % nativeSol % salinity(i_local,j_local,k_local)    = globalState % salinity(i,j,k)
@@ -169,7 +169,7 @@ CONTAINS
       ! Write the graph to file for later use
       CALL graph % WriteGraph_HDF5( TRIM(cliParams %dbRoot)//'/irf/impulse/graph.h5' )
 
-      CALL impulseFields % Build( mesh, graph % nColors )
+      CALL impulseFields % Build( mesh, graph % nColors, 0, 1 )
       CALL impulseFields % InitializeForNetCDFWrite( ImpulseField, &
                                                      mesh, &
                                                      TRIM(cliParams % dbRoot)//'/irf/impulse/ImpulseFields.nc', &
@@ -368,7 +368,7 @@ CONTAINS
       ! When building this data structure for the irf-fields, nColors
       ! corresponds to the number of irf fields-we add an additionation
       ! "POP_Native" attribute for the vertical diffusivity
-      CALL irfFields % Build( mesh, graph % nColors+1 )
+      CALL irfFields % Build( mesh, graph % nColors+1, 0, 1 )
       diff_id = graph % nColors + 1
       
       ! /////////////////////// Operator Diagnosis //////////////////////////// !
@@ -766,7 +766,8 @@ CONTAINS
  SUBROUTINE FEOTSIntegrate(cliParams)
 
    IMPLICIT NONE
-   TYPE( FEOTS_CLI ) :: cliParams
+   TYPE( FEOTS_CLI ), INTENT(in) :: cliParams
+   ! Local
    TYPE( POP_FEOTS ) :: feots
    CHARACTER(10) :: ncFileTag
    CHARACTER(5)  :: fileIDChar
@@ -777,32 +778,27 @@ CONTAINS
    REAL(prec)    :: tn
    REAL(prec)    :: t1, t2
    
-#ifdef HAVE_MPI
       CALL MPI_INIT( mpiErr )
       CALL MPI_COMM_RANK( MPI_COMM_WORLD, myRank, mpiErr )
       CALL MPI_COMM_SIZE( MPI_COMM_WORLD, nProcs, mpiErr )
-#else
-      myRank = 0
-      nProcs = 1
-#endif
 
       CALL feots % Build( cliParams, myRank, nProcs )
       WRITE( rankChar, '(I5.5)' ) myRank
 
       recordID = 1
 
-            fileID   = feots % params % iterInit
-            ! /////////////////////////// Load in the initial conditions //////////////////// !
-            WRITE( ncfileTag, '(I10.10)' ) fileID
-            ! For now, the record ID is 1. In the future, this will need to be
-            ! calculated as a function of the initial iterate, the dump frequency,
-            ! and the number of records per netcdf file
-            
-           ! Tracer.init.nc is read for the mask and source terms
-            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//rankChar//'.init.nc', .TRUE. )
-            CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
-            CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
-            CALL feots % nativeSol % FinalizeNetCDF( )
+      fileID   = feots % params % iterInit
+      ! /////////////////////////// Load in the initial conditions //////////////////// !
+      WRITE( ncfileTag, '(I10.10)' ) fileID
+      ! For now, the record ID is 1. In the future, this will need to be
+      ! calculated as a function of the initial iterate, the dump frequency,
+      ! and the number of records per netcdf file
+      
+      !! Tracer.init.nc is read for the mask and source terms
+      CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,TRIM(cliParams % outDir)//'/Tracer.'//rankChar//'.init.nc', .TRUE. )
+      CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
+      CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
+      CALL feots % nativeSol % FinalizeNetCDF( )
 
 
          !***********
@@ -810,17 +806,14 @@ CONTAINS
          IF( feots % params % iterInit == 0 )THEN
             tn = 0.0_prec
          ELSE
-
-               ! This pickup file is read for the correct "initial condition"
-               CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.'//rankChar//'.'//ncFileTag//'.nc', .FALSE. )
-               CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
-               CALL feots % nativeSol % FinalizeNetCDF( )
-               tn = REAL(feots % params % iterInit,prec)*feots % params % dt
-
+            ! This pickup file is read for the correct "initial condition"
+            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,TRIM(cliParams % outDir)//'/Tracer.'//rankChar//'.'//ncFileTag//'.nc', .FALSE. )
+            CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
+            CALL feots % nativeSol % FinalizeNetCDF( )
+            tn = REAL(feots % params % iterInit,prec)*feots % params % dt
          ENDIF
    
          ! /////////////////////////////////////////////////////////////////////////////// !
-         
          ! Transfer the data from the native storage to the FEOTS storage
          CALL feots % MapAllToDOF( )
          ! //// Forward Mode //// !
@@ -844,10 +837,10 @@ CONTAINS
 
          ENDDO
 
+      !CALL MPI_BARRIER( MPI_COMM_WORLD )
       CALL feots % Trash( )
-#ifdef HAVE_MPI
+
       CALL MPI_FINALIZE( mpiErr )
-#endif
 
  END SUBROUTINE FEOTSIntegrate
 
@@ -897,12 +890,6 @@ CONTAINS
          ! Transfer the data from the native storage to the FEOTS storage
          CALL feots % MapAllToDOF( )
       ENDIF
-#ifdef HAVE_MPI
-      CALL MPI_BARRIER( MPI_COMM_WORLD, mpiErr )
-      CALL feots % ScatterSolution( myRank, nProcs )
-      CALL feots % ScatterSource( myRank, nProcs )
-      CALL feots % ScatterMask( myRank, nProcs )
-#endif 
 
 #ifdef HAVE_OPENMP   
       t1 = omp_get_wtime( )

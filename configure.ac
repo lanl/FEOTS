@@ -28,13 +28,30 @@ AS_IF([test "x$enable_openmp" = "xyes"],[
   AX_CHECK_COMPILE_FLAG([-fopenmp], [FCFLAGS+=" -fopenmp"])
 ])
 
-# Check for HDF5
-AX_LIB_HDF5()
-AS_IF([test "x$with_hdf5" = "xyes"],[
-  AC_MSG_NOTICE([found hdf5 $H5FC])
-  FC=$H5FC
+# Check for MPI
+AC_CHECK_PROGS(MPIFC, mpif90 mpxlf95_r mpxlf90_r mpxlf95 mpxlf90 mpf90 cmpif90c, $FC)
+AC_ARG_ENABLE([mpi], AS_HELP_STRING([--enable-mpi], [default:no]))
+AS_IF([test "x$enable_mpi" = "xyes"],[
+  FCFLAGS+=" -DHAVE_MPI"
+
+  # Check for HDF5
+  AX_LIB_HDF5([parallel])
+  AS_IF([test "x$with_hdf5" = "xyes"],[
+    AC_MSG_NOTICE([found hdf5 $H5FC])
+    FC=$H5FC
+  ],[
+    AC_MSG_ERROR([Unable to find HDF5.])
+  ])
+
 ],[
-  AC_MSG_ERROR([Unable to find HDF5.])
+  # Check for HDF5
+  AX_LIB_HDF5([serial])
+  AS_IF([test "x$with_hdf5" = "xyes"],[
+    AC_MSG_NOTICE([found hdf5 $H5FC])
+    FC=$H5FC
+  ],[
+    AC_MSG_ERROR([Unable to find HDF5.])
+  ])
 ])
 
 # Check for NetCDF4
@@ -45,16 +62,6 @@ AS_IF([test "x$with_netcdf4" = "xyes"],[
   AC_MSG_ERROR([Unable to find NetCDF4.])
 ])
 
-# Check for MPI
-AC_CHECK_PROGS(MPIFC, mpif90 mpxlf95_r mpxlf90_r mpxlf95 mpxlf90 mpf90 cmpif90c, $FC)
-AC_ARG_ENABLE([mpi], AS_HELP_STRING([--enable-mpi], [default:no]))
-AS_IF([test "x$enable_mpi" = "xyes"],[
-  FCFLAGS+=" -DHAVE_MPI"
-  AS_IF([test "x$HDF5_TYPE" = "xserial",],[
-    AC_MSG_ERROR([HDF5 found is serial. We need parallel HDF5.])
-  ])
-
-])
 
 # Check for Double Precision floating point arithmetic request.
 AC_ARG_ENABLE( double, AS_HELP_STRING([--enable-double, default:no]))
