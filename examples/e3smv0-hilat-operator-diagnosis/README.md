@@ -40,6 +40,8 @@ Then, use the batch script to process the IRF files to transport and diffusion o
 sbatch slurm/lanl/01-operator-diagnosis.slurm
 ```
 
+For the E3SMV0-HiLat Parent model, operator diagnosis takes about 10 minutes per operator on average.
+
 **Note**
 
 You may need to update the number of job arrays that are launched to match the number of files that are processed. For example, use `wc -l` to report the number of operators

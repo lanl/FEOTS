@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=36
 #SBATCH --mem=215G
-#SBATCH --time=1:00:00               # Time limit hrs:min:sec
+#SBATCH --time=15:00               # Time limit hrs:min:sec
 #SBATCH --output=logs-%j.txt   # Standard output and error log
 #SBATCH --account=feots
 #SBATCH --partition=operator-diagnosis
