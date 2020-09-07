@@ -237,6 +237,10 @@ MODULE TracerStorage_Class
         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//periodChar//'.h5'
         CALL thisStorage % diffusionOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion.'//periodChar//'.h5', myRank, nProc ) 
          opSwapped = .TRUE.
+
+        PRINT*, 'myRank, min/max transport operator : ',myRank, &
+                                                        MINVAL(thisStorage % transportOp % A), &
+                                                        MAXVAL(thisStorage % transportOp % A)
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0
          ELSE 
@@ -285,6 +289,9 @@ MODULE TracerStorage_Class
    REAL(prec) :: fieldOfOnes(1:thisStorage % nDOF)
 
 
+!      PRINT*, 'Pre-Mask : Tracer, Tracer min/max : ', thisStorage % tracerIDs(1),&
+!                                             MINVAL(tracerfield(:,1)),&
+!                                             MAXVAL(tracerfield(:,1))
       tendency = PassiveDyeModel( thisStorage % nOps, &
                                   thisStorage % nTracers, &
                                   thisStorage % nDOF, &
@@ -292,6 +299,11 @@ MODULE TracerStorage_Class
                                   thisStorage % source, &
                                   thisStorage % rFac, &
                                   tracerField)
+!      PRINT*, 'Pre-Mask : Tracer, Tendency min/max : ', thisStorage % tracerIDs(1),&
+!                                             MINVAL(tendency(:,1)),&
+!                                             MAXVAL(tendency(:,1))
+!
+
       DO iTracer = 1, thisStorage % nTracers
          !$OMP DO
          DO i = 1, thisStorage % nDOF
@@ -299,6 +311,10 @@ MODULE TracerStorage_Class
          ENDDO
          !$OMP ENDDO
       ENDDO
+
+      PRINT*, 'Post-Mask : Tracer, Tendency min/max : ', thisStorage % tracerIDs(1),&
+                                             MINVAL(tendency(:,1)),&
+                                             MAXVAL(tendency(:,1))
 
       ! Calculate the cell volume update
       !$OMP DO  

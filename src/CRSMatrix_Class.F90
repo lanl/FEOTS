@@ -37,6 +37,10 @@
  
 MODULE CRSMatrix_Class
 !
+! Assumptions: 
+!  9/7/2020 : Assume matrices are all square (nRow == nCol)
+!             Require maxColPerRow
+!
 ! This module contains a data-structure and associated routines for working with sparse matrices.
 ! We use the "Compressed Row Storage" model for handling sparse matrix operations. In this model,
 ! the elements of a matrix are stored in a single dimension array of real values. The indices
@@ -93,7 +97,7 @@ MODULE CRSMatrix_Class
 
 
    TYPE CRSMatrix  
-      INTEGER                         :: nRows, nCols, nElems
+      INTEGER                         :: nRows, nCols, nElems, maxColPerRow
       REAL(prec), ALLOCATABLE         :: A(:)
       INTEGER, ALLOCATABLE            :: rowBounds(:,:), col(:) 
 
@@ -103,6 +107,7 @@ MODULE CRSMatrix_Class
       PROCEDURE :: Reset => Reset_CRSMatrix
       PROCEDURE :: Trash => Trash_CRSMatrix
 
+      PROCEDURE :: SetRowBounds => SetRowBounds_CRSMatrix
       PROCEDURE :: GetDataForRowAndCol => GetDataForRowAndCol_CRSMatrix
       PROCEDURE :: MatVecMul           => MatVecMul_CRSMatrix
       PROCEDURE :: SubSample           => SubSample_CRSMatrix
@@ -179,6 +184,22 @@ MODULE CRSMatrix_Class
 !==================================================================================================!
 !
 !
+ SUBROUTINE SetRowBounds_CRSMatrix( myMatrix, maxColPerRow )
+   IMPLICIT NONE
+   CLASS( CRSMatrix ), INTENT(inout) :: myMatrix
+   INTEGER, INTENT(in) :: maxColPerRow
+   ! Local
+   INTEGER :: row
+
+     myMatrix % maxColPerRow = maxColPerRow
+
+     DO row = 1, myMatrix % nRows
+       myMatrix % rowBounds(1,row) = 1 + (row-1)*maxColPerRow
+       myMatrix % rowBounds(2,row) = 1 + (row)*maxColPerRow - 1
+     ENDDO
+  
+ END SUBROUTINE SetRowBounds_CRSMatrix
+
  FUNCTION GetDataForRowAndCol_CRSMatrix( myMatrix, i, j ) RESULT( outData )
  ! S/R GetDataForRowAndCol
  !
@@ -243,7 +264,9 @@ MODULE CRSMatrix_Class
          
          rowsum = 0.0_prec
          DO iel = myMatrix % rowBounds(1,row), myMatrix % rowBounds(2,row)
-            rowSum = rowSum + myMatrix % A(iel)*x(myMatrix % col(iel))
+            IF( myMatrix % col(iel) /= 0 )THEN
+              rowSum = rowSum + myMatrix % A(iel)*x(myMatrix % col(iel))
+            ENDIF
          ENDDO
          Ax(row) = rowSum
 

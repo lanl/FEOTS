@@ -314,20 +314,17 @@ CONTAINS
    TYPE( POP_Mesh )           :: mesh
    TYPE( Stencil )            :: advstencil
    TYPE( POP_AdjacencyGraph ) :: graph
-   TYPE( CRSMatrix )          :: transportOperator, diffusionOperator
-   TYPE( POP_Native )         :: irfFields
+   TYPE( CRSMatrix )          :: transportOp, diffusionOp
+   TYPE( POP_IRF )            :: irfFields
    CHARACTER(200)             :: thisIRFFile, meshFile
    CHARACTER(200)             :: crsFile
    CHARACTER(17)              :: walltime
    CHARACTER(5)               :: fileIDChar
    INTEGER                    :: nEntries, irf_id, row, col, m, diff_id
-   INTEGER                    :: i, j, k, this_i, this_j, this_k
+   INTEGER                    :: i, j, k, this_i, this_j, this_k, iel
    INTEGER                    :: true_i, true_j, kdiff
    INTEGER                    :: fUnit, fileID
-   INTEGER, ALLOCATABLE       :: nval(:), columns(:,:)
-   REAL(prec), ALLOCATABLE    :: opdata(:,:)
-   INTEGER, ALLOCATABLE       :: nval_diff(:), columns_diff(:,:)
-   REAL(prec), ALLOCATABLE    :: opdata_diff(:,:)
+   INTEGER, ALLOCATABLE       :: nval(:)
    REAL(prec), ALLOCATABLE    :: x(:), Dx(:)
    REAL(prec)                 :: t0, t1    
 
@@ -347,15 +344,16 @@ CONTAINS
       ! The number of possible non-zero entries is the number of degrees of
       ! freedom multiplied by the stencil-width
       nEntries = ( mesh % nDOF )*( advStencil % nPoints )
-      CALL transportOperator % Build( INT(mesh % nDOF,8), INT(mesh % nDOF,8), INT(nEntries,8) )
-      CALL diffusionOperator % Build( INT(mesh % nDOF,8), INT(mesh % nDOF,8), INT(mesh % nDOF*3,8) ) 
+      CALL transportOp % Build( INT(mesh % nDOF,8), INT(mesh % nDOF,8), INT(nEntries,8) )
+      CALL diffusionOp % Build( INT(mesh % nDOF,8), INT(mesh % nDOF,8), INT(mesh % nDOF*3,8) ) 
+
+      ! Set the row boundary indices assuming that the number of columns per row
+      ! is fixed
+      CALL transportOp % SetRowBounds( maxColPerRow = advStencil % nPoints )
+      CALL diffusionOp % SetRowBounds( maxColPerRow = 3 )
 
       ! Allocate space for a hash-table storage
-      ALLOCATE( nval(1:mesh % nDOF), columns(1:mesh % nDOF, 1:advStencil % nPoints) )
-      ALLOCATE( opdata(1:mesh % nDOF, 1:advStencil % nPoints) )
-      ! Allocate space for a hash-table storage of vertical diffusion operator
-      ALLOCATE( nval_diff(1:mesh % nDOF), columns_diff(1:mesh % nDOF, 1:3) )
-      ALLOCATE( opdata_diff(1:mesh % nDOF, 1:3) )
+      ALLOCATE( nval(1:mesh % nDOF) )
       ALLOCATE( x(1:mesh % nDOF), Dx(1:mesh % nDOF) )
 
 
@@ -368,207 +366,231 @@ CONTAINS
       ! When building this data structure for the irf-fields, nColors
       ! corresponds to the number of irf fields-we add an additionation
       ! "POP_Native" attribute for the vertical diffusivity
-      CALL irfFields % Build( mesh, graph % nColors+1, 0, 1 )
+      CALL irfFields % Build( mesh % nX, &
+                              mesh % nY, &
+                              mesh % nZ, &
+                              graph % nColors )
       diff_id = graph % nColors + 1
       
-      ! /////////////////////// Operator Diagnosis //////////////////////////// !
+      ! /////////////////////// Op Diagnosis //////////////////////////// !
 
-         fileID = cliParams % oplevel
-         thisIRFFile = cliParams % irfFile
+      fileID = cliParams % oplevel
+      thisIRFFile = cliParams % irfFile
  
-         ! Initialize the NetCDF file
-         PRINT*, 'Initialize for reading...'//TRIM( thisIRFFile )
-         CALL irfFields % InitializeForNetCDFRead( modelType=ImpulseResponseField, &
-                                                   filename=TRIM(thisIRFFile), &
-                                                   initOn=.TRUE. )
+      ! Initialize the NetCDF file
+      PRINT*, 'Initialize for reading...'//TRIM( thisIRFFile )
+      CALL irfFields % InitializeForNetCDFRead( filename=TRIM(thisIRFFile), &
+                                                initOn=.TRUE. )
   
-         ! Read in all of the impulse response fields
-         PRINT*, 'Loading Impulse Response Functions.'
-         CALL irfFields % LoadTracerFromNetCDF( mesh ) 
-         ! Close the netcdf file
-         CALL irfFields % FinalizeNetCDF( )
+      ! Read in all of the impulse response fields
+      PRINT*, 'Loading Impulse Response Functions.'
+      CALL irfFields % LoadTracerFromNetCDF( ) 
+      ! Close the netcdf file
+      CALL irfFields % FinalizeNetCDF( )
 
-         PRINT*, 'Diagnosing Transport Operators.'
-         CALL CPU_TIME( t0 )
-         nval    = 0
-         columns = 0
-         opdata  = 0.0_prec
-         DO irf_id = 1, graph % nColors
-            DO col = 1, mesh % nDOF
+      PRINT*, 'Diagnosing Transport Ops.'
+      CALL CPU_TIME( t0 )
+      nval    = 0
+      !DO irf_id = 1, graph % nColors
+      DO col = 1, mesh % nDOF
 
-               IF( graph % color(col) == irf_id )THEN
+         !IF( graph % color(col) == irf_id )THEN
+         irf_id = graph % color(col)
 
-                  i = mesh % dofToIJK(1,col)
-                  j = mesh % dofToIJK(2,col)
-                  k = mesh % dofToIJK(3,col)
+            i = mesh % dofToIJK(1,col)
+            j = mesh % dofToIJK(2,col)
+            k = mesh % dofToIJK(3,col)
 
-                  DO m = 1, advstencil % nPoints
+            DO m = 1, advstencil % nPoints
 
-                     this_i = i + advstencil % relativeNeighbors(1,m)
-                     this_j = j + advstencil % relativeNeighbors(2,m)
-                     this_k = k + advstencil % relativeNeighbors(3,m)
-                 
-                     IF( this_k <= mesh % nZ .AND. this_k > 0 )THEN
+               this_i = i + advstencil % relativeNeighbors(1,m)
+               this_j = j + advstencil % relativeNeighbors(2,m)
+               this_k = k + advstencil % relativeNeighbors(3,m)
+           
+               IF( this_k <= mesh % nZ .AND. this_k > 0 )THEN
 
-                        
-                        ! Get neighboring i,j indices, taking tripole grid
-                        ! connectivity into account
-                        CALL GetTrueIJ( params % MeshType, &
-                                        this_i, this_j, &
-                                        mesh % nX, mesh % nY, &
-                                        true_i, true_j )
-                           IF( true_i > mesh % nX .OR. true_j > mesh % nY )THEN
-                              PRINT*, 'Code attempting DOF data access out of bounds! STOPPING!'
-                              STOP
-                           ENDIF
-
-                        row = mesh % ijkToDOF(true_i,true_j,this_k)
-
-                        IF( row /= 0 )THEN
-                           IF( row > mesh % nDOF )THEN
-                              PRINT*, 'Code attempting ROW data access out of bounds! STOPPING!'
-                              STOP
-                           ENDIF
-
-                           nval(row) = nval(row) + 1
-
-                           IF( nVal(row) > advStencil % nPoints )THEN
-                              PRINT*, 'Code attempting COLUMN data access out of bounds! STOPPING!'
-                              STOP
-                           ENDIF
-
-                           opdata(row,nval(row))  = irfFields % tracer(true_i,true_j,this_k,irf_id)
-                           columns(row,nval(row)) = col
-                        ENDIF
-
+                  
+                  ! Get neighboring i,j indices, taking tripole grid
+                  ! connectivity into account
+                  CALL GetTrueIJ( params % MeshType, &
+                                  this_i, this_j, &
+                                  mesh % nX, mesh % nY, &
+                                  true_i, true_j )
+                     IF( true_i > mesh % nX .OR. true_j > mesh % nY )THEN
+                        PRINT*, 'Code attempting DOF data access out of bounds! STOPPING!'
+                        STOP
                      ENDIF
 
-                  ENDDO
+                  row = mesh % ijkToDOF(true_i,true_j,this_k)
+
+                  IF( row /= 0 )THEN
+                     IF( row > mesh % nDOF )THEN
+                        PRINT*, 'Code attempting ROW data access out of bounds! STOPPING!'
+                        STOP
+                     ENDIF
+
+                     nval(row) = nval(row) + 1
+
+                     IF( nVal(row) > advStencil % nPoints )THEN
+                        PRINT*, 'Code attempting COLUMN data access out of bounds! STOPPING!'
+                        STOP
+                     ENDIF
+
+                     ! Need to find iel
+                     iel = transportOp % rowBounds(1,row) + nval(row)-1
+                     transportOp % A(iel) = irfFields % irf(true_i,true_j,this_k,irf_id) 
+                     transportOp % col(iel) = col
+                     
+                  ENDIF
 
                ENDIF
 
             ENDDO
-         ENDDO
-
-         PRINT*, 'Diagnosing Vertical Diffusion Operator.'
-         ! Diffusion operator diagnosis
-         nval_diff    = 0
-         columns_diff = 0
-         opdata_diff  = 0.0_prec
-         DO row = 1, mesh % nDOF
-
-            i = mesh % dofToIJK(1,row)
-            j = mesh % dofToIJK(2,row)
-            k = mesh % dofToIJK(3,row)
-
-!            IF( mesh % KMT(i,j) > 1 )
-            IF( k <= mesh % KMT(i,j) )THEN
-
-            IF( k == 1 )THEN ! At the surface, the "no-diffusive-flux" condition is used
-                ! cell k coefficient/diagonal
-                col = row
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = -irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-                columns_diff(row,nval_diff(row)) =  col
-
-                ! cell k+1
-                col = mesh % ijkToDOF(i,j,k+1)
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-                columns_diff(row,nval_diff(row)) =  col
-
-            ELSEIF( k == mesh % KMT(i,j) )THEN !At the bottom-- no diffusive flux
-
-                ! cell k-1
-                col = mesh % ijkToDOF(i,j,k-1)
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-                columns_diff(row,nval_diff(row)) = col
-
-                ! cell k coefficient/diagonal
-                col = row
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = -irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-                columns_diff(row,nval_diff(row)) =  col
-
-            ELSE
-
-                ! cell k-1
-                col = mesh % ijkToDOF(i,j,k-1)
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-                columns_diff(row,nval_diff(row)) = col
-
-                ! cell k coefficient/diagonal
-                col = row
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = -irfFields % tracer(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
-                                                    irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-                columns_diff(row,nval_diff(row)) =  col
-
-                ! cell k+1
-                col = mesh % ijkToDOF(i,j,k+1)
-                nval_diff(row)                   = nval_diff(row) + 1
-                opdata_diff(row,nval_diff(row))  = irfFields % tracer(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-                columns_diff(row,nval_diff(row)) = col
-
-            ENDIF
-            ENDIF                 
-         ENDDO
-         CALL CPU_TIME( t1 )
-         PRINT*, 'DONE! '
-         WRITE( walltime, '(F17.4)' ) t1-t0
-         PRINT*, 'Time to diagnose operator : '//TRIM(walltime)//' sec'
-
-         PRINT*, 'Converting hash-table...'
-
-         ! Convert from the "hash-table" to the CRS Format
-         kdiff = 1
-         k     = 1
-         DO row = 1, mesh % nDOF
-            IF( nval(row) > 0 )THEN
-
-               transportOperator % rowBounds(1,row) = k
-               DO m = 1, nval(row)
-                  transportOperator % A(k)   = opdata(row,m)
-                  transportOperator % col(k) = columns(row,m)
-                  k = k+1
-               ENDDO
-               transportOperator % rowBounds(2,row) = k-1
-
-            ENDIF
-            IF( nval_diff(row) > 0 )THEN
-
-               diffusionOperator % rowBounds(1,row) = kdiff
-               DO m = 1, nval_diff(row)
-                  diffusionOperator % A(kdiff)   = opdata_diff(row,m)
-                  diffusionOperator % col(kdiff) = columns_diff(row,m)
-                  kdiff = kdiff+1
-               ENDDO
-               diffusionOperator % rowBounds(2,row) = kdiff-1
-            ENDIF
-         ENDDO
-      
-         WRITE(fileIDChar, '(I5.5)' ) fileID
-         crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
-         PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-         CALL transportOperator % WriteCRSMatrix_HDF5( TRIM(crsFile) )
-
-         crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
-         PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-         CALL diffusionOperator % WriteCRSMatrix_HDF5( TRIM(crsFile) )
-
-         ! Testing the diffusion operator
-         PRINT*, 'Testing diffusion operator'
-         x = 1.0_prec
-         Dx = diffusionOperator % MatVecMul( x )
-         PRINT*, 'MAX RowSum(Dx)', MAXVAL(Dx)
-         PRINT*, 'MIN RowSum(Dx)', MINVAL(Dx)
-
-         CALL transportOperator % Reset( )
-         CALL diffusionOperator % Reset( )
 
          !ENDIF
+
+      ENDDO
+      !ENDDO
+
+      PRINT*, 'Diagnosing Vertical Diffusion Op.'
+      ! Diffusion operator diagnosis
+      nval = 0
+      DO row = 1, mesh % nDOF
+
+         i = mesh % dofToIJK(1,row)
+         j = mesh % dofToIJK(2,row)
+         k = mesh % dofToIJK(3,row)
+
+         IF( k <= mesh % KMT(i,j) )THEN
+
+           IF( k == 1 )THEN ! At the surface, the "no-diffusive-flux" condition is used
+               ! cell k coefficient/diagonal
+               col = row
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = -irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               !columns_diff(row,nval(row)) =  col
+
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = -irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               transportOp % col(iel) = col
+
+               ! cell k+1
+               col = mesh % ijkToDOF(i,j,k+1)
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               !columns_diff(row,nval(row)) =  col
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               transportOp % col(iel) = col
+
+           ELSEIF( k == mesh % KMT(i,j) )THEN !At the bottom-- no diffusive flux
+
+               ! cell k-1
+               col = mesh % ijkToDOF(i,j,k-1)
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               !columns_diff(row,nval(row)) = col
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               transportOp % col(iel) = col
+
+               ! cell k coefficient/diagonal
+               col = row
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               !columns_diff(row,nval(row)) =  col
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               transportOp % col(iel) = col
+
+           ELSE
+
+               ! cell k-1
+               col = mesh % ijkToDOF(i,j,k-1)
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               !columns_diff(row,nval(row)) = col
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               transportOp % col(iel) = col
+
+               ! cell k coefficient/diagonal
+               col = row
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
+               !                                    irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               !columns_diff(row,nval(row)) =  col
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
+                                                   irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               transportOp % col(iel) = col
+
+               ! cell k+1
+               col = mesh % ijkToDOF(i,j,k+1)
+               nval(row) = nval(row) + 1
+               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               !columns_diff(row,nval(row)) = col
+               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
+               transportOp % A(iel) = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               transportOp % col(iel) = col
+
+           ENDIF
+         ENDIF                 
+      ENDDO
+      CALL CPU_TIME( t1 )
+      PRINT*, 'DONE! '
+      WRITE( walltime, '(F17.4)' ) t1-t0
+      PRINT*, 'Time to diagnose operator : '//TRIM(walltime)//' sec'
+
+ !     PRINT*, 'Converting hash-table...'
+
+ !     ! Convert from the "hash-table" to the CRS Format
+ !     kdiff = 1
+ !     k     = 1
+ !     DO row = 1, mesh % nDOF
+ !        IF( nval(row) > 0 )THEN
+
+ !           transportOperator % rowBounds(1,row) = k
+ !           DO m = 1, nval(row)
+ !              transportOperator % A(k)   = opdata(row,m)
+ !              transportOperator % col(k) = columns(row,m)
+ !              k = k+1
+ !           ENDDO
+ !           transportOperator % rowBounds(2,row) = k-1
+
+ !        ENDIF
+ !        IF( nval_diff(row) > 0 )THEN
+
+ !           diffusionOperator % rowBounds(1,row) = kdiff
+ !           DO m = 1, nval_diff(row)
+ !              diffusionOperator % A(kdiff)   = opdata_diff(row,m)
+ !              diffusionOperator % col(kdiff) = columns_diff(row,m)
+ !              kdiff = kdiff+1
+ !           ENDDO
+ !           diffusionOperator % rowBounds(2,row) = kdiff-1
+ !        ENDIF
+ !     ENDDO
+      
+      WRITE(fileIDChar, '(I5.5)' ) fileID
+      crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
+      PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
+      CALL transportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
+
+      crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
+      PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
+      CALL diffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
+
+      ! Testing the diffusion operator
+      PRINT*, 'Testing diffusion operator'
+      x = 1.0_prec
+      Dx = diffusionOp % MatVecMul( x )
+      PRINT*, 'MAX RowSum(Dx)', MAXVAL(Dx)
+      PRINT*, 'MIN RowSum(Dx)', MINVAL(Dx)
+
+      CALL transportOp % Reset( )
+      CALL diffusionOp % Reset( )
+
+      !ENDIF
 
       !ENDDO ! Loop over the IRF Files
       !CLOSE( fUnit )
@@ -578,11 +600,11 @@ CONTAINS
       CALL graph % Trash( )
       CALL mesh % Trash( )
       CALL irfFields % Trash( )
-      CALL transportOperator % Trash( )
-      CALL diffusionOperator % Trash( )
+      CALL transportOp % Trash( )
+      CALL diffusionOp % Trash( )
       DEALLOCATE( x, Dx )
-      DEALLOCATE( nval, columns )
-      DEALLOCATE( opdata )
+      DEALLOCATE( nval )!, columns )
+      !DEALLOCATE( opdata )
 
   END SUBROUTINE OperatorDiagnosis
 
@@ -625,67 +647,57 @@ CONTAINS
          CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
       ENDIF
 
-      !IF( params % ExtractRegionalOperators )THEN
 
-         CALL advstencil % Build( stencilFlag = params % stencilType, &
-                                  flavor      = Normal )
+      CALL advstencil % Build( stencilFlag = params % stencilType, &
+                               flavor      = Normal )
 
-         nGentries = ( globalMesh % nDOF )*( advStencil % nPoints )
-         CALL transportOp % Build( INT(globalmesh % nDOF,8), INT(globalmesh % nDOF,8), INT(nGEntries,8) )
-         CALL diffusionOp % Build( INT(globalmesh % nDOF,8), INT(globalmesh % nDOF,8), INT(globalmesh % nDOF*3,8) ) 
-         
-         nRentries = ( region % nCells )*( advStencil % nPoints )
-         CALL regionalTransportOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(nREntries,8) )
-         CALL regionalDiffusionOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(region % nCells*3,8) ) 
-
-         PRINT*, ' Extracting regional operators.'
-        ! DO fileID = 1, params % nIRFFiles
-
-            !IF( fileID >= params % IRFStart )THEN
-
-               ! offset the file-id by the oplevel
-               WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
-               crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
-               PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-               CALL transportOp % ReadCRSMatrix_HDF5(TRIM(crsFile), 0, 1 )
-
-               crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
-               PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
-               CALL diffusionOp % ReadCRSMatrix_HDF5(TRIM(crsFile), 0, 1 )
-
-               ! Extract advection operator in region 
-               CALL transportOp % SubSample( regionalTransportOp, &
-                                             region % dofInRegion, &
-                                             region % inverseDOFMap, &
-                                             region % nCells, &
-                                             nRentries )
-               ! Extract diffusion operator in region 
-               CALL diffusionOp % SubSample( regionalDiffusionOp, &
-                                             region % dofInRegion, &
-                                             region % inverseDOFMap, &
-                                             region % nCells, &
-                                             region % nCells*3 )
-
-               crsFile=TRIM(params % regionalOperatorDirectory)//'/transport.'//fileIDChar//'.h5'
-               PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-               CALL regionalTransportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
-
-               crsFile=TRIM(params % regionalOperatorDirectory)//'/diffusion.'//fileIDChar//'.h5'
-               PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
-               CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
-            
-            !ENDIF
-         !ENDDO
-   
-         CALL transportOp % Trash( )
-         CALL diffusionOp % Trash( )
-         CALL regionaltransportOp % Trash( )
-         CALL regionalDiffusionOp % Trash( )
-        
-      !ENDIF   
+      nGentries = ( globalMesh % nDOF )*( advStencil % nPoints )
+      CALL transportOp % Build( INT(globalmesh % nDOF,8), INT(globalmesh % nDOF,8), INT(nGEntries,8) )
+      CALL diffusionOp % Build( INT(globalmesh % nDOF,8), INT(globalmesh % nDOF,8), INT(globalmesh % nDOF*3,8) ) 
       
+      nRentries = ( region % nCells )*( advStencil % nPoints )
+      CALL regionalTransportOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(nREntries,8) )
+      CALL regionalDiffusionOp % Build( INT(region % nCells,8), INT(region % nCells,8), INT(region % nCells*3,8) ) 
+
+      PRINT*, ' Extracting regional operators.'
+
+      ! offset the file-id by the oplevel
+      WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
+      crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
+      PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
+      CALL transportOp % ReadCRSMatrix_HDF5(TRIM(crsFile), 0, 1 )
+
+      crsFile=TRIM(cliParams % dbRoot)//'/ops/diffusion.'//fileIDChar//'.h5'
+      PRINT*,'Reading CRS Matrix files : '//TRIM(crsFile)
+      CALL diffusionOp % ReadCRSMatrix_HDF5(TRIM(crsFile), 0, 1 )
+
+      ! Extract advection operator in region 
+      CALL transportOp % SubSample( regionalTransportOp, &
+                                    region % dofInRegion, &
+                                    region % inverseDOFMap, &
+                                    region % nCells, &
+                                    nRentries )
+      ! Extract diffusion operator in region 
+      CALL diffusionOp % SubSample( regionalDiffusionOp, &
+                                    region % dofInRegion, &
+                                    region % inverseDOFMap, &
+                                    region % nCells, &
+                                    region % nCells*3 )
+
+      crsFile=TRIM(params % regionalOperatorDirectory)//'/transport.'//fileIDChar//'.h5'
+      PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
+      CALL regionalTransportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
+
+      crsFile=TRIM(params % regionalOperatorDirectory)//'/diffusion.'//fileIDChar//'.h5'
+      PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
+      CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
+         
+      CALL transportOp % Trash( )
+      CALL diffusionOp % Trash( )
+      CALL regionaltransportOp % Trash( )
+      CALL regionalDiffusionOp % Trash( )
+        
       ! Clean up memory !
-     ! DEALLOCATE( maskfield )
       CALL globalMesh % Trash( )
       CALL regionalMesh % Trash( )
       CALL modelstencil % Trash( )

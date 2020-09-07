@@ -3,20 +3,23 @@
 #SBATCH --ntasks=1                    # Run on a single CPU
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=36
-#SBATCH --mem=215G
+#SBATCH --mem=110G
 #SBATCH --time=15:00               # Time limit hrs:min:sec
-#SBATCH --output=logs-%j.txt   # Standard output and error log
-#SBATCH --account=feots
-#SBATCH --partition=operator-diagnosis
-#SBATCH --array=1-219%1
+#SBATCH --output=feots_logs   # Standard output and error log
+#SBATCH --account=climatehilat
+#SBATCH --qos=standard
+#SBATCH --array=2-5%1
 
 
 module purge
-module use /home/joe/modulefiles
-module load gnu8/8.3.0 mpich/3.3.1 phdf5/1.10.5 netcdf/4.7.1 netcdf-fortran/4.5.2 feots/1.0.0
+module use /users/jschoonover/modulefiles
+module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
 
-GCSROOT=gs://feots-db/db/E3SMV0-HILAT-5DAVG/
-DBROOT=/mnt/feots/db/E3SMV0-HILAT-5DAVG/
+#GCSROOT=gs://feots-db/db/E3SMV0-HILAT-5DAVG/
+#DBROOT=/mnt/feots/db/E3SMV0-HILAT-5DAVG/
+DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
+OUTDIR=/lustre/scratch3/turquoise/${USER}/global
+
 IRF=$(sed -n ${SLURM_ARRAY_TASK_ID}p IRFs.txt)
 echo $IRF
 # Operator diagnosis
@@ -25,7 +28,3 @@ feots operator-diagnosis --dbroot $DBROOT \
                          --irf $IRF \
                          --oplevel $SLURM_ARRAY_TASK_ID 
 
-# Copy the resultant operators to GCS Bucket
-OPID=$(printf "%05d" $SLURM_ARRAY_TASK_ID)
-gsutil cp ${DBROOT}/ops/diffusion.${OPID}.h5 ${GCSROOT}/ops/ 
-gsutil cp ${DBROOT}/ops/transport.${OPID}.h5 ${GCSROOT}/ops/ 

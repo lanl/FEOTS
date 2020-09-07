@@ -59,6 +59,21 @@ USE netcdf
      INTEGER              :: volumeVarID
    END TYPE NativeIO
 
+   TYPE POP_IRF
+      INTEGER                  :: nX, nY, nZ, nIRF
+      REAL(prec), ALLOCATABLE  :: irf(:,:,:,:)
+      TYPE(NativeIO) :: ioVars
+
+      CONTAINS
+
+      PROCEDURE :: Build => Build_POP_IRF
+      PROCEDURE :: Trash => Trash_POP_IRF
+
+      PROCEDURE :: InitializeForNetCDFRead => InitializeForNetCDFRead_POP_IRF
+      PROCEDURE :: FinalizeNetCDF           => FinalizeNetCDF_POP_IRF
+      PROCEDURE :: LoadTracerFromNetCDF     => LoadTracerFromNetCDF_POP_IRF
+
+   END TYPE POP_IRF
 
    TYPE POP_Native
       INTEGER                  :: nX, nY, nZ, nTracers
@@ -103,6 +118,44 @@ CONTAINS
 !------------------------------- Manual Constructors/Destructors ----------------------------------!
 !==================================================================================================!
 !
+!
+ SUBROUTINE Build_POP_IRF( this, nX, nY, nZ, nIRF ) 
+ ! S/R Build
+ !
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_IRF ), INTENT(out) :: this
+   INTEGER, INTENT(in) :: nX, nY, nZ, nIRF
+
+      PRINT*, 'S/R : Build_POP_IRF : Start...'
+      this % nX = nX
+      this % nY = nY
+      this % nZ = nZ
+      this % nIRF = nIRF
+
+
+      ! Allocate nIRF+1 : nIRF for the IRF and +1 for the vertical diffusion
+      ! coefficients
+      ALLOCATE( this % irf(1:nX,1:nY,1:nZ,1:nIRF+1), &
+                this % ioVars % tracerVarID(1:nIRF+1) )
+
+      this % irf       = 0.0_prec
+
+      PRINT*, 'S/R : Build_POP_IRF : Finish.'
+
+ END SUBROUTINE Build_POP_IRF
+!
+ SUBROUTINE Trash_POP_IRF( this )
+ ! S/R Trash
+ !
+ ! =============================================================================================== !
+   IMPLICIT NONE
+   CLASS( POP_IRF ), INTENT(inout) :: this
+
+      IF(ALLOCATED(this % irf)) DEALLOCATE(this % irf)
+      IF(ALLOCATED(this % ioVars % tracerVarID)) DEALLOCATE( this % ioVars % tracerVarID)
+
+ END SUBROUTINE Trash_POP_IRF
 !
  SUBROUTINE Build_POP_Native( this, mesh, nTracers, myRank, nProcs ) 
  ! S/R Build
@@ -430,6 +483,37 @@ CONTAINS
 
  END SUBROUTINE InitializeForNetCDFWrite_POP_Native
 ! 
+ SUBROUTINE InitializeForNetCDFRead_POP_IRF( this, filename, initOn )
+   IMPLICIT NONE
+   CLASS( POP_IRF ), INTENT(inout) :: this
+   CHARACTER(*), INTENT(in)        :: filename
+   LOGICAL, INTENT(in)             :: initOn
+   ! Local
+   INTEGER :: i
+   CHARACTER(2) :: tracerid
+
+      PRINT*, 'Preparing read to '//TRIM(filename)
+      ! Create the netcdf file and generate a file handle referenced by the
+      ! integer "this % ioVars % ncid"
+      CALL Check( nf90_open( TRIM(filename), nf90_nowrite, this % ioVars % ncid ) )
+      ! Create variables -- here we need to create arrays for the dimensions
+      CALL Check( nf90_inq_varid( this % ioVars % ncid, "z_t", this % ioVars % zVarID ) )
+      CALL Check( nf90_inq_varid( this % ioVars % ncid, "TLAT", this % ioVars % yVarID ) )
+      CALL Check( nf90_inq_varid( this % ioVars % ncid, "TLONG", this % ioVars % xVarID ) )
+
+      ! Set up the tracer field names based on the model type
+      
+      DO i = 1, this % nIRF
+         WRITE( tracerid, '(I2.2)') i
+         !PRINT*, "ADV_3D_IRF_"//tracerid
+         CALL Check( nf90_inq_varid( this % ioVars % ncid, "ADV_3D_IRF_"//tracerid, &
+                                     this % ioVars % tracerVarID(i) ) )
+      ENDDO
+      CALL Check( nf90_inq_varid( this % ioVars % ncid, "VDC_S", &
+                                  this % ioVars % tracerVarID(this % nIRF+1) ) )
+
+ END SUBROUTINE InitializeForNetCDFRead_POP_IRF
+
  SUBROUTINE InitializeForNetCDFRead_POP_Native( this, modelType, filename, initOn )
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(inout) :: this
@@ -528,6 +612,13 @@ CONTAINS
 
  END SUBROUTINE InitializeForNetCDFRead_POP_Native
 !   
+ SUBROUTINE FinalizeNetCDF_POP_IRF( this )
+    IMPLICIT NONE
+    CLASS( POP_IRF ) :: this
+ 
+       CALL Check( nf90_close( this % ioVars % ncid ) )
+       
+ END SUBROUTINE FinalizeNetCDF_POP_IRF
  SUBROUTINE FinalizeNetCDF_POP_Native( this )
     IMPLICIT NONE
     CLASS( POP_Native ) :: this
@@ -735,7 +826,7 @@ CONTAINS
 
  END SUBROUTINE ReadSourceEtcNETCDF_POP_Native
 !
- SUBROUTINE ReadNETCDFRecord_POP_Native( this, mesh, recordID )
+ SUBROUTINE ReadNetCDFRecord_POP_Native( this, mesh, recordID )
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(inout) :: this
    TYPE( POP_Mesh ), INTENT(in)       :: mesh
@@ -758,7 +849,26 @@ CONTAINS
                                       this % volume, &
                                       start, recCount ) )
 
- END SUBROUTINE ReadNETCDFRecord_POP_Native
+ END SUBROUTINE ReadNetCDFRecord_POP_Native
+!
+ SUBROUTINE LoadTracerFromNetCDF_POP_IRF( this )
+   IMPLICIT NONE
+   CLASS( POP_IRF ), INTENT(inout) :: this
+   ! Local
+   INTEGER :: start(1:3), recCount(1:3)
+   INTEGER :: i
+
+         start    = (/1, 1, 1/)
+         recCount = (/this % nX, this % nY, this % nZ/)
+
+         DO i = 1, this % nIRF+1
+            CALL Check( nf90_get_var( this % ioVars % ncid, &
+                                      this % ioVars % tracerVarID(i), &
+                                      this % irf(:,:,:,i), &
+                                      start, recCount ) )
+         ENDDO
+
+ END SUBROUTINE LoadTracerFromNetCDF_POP_IRF
 !
  SUBROUTINE LoadTracerFromNetCDF_POP_Native( this, mesh )
    IMPLICIT NONE

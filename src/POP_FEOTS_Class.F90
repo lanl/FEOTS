@@ -76,6 +76,66 @@ USE FEOTS_CLI_Class
 ! ================================================================================================ !
 !
 
+! Data Storage requirements
+!  solution 
+!  > 5*INTEGER ( nDOF, nPeriods, nOps, nTracers, currentPeriod )
+!  > 2*prec    ( opPeriod, dt )
+!  > CRSMatrix ( transportOp )
+!  > > 3*INTEGER (nRows, nCols, nElems)
+!  > > 9*nDOF*prec ( A )
+!  > > 2*nDOF*INTEGER ( rowBounds )
+!  > > nElems*INTEGER ( col )
+!
+!  > CRSMatrix ( diffusionOp )
+!  > > 3*INTEGER (nRows, nCols, nElems)
+!  > > 3*nDOF*prec ( A )
+!  > > 2*nDOF*INTEGER ( rowBounds )
+!  > > nElems*INTEGER ( col )
+!
+!  > 4*nDOF*nTracers*prec ( tracers, source, rFac, mask )
+!  > nDOF*prec ( volume )
+!  > nTracers*INTEGER (tracerIDs)
+!
+!  feotsMap
+!  > 4*prec (south, north, east, west)
+!  > LOGICAL (crossesPrimeMeridian)
+!  > 3*INTEGER (nMasks, nCells, nDOF)
+!  > 3*nDOF (ijkInRegion)
+!  > nDOF (ijkInRegion)
+!  > nGlobalDOF (inverseDOFMap)
+!  > 3*nDOF (dofToLocalIJK)
+!  > nTracers*BoundaryMap
+!  > > 2*INTEGER (nBCells, nPCells)
+!  > > nBCells (boundaryCells)
+!  > > nPCells (prescribedCells)
+!
+!
+!  mesh
+!  5*INTEGER ( nX,nY,nZ,nDOF,meshType )
+!  nX*nY*prec (tLon)
+!  nX*nY*prec (tLat)
+!  nX*nY*prec (dXt)
+!  nX*nY*prec (dYt)
+!  nX*nY*prec (tArea)
+!  nX*nY*prec (KmT)
+!  nZ*prec (z)
+!  nZ*prec (dz)
+!  nZ*prec (dzw)
+!  nX*nY*nZ*prec (tracermask)
+!  3*nDOF*INTEGER (DOFtoIJK)
+!  nX*nY*nZ*INTEGER (IJKtoDOF)
+!
+!  nativeSol
+!  4*INTEGER ( nX, nY, nZ, nTracers )
+!  nTracers*INTEGER ( tracerIds )
+!  nX*nY*nZ*nTracers*prec ( tracer )
+!  nX*nY*nZ*nTracers*prec ( mask )
+!  nX*nY*nZ*nTracers*prec ( source )
+!  nX*nY*nZ*nTracers*prec ( rfac )
+!  nX*nY*nZ*prec ( volume )
+!  nX*nY*nZ*prec ( temperature )
+!  nX*nY*nZ*prec ( salinity )
+!  nX*nY*nZ*prec ( density )
 
    TYPE POP_FEOTS
      
@@ -216,15 +276,17 @@ CONTAINS
 
       CALL this % nativeSol % Build( this % mesh, this % params % nTracers, myRank, nProcs )
 
-      DO iTracer = 1, this % nativeSol  % nTracers
-        tracerID = this % nativeSol % tracerIds(iTracer)
-        DO m = 1, this % feotsMap % bMap(tracerID) % nBCells
-          i = this % feotsMap % dofToLocalIJK(1,this % feotsMap % bMap(tracerID) % boundaryCells(m))
-          j = this % feotsMap % dofToLocalIJK(2,this % feotsMap % bMap(tracerID) % boundaryCells(m))
-          k = this % feotsMap % dofToLocalIJK(3,this % feotsMap % bMap(tracerID) % boundaryCells(m))
-          this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+      IF( this % params % Regional )THEN
+        DO iTracer = 1, this % nativeSol  % nTracers
+          tracerID = this % nativeSol % tracerIds(iTracer)
+          DO m = 1, this % feotsMap % bMap(tracerID) % nBCells
+            i = this % feotsMap % dofToLocalIJK(1,this % feotsMap % bMap(tracerID) % boundaryCells(m))
+            j = this % feotsMap % dofToLocalIJK(2,this % feotsMap % bMap(tracerID) % boundaryCells(m))
+            k = this % feotsMap % dofToLocalIJK(3,this % feotsMap % bMap(tracerID) % boundaryCells(m))
+            this % nativeSol % mask(i,j,k,iTracer) = 0.0_prec
+          ENDDO
         ENDDO
-      ENDDO
+      ENDIF
 !
 
 !      IF( this % params % WaterMassTagging )THEN
@@ -487,6 +549,7 @@ CONTAINS
    INTEGER, INTENT(in), OPTIONAL     :: operatorPeriod
    ! Local
    INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
+   INTEGER :: row, col, ii, jj, kk
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
    CHARACTER(500)  :: fileBase
@@ -610,6 +673,25 @@ CONTAINS
 !         ENDIF
 
       ENDIF
+
+      !DO row = 1, this % feotsMap % nCells
+      !  i = this % feotsMap % dofToLocalIJK(1,row)
+      !  j = this % feotsMap % dofToLocalIJK(2,row)
+      !  k = this % feotsMap % dofToLocalIJK(3,row)
+      !  IF( j >= 105 )THEN
+      !     DO i = this % solution % transportOp % rowBounds(1,row), this % solution % transportOp % rowBounds(2,row)
+      !       col = this % solution % transportOp % col(i)
+      !       ii = this % feotsMap % dofToLocalIJK(1,col)
+      !       jj = this % feotsMap % dofToLocalIJK(2,col)
+      !       kk = this % feotsMap % dofToLocalIJK(3,col)
+      !       PRINT*, 'Transport Mat Val :', row, col,&
+      !                                      i, j, k, ii, jj, kk, &
+      !                                      this % solution % transportOp % A(i)
+    
+      !     ENDDO 
+      !  ENDIF
+      !ENDDO
+      !STOP 
       !$OMP END MASTER
       !$OMP BARRIER
 
