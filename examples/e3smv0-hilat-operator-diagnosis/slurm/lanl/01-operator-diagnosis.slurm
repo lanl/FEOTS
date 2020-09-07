@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1                    # Run on a single CPU
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=36
-#SBATCH --mem=110G
+#SBATCH --mem=85G
 #SBATCH --time=15:00               # Time limit hrs:min:sec
 #SBATCH --output=feots_logs   # Standard output and error log
 #SBATCH --account=climatehilat
