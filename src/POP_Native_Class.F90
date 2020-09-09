@@ -266,9 +266,9 @@ CONTAINS
       CALL Check( nf90_def_dim( this % ioVars % ncid, "time", NF90_UNLIMITED, this % ioVars % recDimID ) )
 
       ! Create variables -- here we need to create arrays for the dimensions
-      CALL Check( nf90_def_var( this % ioVars % ncid, "z_t", NF90_DOUBLE, this % ioVars % zDimID, this % ioVars % zVarID ) )
-      CALL Check( nf90_def_var( this % ioVars % ncid, "TLAT", NF90_DOUBLE, (/ this % ioVars % xDimID, this % ioVars % yDimID /), this % ioVars % yVarID ) )
-      CALL Check( nf90_def_var( this % ioVars % ncid, "TLONG", NF90_DOUBLE, (/ this % ioVars % xDimID, this % ioVars % yDimID /), this % ioVars % xVarID ) )
+      CALL Check( nf90_def_var( this % ioVars % ncid, "z_t", NF90_FLOAT, this % ioVars % zDimID, this % ioVars % zVarID ) )
+      CALL Check( nf90_def_var( this % ioVars % ncid, "TLAT", NF90_FLOAT, (/ this % ioVars % xDimID, this % ioVars % yDimID /), this % ioVars % yVarID ) )
+      CALL Check( nf90_def_var( this % ioVars % ncid, "TLONG", NF90_FLOAT, (/ this % ioVars % xDimID, this % ioVars % yDimID /), this % ioVars % xVarID ) )
 
       ! Set up the tracer field names based on the model type
       IF( modelType == ImpulseField )THEN
@@ -283,7 +283,7 @@ CONTAINS
       
       ELSEIF( modelType == RadionuclideModel )THEN
       
-         CALL Check( nf90_def_var( this % ioVars % ncid, "Particulate", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "Particulate", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID, this % ioVars % recDimID /), &
                                       this % ioVars % tracerVarID(1) ) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(1), "long_name", &
@@ -296,7 +296,7 @@ CONTAINS
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(1), "missing_value", &
                                       fillValue) )
                                       
-         CALL Check( nf90_def_var( this % ioVars % ncid, "Radionuclide", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "Radionuclide", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID, this % ioVars % recDimID /), &
                                       this % ioVars % tracerVarID(2) ) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(2), "long_name", &
@@ -309,11 +309,11 @@ CONTAINS
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(2), "missing_value", &
                                       fillValue) )
 
-         CALL Check( nf90_def_var( this % ioVars % ncid, "VolumeCorrection", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "VolumeCorrection", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID, this % ioVars % recDimID /), &
                                       this % ioVars % volumeVarID ) )
 
-         CALL Check( nf90_def_var( this % ioVars % ncid, "Source_Particulate", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "Source_Particulate", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                       this % ioVars % sourceVarID(1) ) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % sourceVarID(1), "long_name", &
@@ -325,14 +325,14 @@ CONTAINS
                                       fillValue) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % sourceVarID(1), "missing_value", &
                                       fillValue) )
-         CALL Check( nf90_def_var( this % ioVars % ncid, "rFac_Particulate", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "rFac_Particulate", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                       this % ioVars % rFacVarid(1) ) )
-         CALL Check( nf90_def_var( this % ioVars % ncid, "mask_Particulate", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "mask_Particulate", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                       this % ioVars % maskVarID(1) ) )
 
-         CALL Check( nf90_def_var( this % ioVars % ncid, "Source_Radionuclide", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "Source_Radionuclide", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                       this % ioVars % sourceVarID(2) ) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % sourceVarID(2), "long_name", &
@@ -344,10 +344,10 @@ CONTAINS
                                       fillValue) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % sourceVarID(2), "missing_value", &
                                       fillValue) )
-         CALL Check( nf90_def_var( this % ioVars % ncid, "rFac_Radionuclide", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "rFac_Radionuclide", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                       this % ioVars % rFacVarid(2) ) )
-         CALL Check( nf90_def_var( this % ioVars % ncid, "mask_Radionuclide", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "mask_Radionuclide", NF90_FLOAT, &
                                       (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                       this % ioVars % maskVarID(2) ) )
 
@@ -357,16 +357,16 @@ CONTAINS
 
             DO i = 1, this % nTracers
                WRITE( tracerid, '(I2.2)') this % tracerIds(i)
-               CALL Check( nf90_def_var( this % ioVars % ncid, "DyeTracer_"//tracerid, NF90_DOUBLE, &
+               CALL Check( nf90_def_var( this % ioVars % ncid, "DyeTracer_"//tracerid, NF90_FLOAT, &
                                          (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID, this % ioVars % recDimID /), &
                                          this % ioVars % tracerVarID(i) ) )
-               CALL Check( nf90_def_var( this % ioVars % ncid, "Source_"//tracerid, NF90_DOUBLE, &
+               CALL Check( nf90_def_var( this % ioVars % ncid, "Source_"//tracerid, NF90_FLOAT, &
                                          (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                          this % ioVars % sourceVarID(i) ) )
-               CALL Check( nf90_def_var( this % ioVars % ncid, "rFac_"//tracerid, NF90_DOUBLE, &
+               CALL Check( nf90_def_var( this % ioVars % ncid, "rFac_"//tracerid, NF90_FLOAT, &
                                          (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                          this % ioVars % rFacVarid(i) ) )
-               CALL Check( nf90_def_var( this % ioVars % ncid, "mask_"//tracerid, NF90_DOUBLE, &
+               CALL Check( nf90_def_var( this % ioVars % ncid, "mask_"//tracerid, NF90_FLOAT, &
                                          (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID /), &
                                          this % ioVars % maskVarID(i) ) )
    
@@ -415,7 +415,7 @@ CONTAINS
 
             DO i = 1, this % nTracers
                WRITE( tracerid, '(I2.2)') this % tracerIds(i)
-               CALL Check( nf90_def_var( this % ioVars % ncid, "DyeTracer_"//tracerid, NF90_DOUBLE, &
+               CALL Check( nf90_def_var( this % ioVars % ncid, "DyeTracer_"//tracerid, NF90_FLOAT, &
                                          (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID, this % ioVars % recDimID /), &
                                          this % ioVars % tracerVarID(i) ) )
    
@@ -433,7 +433,7 @@ CONTAINS
          ENDIF              
       
       
-         CALL Check( nf90_def_var( this % ioVars % ncid, "VolumeCorrection", NF90_DOUBLE, &
+         CALL Check( nf90_def_var( this % ioVars % ncid, "VolumeCorrection", NF90_FLOAT, &
                                    (/ this % ioVars % xDimID, this % ioVars % yDimID, this % ioVars % zDimID, this % ioVars % recDimID /), &
                                    this % ioVars % volumeVarID )  )
 
@@ -698,19 +698,19 @@ CONTAINS
       start3D    = (/1, 1, 1/)
       recCount3D = (/mesh % nX, mesh % nY, mesh % nZ/)
 
-      CALL Check( nf90_def_var( ncid, "SSH", NF90_DOUBLE,&
+      CALL Check( nf90_def_var( ncid, "SSH", NF90_FLOAT,&
                                 (/ xDimID, yDimID /), &
                                  varid_ssh ) )
 
-!      CALL Check( nf90_def_var( ncid, "TEMP", NF90_DOUBLE,&
+!      CALL Check( nf90_def_var( ncid, "TEMP", NF90_FLOAT,&
 !                                (/ xDimID, yDimID, zDimID /), &
 !                                 varid_temp ) )
 !
-!      CALL Check( nf90_def_var( ncid, "SALT", NF90_DOUBLE,&
+!      CALL Check( nf90_def_var( ncid, "SALT", NF90_FLOAT,&
 !                                (/ xDimID, yDimID, zDimID /), &
 !                                 varid_salt ) )
 !
-!      CALL Check( nf90_def_var( ncid, "PD", NF90_DOUBLE,&
+!      CALL Check( nf90_def_var( ncid, "PD", NF90_FLOAT,&
 !                                (/xDimID, yDimID, zDimID/),&
 !                                 varid_pd ) )
 !
