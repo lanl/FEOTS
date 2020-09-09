@@ -494,11 +494,13 @@ USE netcdf
       DO j = 1, theGrid % nY
          DO i = 1, theGrid % nX
 
-            DO k = 1, theGrid % KMT(i,j)
-               nDOF = nDOF + 1
-               theGrid % tracerMask(i,j,k) = 1.0_prec
-               theGrid % IJKtoDOF(i,j,k)   = nDOF
-            ENDDO
+            IF( theGrid % KMT(i,j) > 0 )THEN
+              DO k = 1, theGrid % KMT(i,j)
+                 nDOF = nDOF + 1
+                 theGrid % tracerMask(i,j,k) = 1.0_prec
+                 theGrid % IJKtoDOF(i,j,k)   = nDOF
+              ENDDO
+            ENDIF
 
          ENDDO
       ENDDO
@@ -514,12 +516,14 @@ USE netcdf
       DO j = 1, theGrid % nY
          DO i = 1, theGrid % nX
 
-            DO k = 1, theGrid % KMT(i,j)
-               nDOF = nDOF + 1
-               theGrid % DOFtoIJK(1,nDOF) = i
-               theGrid % DOFtoIJK(2,nDOF) = j
-               theGrid % DOFtoIJK(3,nDOF) = k
-            ENDDO
+            IF( theGrid % KMT(i,j) > 0 )THEN
+              DO k = 1, theGrid % KMT(i,j)
+                 nDOF = nDOF + 1
+                 theGrid % DOFtoIJK(1,nDOF) = i
+                 theGrid % DOFtoIJK(2,nDOF) = j
+                 theGrid % DOFtoIJK(3,nDOF) = k
+              ENDDO
+            ENDIF
 
          ENDDO
       ENDDO

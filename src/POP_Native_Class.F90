@@ -62,16 +62,13 @@ USE netcdf
    TYPE POP_IRF
       INTEGER                  :: nX, nY, nZ, nIRF
       REAL(prec), ALLOCATABLE  :: irf(:,:,:,:)
-      TYPE(NativeIO) :: ioVars
 
       CONTAINS
 
       PROCEDURE :: Build => Build_POP_IRF
       PROCEDURE :: Trash => Trash_POP_IRF
 
-      PROCEDURE :: InitializeForNetCDFRead => InitializeForNetCDFRead_POP_IRF
-      PROCEDURE :: FinalizeNetCDF           => FinalizeNetCDF_POP_IRF
-      PROCEDURE :: LoadTracerFromNetCDF     => LoadTracerFromNetCDF_POP_IRF
+      PROCEDURE :: LoadNetCDF => LoadNetCDF_POP_IRF
 
    END TYPE POP_IRF
 
@@ -133,13 +130,11 @@ CONTAINS
       this % nZ = nZ
       this % nIRF = nIRF
 
-
       ! Allocate nIRF+1 : nIRF for the IRF and +1 for the vertical diffusion
       ! coefficients
-      ALLOCATE( this % irf(1:nX,1:nY,1:nZ,1:nIRF+1), &
-                this % ioVars % tracerVarID(1:nIRF+1) )
+      ALLOCATE( this % irf(1:nX,1:nY,1:nZ,1:nIRF+1) )
 
-      this % irf       = 0.0_prec
+      this % irf = 0.0_prec
 
       PRINT*, 'S/R : Build_POP_IRF : Finish.'
 
@@ -153,7 +148,6 @@ CONTAINS
    CLASS( POP_IRF ), INTENT(inout) :: this
 
       IF(ALLOCATED(this % irf)) DEALLOCATE(this % irf)
-      IF(ALLOCATED(this % ioVars % tracerVarID)) DEALLOCATE( this % ioVars % tracerVarID)
 
  END SUBROUTINE Trash_POP_IRF
 !
@@ -197,14 +191,15 @@ CONTAINS
                 this % source(1:nX,1:nY,1:nZ,1:this % nTracers), &
                 this % rFac(1:nX,1:nY,1:nZ,1:this % nTracers), &
                 this % volume(1:nX,1:nY,1:nZ), &
-                this % temperature(1:nX,1:nY,1:nZ), &
-                this % salinity(1:nX,1:nY,1:nZ), &
-                this % density(1:nX,1:nY,1:nZ), &
                 this % tracerIds(1:this % nTracers), &
                 this % ioVars % tracerVarID(1:this % nTracers), &
                 this % ioVars % sourceVarID(1:this % nTracers), &
                 this % ioVars % rfacVarID(1:this % nTracers), &
                 this % ioVars % maskVarID(1:this % nTracers) )
+
+!                this % temperature(1:nX,1:nY,1:nZ), &
+!                this % salinity(1:nX,1:nY,1:nZ), &
+!                this % density(1:nX,1:nY,1:nZ), &
 
       DO i = 1, this % nTracers
         this % tracerIds(i) =  myRank*nT+i
@@ -215,9 +210,9 @@ CONTAINS
       this % source       = 0.0_prec
       this % rFac         = 0.0_prec
       this % volume       = 0.0_prec
-      this % temperature  = 0.0_prec
-      this % salinity     = 0.0_prec
-      this % density     = 0.0_prec
+!      this % temperature  = 0.0_prec
+!      this % salinity     = 0.0_prec
+!      this % density     = 0.0_prec
 
 
       PRINT*, 'S/R : Build_POP_Native : Finish.'
@@ -236,9 +231,9 @@ CONTAINS
       IF(ALLOCATED(this % source)) DEALLOCATE(this % source)
       IF(ALLOCATED(this % rFac)) DEALLOCATE(this % rFac)
       IF(ALLOCATED(this % volume)) DEALLOCATE(this % volume)
-      IF(ALLOCATED(this % temperature)) DEALLOCATE(this % temperature)
-      IF(ALLOCATED(this % salinity)) DEALLOCATE(this % salinity)
-      IF(ALLOCATED(this % density )) DEALLOCATE(this % density)
+!      IF(ALLOCATED(this % temperature)) DEALLOCATE(this % temperature)
+!      IF(ALLOCATED(this % salinity)) DEALLOCATE(this % salinity)
+!      IF(ALLOCATED(this % density )) DEALLOCATE(this % density)
       IF(ALLOCATED(this % tracerIds )) DEALLOCATE(this % tracerIds)
       IF(ALLOCATED(this % ioVars % tracerVarID)) DEALLOCATE( this % ioVars % tracerVarID)
       IF(ALLOCATED(this % ioVars % sourceVarID)) DEALLOCATE( this % ioVars % sourceVarID)
@@ -483,36 +478,42 @@ CONTAINS
 
  END SUBROUTINE InitializeForNetCDFWrite_POP_Native
 ! 
- SUBROUTINE InitializeForNetCDFRead_POP_IRF( this, filename, initOn )
+ SUBROUTINE LoadNetCDF_POP_IRF( this, filename )
    IMPLICIT NONE
    CLASS( POP_IRF ), INTENT(inout) :: this
    CHARACTER(*), INTENT(in)        :: filename
-   LOGICAL, INTENT(in)             :: initOn
    ! Local
-   INTEGER :: i
+   INTEGER :: i, ncid
+   INTEGER :: start(1:3), recCount(1:3)
    CHARACTER(2) :: tracerid
+   INTEGER :: varid(1:this % nIRF+1)
 
       PRINT*, 'Preparing read to '//TRIM(filename)
-      ! Create the netcdf file and generate a file handle referenced by the
-      ! integer "this % ioVars % ncid"
-      CALL Check( nf90_open( TRIM(filename), nf90_nowrite, this % ioVars % ncid ) )
-      ! Create variables -- here we need to create arrays for the dimensions
-      CALL Check( nf90_inq_varid( this % ioVars % ncid, "z_t", this % ioVars % zVarID ) )
-      CALL Check( nf90_inq_varid( this % ioVars % ncid, "TLAT", this % ioVars % yVarID ) )
-      CALL Check( nf90_inq_varid( this % ioVars % ncid, "TLONG", this % ioVars % xVarID ) )
+      start    = (/1, 1, 1/)
+      recCount = (/this % nX, this % nY, this % nZ/)
 
-      ! Set up the tracer field names based on the model type
+      CALL Check( nf90_open( TRIM(filename), nf90_nowrite, ncid) )
+
       
       DO i = 1, this % nIRF
          WRITE( tracerid, '(I2.2)') i
-         !PRINT*, "ADV_3D_IRF_"//tracerid
-         CALL Check( nf90_inq_varid( this % ioVars % ncid, "ADV_3D_IRF_"//tracerid, &
-                                     this % ioVars % tracerVarID(i) ) )
+         CALL Check( nf90_inq_varid( ncid, "ADV_3D_IRF_"//tracerid, &
+                                     varID(i) ) )
       ENDDO
-      CALL Check( nf90_inq_varid( this % ioVars % ncid, "VDC_S", &
-                                  this % ioVars % tracerVarID(this % nIRF+1) ) )
+      CALL Check( nf90_inq_varid( ncid, "VDC_S", &
+                                  varID(this % nIRF+1) ) )
 
- END SUBROUTINE InitializeForNetCDFRead_POP_IRF
+
+      DO i = 1, this % nIRF+1
+         CALL Check( nf90_get_var( ncid, &
+                                   varID(i), &
+                                   this % irf(:,:,:,i), &
+                                   start, recCount ) )
+      ENDDO
+
+      CALL Check( nf90_close( ncid ) )
+
+ END SUBROUTINE LoadNetCDF_POP_IRF
 
  SUBROUTINE InitializeForNetCDFRead_POP_Native( this, modelType, filename, initOn )
    IMPLICIT NONE
@@ -612,13 +613,7 @@ CONTAINS
 
  END SUBROUTINE InitializeForNetCDFRead_POP_Native
 !   
- SUBROUTINE FinalizeNetCDF_POP_IRF( this )
-    IMPLICIT NONE
-    CLASS( POP_IRF ) :: this
- 
-       CALL Check( nf90_close( this % ioVars % ncid ) )
        
- END SUBROUTINE FinalizeNetCDF_POP_IRF
  SUBROUTINE FinalizeNetCDF_POP_Native( this )
     IMPLICIT NONE
     CLASS( POP_Native ) :: this
@@ -651,27 +646,27 @@ CONTAINS
                                 this % volume(:,:,1), &
                                 start2D, recCount2D ) )
 
-      PRINT*, 'Loading TEMP'
-      CALL Check( nf90_inq_varid( ncid, "TEMP",varid ) )
-      CALL Check( nf90_get_var( ncid, &
-                                varid, &
-                                this % temperature, &
-                                start3D, recCount3D ) )
-
-      PRINT*, 'Loading SALT'
-      CALL Check( nf90_inq_varid( ncid, "SALT",varid ) )
-      CALL Check( nf90_get_var( ncid, &
-                                varid, &
-                                this % salinity, &
-                                start3D, recCount3D ) )
-
-      PRINT*, 'Loading PD'
-      CALL Check( nf90_inq_varid( ncid, "PD",varid ) )
-      CALL Check( nf90_get_var( ncid, &
-                                varid, &
-                                this % density, &
-                                start3D, recCount3D ) )
-
+!      PRINT*, 'Loading TEMP'
+!      CALL Check( nf90_inq_varid( ncid, "TEMP",varid ) )
+!      CALL Check( nf90_get_var( ncid, &
+!                                varid, &
+!                                this % temperature, &
+!                                start3D, recCount3D ) )
+!
+!      PRINT*, 'Loading SALT'
+!      CALL Check( nf90_inq_varid( ncid, "SALT",varid ) )
+!      CALL Check( nf90_get_var( ncid, &
+!                                varid, &
+!                                this % salinity, &
+!                                start3D, recCount3D ) )
+!
+!      PRINT*, 'Loading PD'
+!      CALL Check( nf90_inq_varid( ncid, "PD",varid ) )
+!      CALL Check( nf90_get_var( ncid, &
+!                                varid, &
+!                                this % density, &
+!                                start3D, recCount3D ) )
+!
       PRINT*, 'DONE'
 
       CALL Check( nf90_close( ncid ) )
@@ -707,18 +702,18 @@ CONTAINS
                                 (/ xDimID, yDimID /), &
                                  varid_ssh ) )
 
-      CALL Check( nf90_def_var( ncid, "TEMP", NF90_DOUBLE,&
-                                (/ xDimID, yDimID, zDimID /), &
-                                 varid_temp ) )
-
-      CALL Check( nf90_def_var( ncid, "SALT", NF90_DOUBLE,&
-                                (/ xDimID, yDimID, zDimID /), &
-                                 varid_salt ) )
-
-      CALL Check( nf90_def_var( ncid, "PD", NF90_DOUBLE,&
-                                (/xDimID, yDimID, zDimID/),&
-                                 varid_pd ) )
-
+!      CALL Check( nf90_def_var( ncid, "TEMP", NF90_DOUBLE,&
+!                                (/ xDimID, yDimID, zDimID /), &
+!                                 varid_temp ) )
+!
+!      CALL Check( nf90_def_var( ncid, "SALT", NF90_DOUBLE,&
+!                                (/ xDimID, yDimID, zDimID /), &
+!                                 varid_salt ) )
+!
+!      CALL Check( nf90_def_var( ncid, "PD", NF90_DOUBLE,&
+!                                (/xDimID, yDimID, zDimID/),&
+!                                 varid_pd ) )
+!
 
       CALL Check( nf90_enddef(ncid) )
 
@@ -727,20 +722,20 @@ CONTAINS
                                 this % volume(:,:,1), &
                                 start2D, recCount2D ) )
 
-      CALL Check( nf90_put_var( ncid, &
-                                varid_temp, &
-                                this % temperature, &
-                                start3D, recCount3D ) )
-
-      CALL Check( nf90_put_var( ncid, &
-                                varid_salt, &
-                                this % salinity, &
-                                start3D, recCount3D ) )
-
-      CALL Check( nf90_put_var( ncid, &
-                                varid_pd, &
-                                this % density, &
-                                start3D, recCount3D ) )
+!      CALL Check( nf90_put_var( ncid, &
+!                                varid_temp, &
+!                                this % temperature, &
+!                                start3D, recCount3D ) )
+!
+!      CALL Check( nf90_put_var( ncid, &
+!                                varid_salt, &
+!                                this % salinity, &
+!                                start3D, recCount3D ) )
+!
+!      CALL Check( nf90_put_var( ncid, &
+!                                varid_pd, &
+!                                this % density, &
+!                                start3D, recCount3D ) )
       CALL Check( nf90_close( ncid ) )
 
  END SUBROUTINE WriteOceanState_POP_Native
@@ -850,25 +845,6 @@ CONTAINS
                                       start, recCount ) )
 
  END SUBROUTINE ReadNetCDFRecord_POP_Native
-!
- SUBROUTINE LoadTracerFromNetCDF_POP_IRF( this )
-   IMPLICIT NONE
-   CLASS( POP_IRF ), INTENT(inout) :: this
-   ! Local
-   INTEGER :: start(1:3), recCount(1:3)
-   INTEGER :: i
-
-         start    = (/1, 1, 1/)
-         recCount = (/this % nX, this % nY, this % nZ/)
-
-         DO i = 1, this % nIRF+1
-            CALL Check( nf90_get_var( this % ioVars % ncid, &
-                                      this % ioVars % tracerVarID(i), &
-                                      this % irf(:,:,:,i), &
-                                      start, recCount ) )
-         ENDDO
-
- END SUBROUTINE LoadTracerFromNetCDF_POP_IRF
 !
  SUBROUTINE LoadTracerFromNetCDF_POP_Native( this, mesh )
    IMPLICIT NONE

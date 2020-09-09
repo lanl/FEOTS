@@ -111,6 +111,7 @@ MODULE CRSMatrix_Class
       PROCEDURE :: GetDataForRowAndCol => GetDataForRowAndCol_CRSMatrix
       PROCEDURE :: MatVecMul           => MatVecMul_CRSMatrix
       PROCEDURE :: SubSample           => SubSample_CRSMatrix
+      PROCEDURE :: CountZeroValues
 
 
       PROCEDURE :: WriteCRSMatrix_HDF5
@@ -195,7 +196,7 @@ MODULE CRSMatrix_Class
 
      DO row = 1, myMatrix % nRows
        myMatrix % rowBounds(1,row) = 1 + (row-1)*maxColPerRow
-       myMatrix % rowBounds(2,row) = 1 + (row)*maxColPerRow - 1
+       myMatrix % rowBounds(2,row) = (row)*maxColPerRow 
      ENDDO
   
  END SUBROUTINE SetRowBounds_CRSMatrix
@@ -231,6 +232,22 @@ MODULE CRSMatrix_Class
 
  END FUNCTION GetDataForRowAndCol_CRSMatrix
 !
+ SUBROUTINE CountZeroValues( myMatrix )
+   IMPLICIT NONE
+   CLASS( CRSMatrix ), INTENT(in) :: myMatrix
+   ! Local 
+   INTEGER :: iel, zeroCount
+   
+     zeroCount = 0
+     DO iel = 1, myMatrix % nElems  
+       IF( myMatrix % A(iel) == 0.0_prec )THEN
+         zeroCount = zeroCount + 1
+       ENDIF
+     ENDDO
+   
+     PRINT*, 'CRSMatrix percent zero values', REAL(zeroCount,prec)/REAL(myMatrix % nElems, prec)
+
+ END SUBROUTINE CountZeroValues
 !
 !
  FUNCTION MatVecMul_CRSMatrix( myMatrix, x ) RESULT( Ax )
@@ -427,7 +444,6 @@ MODULE CRSMatrix_Class
    CHARACTER(*), INTENT(in)       :: filename
    ! Local
    INTEGER(HID_T) :: file_id
-   INTEGER(HSIZE_T) :: vdim(1:2)
    INTEGER(HID_T)   :: group_id
    INTEGER          :: error
 
@@ -441,25 +457,22 @@ MODULE CRSMatrix_Class
 
 
        ! Write the rowBounds
-       vdim(1:2) = (/2, myMatrix % nRows /)
        CALL Add_IntObj_to_HDF5( rank=2,&
-                                dimensions=vdim(1:2),&
+                                dimensions=(/INT(2,8), INT(myMatrix % nRows,8) /),&
                                 variable_name='/sparse_crs/rowBounds',&
                                 variable=myMatrix % rowBounds,&
                                 file_id=file_id )
 
        ! Write the columns
-       vdim(1:1) = (/myMatrix % nelems/)
        CALL Add_IntObj_to_HDF5( rank=1,&
-                                dimensions=vdim(1:1),&
+                                dimensions=(/INT(myMatrix % nElems,8)/),&
                                 variable_name='/sparse_crs/columns',&
                                 variable=myMatrix % col,&
                                 file_id=file_id )
 
        ! Write the matrix elements
-       vdim(1:1) = (/myMatrix % nelems/)
        CALL Add_FloatObj_to_HDF5( rank=1,&
-                                  dimensions=vdim(1:1),&
+                                  dimensions=(/INT(myMatrix % nElems,8)/),&
                                   variable_name='/sparse_crs/elements',&
                                   variable=myMatrix % A,&
                                   file_id=file_id )

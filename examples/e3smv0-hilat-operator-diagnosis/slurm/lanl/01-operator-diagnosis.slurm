@@ -3,12 +3,12 @@
 #SBATCH --ntasks=1                    # Run on a single CPU
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=36
-#SBATCH --mem=85G
+#SBATCH --mem=56G
 #SBATCH --time=15:00               # Time limit hrs:min:sec
 #SBATCH --output=feots_logs   # Standard output and error log
 #SBATCH --account=climatehilat
 #SBATCH --qos=standard
-#SBATCH --array=2-5%1
+#SBATCH --array=1-1%1
 
 
 module purge

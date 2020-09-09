@@ -370,169 +370,118 @@ CONTAINS
                               mesh % nY, &
                               mesh % nZ, &
                               graph % nColors )
-      diff_id = graph % nColors + 1
       
       ! /////////////////////// Op Diagnosis //////////////////////////// !
 
       fileID = cliParams % oplevel
       thisIRFFile = cliParams % irfFile
  
-      ! Initialize the NetCDF file
-      PRINT*, 'Initialize for reading...'//TRIM( thisIRFFile )
-      CALL irfFields % InitializeForNetCDFRead( filename=TRIM(thisIRFFile), &
-                                                initOn=.TRUE. )
+      CALL irfFields % LoadNetCDF( filename=TRIM(thisIRFFile) )
   
-      ! Read in all of the impulse response fields
-      PRINT*, 'Loading Impulse Response Functions.'
-      CALL irfFields % LoadTracerFromNetCDF( ) 
-      ! Close the netcdf file
-      CALL irfFields % FinalizeNetCDF( )
-
       PRINT*, 'Diagnosing Transport Ops.'
       CALL CPU_TIME( t0 )
       nval    = 0
-      !DO irf_id = 1, graph % nColors
-      DO col = 1, mesh % nDOF
+      ! Each degree of freedom in the IRF gives a column or the transport
+      ! matrix.
+      DO col = 1, mesh % nDOF 
 
-         !IF( graph % color(col) == irf_id )THEN
-         irf_id = graph % color(col)
+         ! Obtain the (i,j,k)-tuple for this IRF degree of freedom
+         i = mesh % DOFToIJK(1,col)
+         j = mesh % DOFToIJK(2,col)
+         k = mesh % DOFToIJK(3,col)
 
-            i = mesh % dofToIJK(1,col)
-            j = mesh % dofToIJK(2,col)
-            k = mesh % dofToIJK(3,col)
+         DO m = 1, advstencil % nPoints
 
-            DO m = 1, advstencil % nPoints
+            this_i = i + advstencil % relativeNeighbors(1,m)
+            this_j = j + advstencil % relativeNeighbors(2,m)
+            this_k = k + advstencil % relativeNeighbors(3,m)
+         
+            ! Get neighboring i,j indices, taking tripole grid connectivity into account
+            CALL GetTrueIJ( params % MeshType, &
+                            this_i, this_j, &
+                            mesh % nX, mesh % nY, &
+                            true_i, true_j )
 
-               this_i = i + advstencil % relativeNeighbors(1,m)
-               this_j = j + advstencil % relativeNeighbors(2,m)
-               this_k = k + advstencil % relativeNeighbors(3,m)
-           
-               IF( this_k <= mesh % nZ .AND. this_k > 0 )THEN
+            IF( this_k <= mesh % KMT(true_i, true_j) .AND. this_k > 0 )THEN
 
+               row = mesh % IJKToDOF(true_i,true_j,this_k)
+
+               IF( row /= 0 )THEN
+
+                  irf_id = graph % color(col)
+                  nval(row) = nval(row) + 1
+                  iel = transportOp % rowBounds(1,row) + nval(row)-1
+                  transportOp % A(iel) = irfFields % irf(true_i,true_j,this_k,irf_id) 
+                  transportOp % col(iel) = col
                   
-                  ! Get neighboring i,j indices, taking tripole grid
-                  ! connectivity into account
-                  CALL GetTrueIJ( params % MeshType, &
-                                  this_i, this_j, &
-                                  mesh % nX, mesh % nY, &
-                                  true_i, true_j )
-                     IF( true_i > mesh % nX .OR. true_j > mesh % nY )THEN
-                        PRINT*, 'Code attempting DOF data access out of bounds! STOPPING!'
-                        STOP
-                     ENDIF
-
-                  row = mesh % ijkToDOF(true_i,true_j,this_k)
-
-                  IF( row /= 0 )THEN
-                     IF( row > mesh % nDOF )THEN
-                        PRINT*, 'Code attempting ROW data access out of bounds! STOPPING!'
-                        STOP
-                     ENDIF
-
-                     nval(row) = nval(row) + 1
-
-                     IF( nVal(row) > advStencil % nPoints )THEN
-                        PRINT*, 'Code attempting COLUMN data access out of bounds! STOPPING!'
-                        STOP
-                     ENDIF
-
-                     ! Need to find iel
-                     iel = transportOp % rowBounds(1,row) + nval(row)-1
-                     transportOp % A(iel) = irfFields % irf(true_i,true_j,this_k,irf_id) 
-                     transportOp % col(iel) = col
-                     
-                  ENDIF
-
                ENDIF
 
-            ENDDO
+            ENDIF
 
-         !ENDIF
+         ENDDO
 
       ENDDO
-      !ENDDO
+      CALL transportOp % CountZeroValues( )
 
       PRINT*, 'Diagnosing Vertical Diffusion Op.'
+
+      diff_id = graph % nColors + 1
       ! Diffusion operator diagnosis
-      nval = 0
       DO row = 1, mesh % nDOF
 
-         i = mesh % dofToIJK(1,row)
-         j = mesh % dofToIJK(2,row)
-         k = mesh % dofToIJK(3,row)
+         i = mesh % DOFToIJK(1,row)
+         j = mesh % DOFToIJK(2,row)
+         k = mesh % DOFToIJK(3,row)
 
-         IF( k <= mesh % KMT(i,j) )THEN
+         IF( mesh % KMT(i,j) > 1 .AND. k <= mesh % KMT(i,j) )THEN
 
            IF( k == 1 )THEN ! At the surface, the "no-diffusive-flux" condition is used
                ! cell k coefficient/diagonal
-               col = row
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = -irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               !columns_diff(row,nval(row)) =  col
-
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = -irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               transportOp % col(iel) = col
+               iel = diffusionOp % rowBounds(1,row)
+               diffusionOp % A(iel) = -irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               diffusionOp % col(iel) = row
 
                ! cell k+1
-               col = mesh % ijkToDOF(i,j,k+1)
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               !columns_diff(row,nval(row)) =  col
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               transportOp % col(iel) = col
+               iel = diffusionOp % rowBounds(1,row) + 1
+               diffusionOp % A(iel) = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               ! our DOF varies with k varying fastest
+               diffusionOp % col(iel) = row+1 !mesh % IJKToDOF(i,j,k+1)
+               IF( row == 1 )THEN
+                 PRINT*, 'diffOp Diag : ', diffusionOp % rowBounds(1,row), &
+                                           i,j,k, &
+                                           irfFields % irf(i,j,k,diff_id), &
+                                           diffusionOp % A(iel)
+               ENDIF
 
            ELSEIF( k == mesh % KMT(i,j) )THEN !At the bottom-- no diffusive flux
 
                ! cell k-1
-               col = mesh % ijkToDOF(i,j,k-1)
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-               !columns_diff(row,nval(row)) = col
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-               transportOp % col(iel) = col
+               iel = diffusionOp % rowBounds(1,row)
+               diffusionOp % A(iel) = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               diffusionOp % col(iel) = row-1!mesh % IJKToDOF(i,j,k-1)
 
                ! cell k coefficient/diagonal
-               col = row
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-               !columns_diff(row,nval(row)) =  col
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-               transportOp % col(iel) = col
+               iel = diffusionOp % rowBounds(1,row) + 1
+               diffusionOp % A(iel) = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               diffusionOp % col(iel) = row
 
            ELSE
 
                ! cell k-1
-               col = mesh % ijkToDOF(i,j,k-1)
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-               !columns_diff(row,nval(row)) = col
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
-               transportOp % col(iel) = col
+               iel = diffusionOp % rowBounds(1,row)
+               diffusionOp % A(iel) = irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)
+               diffusionOp % col(iel) = row-1!mesh % IJKToDOF(i,j,k-1)
 
                ! cell k coefficient/diagonal
-               col = row
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
-               !                                    irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               !columns_diff(row,nval(row)) =  col
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
+               iel = diffusionOp % rowBounds(1,row) + 1
+               diffusionOp % A(iel) = -irfFields % irf(i,j,k-1,diff_id)/mesh % dz(k)/mesh % dzw(k-1)-&
                                                    irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               transportOp % col(iel) = col
+               diffusionOp % col(iel) = row
 
                ! cell k+1
-               col = mesh % ijkToDOF(i,j,k+1)
-               nval(row) = nval(row) + 1
-               !opdata_diff(row,nval(row))  = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               !columns_diff(row,nval(row)) = col
-               iel = diffusionOp % rowBounds(1,row) + nval(row)-1
-               transportOp % A(iel) = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
-               transportOp % col(iel) = col
+               iel = diffusionOp % rowBounds(1,row) + 2
+               diffusionOp % A(iel) = irfFields % irf(i,j,k,diff_id)/mesh % dz(k)/mesh % dzw(k)
+               diffusionOp % col(iel) = row+1!mesh % IJKToDOF(i,j,k+1)
 
            ENDIF
          ENDIF                 
@@ -542,35 +491,6 @@ CONTAINS
       WRITE( walltime, '(F17.4)' ) t1-t0
       PRINT*, 'Time to diagnose operator : '//TRIM(walltime)//' sec'
 
- !     PRINT*, 'Converting hash-table...'
-
- !     ! Convert from the "hash-table" to the CRS Format
- !     kdiff = 1
- !     k     = 1
- !     DO row = 1, mesh % nDOF
- !        IF( nval(row) > 0 )THEN
-
- !           transportOperator % rowBounds(1,row) = k
- !           DO m = 1, nval(row)
- !              transportOperator % A(k)   = opdata(row,m)
- !              transportOperator % col(k) = columns(row,m)
- !              k = k+1
- !           ENDDO
- !           transportOperator % rowBounds(2,row) = k-1
-
- !        ENDIF
- !        IF( nval_diff(row) > 0 )THEN
-
- !           diffusionOperator % rowBounds(1,row) = kdiff
- !           DO m = 1, nval_diff(row)
- !              diffusionOperator % A(kdiff)   = opdata_diff(row,m)
- !              diffusionOperator % col(kdiff) = columns_diff(row,m)
- !              kdiff = kdiff+1
- !           ENDDO
- !           diffusionOperator % rowBounds(2,row) = kdiff-1
- !        ENDIF
- !     ENDDO
-      
       WRITE(fileIDChar, '(I5.5)' ) fileID
       crsFile=TRIM(cliParams % dbRoot)//'/ops/transport.'//fileIDChar//'.h5'
       PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
@@ -587,8 +507,8 @@ CONTAINS
       PRINT*, 'MAX RowSum(Dx)', MAXVAL(Dx)
       PRINT*, 'MIN RowSum(Dx)', MINVAL(Dx)
 
-      CALL transportOp % Reset( )
-      CALL diffusionOp % Reset( )
+      !CALL transportOp % Reset( )
+      !CALL diffusionOp % Reset( )
 
       !ENDIF
 
