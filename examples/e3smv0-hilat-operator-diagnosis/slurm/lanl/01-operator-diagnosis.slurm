@@ -8,14 +8,11 @@
 #SBATCH --output=feots_logs-%j   # Standard output and error log
 #SBATCH --account=climatehilat
 #SBATCH --qos=standard
-#SBATCH --array=220-292%2
+#SBATCH --array=1-365%2
 
 module purge
 module use /users/jschoonover/modulefiles
 module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
-
-#DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
-#OUTDIR=/lustre/scratch3/turquoise/${USER}/global
 
 IRF=$(sed -n ${SLURM_ARRAY_TASK_ID}p IRFs.txt)
 echo $IRF
