@@ -11,7 +11,7 @@ This script takes two arguments. The first argument is the path to where you are
 For example
 ```
 $ export FEOTS_DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
-$ ./mkdb $FEOTS_DBROOT
+$ bash ./mkdb.sh $FEOTS_DBROOT
 ```
 This will create the directory `/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG` with the following hierarchy 
 ```
