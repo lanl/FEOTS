@@ -10,10 +10,12 @@ This script takes two arguments. The first argument is the path to where you are
 
 For example
 ```
-$ ./mkdb /lustre/scratch3/turquoise/jschoonover/feots E3SMV0-5DAVG
+$ export FEOTS_DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
+$ ./mkdb $FEOTS_DBROOT
 ```
-This will create the directory `/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-5DAVG` with the following hierarchy 
+This will create the directory `/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG` with the following hierarchy 
 ```
+ metadata.json
  mesh/
  ops/
  irf/response/
@@ -22,25 +24,38 @@ This will create the directory `/lustre/scratch3/turquoise/jschoonover/feots/E3S
 
 You must save a NetCDF file, output by POP that has mesh/grid information stored within underneath the `mesh/` subdirectory and rename the file `mesh.nc`
 
+The metadata.json file is a template that is used to describe parent model.
+
 ### Create Impulse Fields
-If you have not created impulse fields associated with the parent model, you can do so by running
+If you have not created impulse fields associated with the parent model, you can use the provided Slurm batch script [`slurm/lanl/00-impulse.slurm`](./slurm/lanl/00-impulse.slurm).
+Generation of the impulse function requires a POP NetCDF file that contains the mesh information for the parent model; the location of this file must be set in the `POP_MESHFILE` environment variable.
+
+The impulse function and Greedy Graph coloring solution is written to your FEOTS Database `irf/impulse/` subdirectory and the extracted mesh information is written to your FEOTS Database `mesh/` subdirectory. To facilitate output from this impulse generation step to your FEOTS Database, set the environment variable `FEOTS_DBROOT` to the path of your FEOTS database (if you have not done so already).
+
 ```
-sbatch slurm/lanl/00-impulse.slurm
+$ export POP_MESHFILE=/path/to/pop/netcdf/file.nc
+$ export FEOTS_DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
+$ sbatch --get-user-env slurm/lanl/00-impulse.slurm
 ```
 *You may need to modify this slurm batch file for your system*
 
 
 ### Diagnose Transport Operators
-Once you have created the impulse response fields, move them to your FEOTS database under the `irf/response/` subdirectory. Create a list of operators in txt file called `IRFs.txt`, e.g.
+Once you have created the impulse response fields, move them to your FEOTS database under the `irf/response/` subdirectory. Alternatively, you can create a symbolic link to those files, e.g.
 ```
-$ ls /lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-5DAVG/irfs/response/* > IRFs.txt
-```
-Then, use the batch script to process the IRF files to transport and diffusion operators.
-```
-sbatch slurm/lanl/01-operator-diagnosis.slurm
+$ ln -s /path/to/irf/output/*.nc /lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG/
 ```
 
-For the E3SMV0-HiLat Parent model, operator diagnosis takes about 10 minutes per operator on average.
+Create a list of operators in txt file called `IRFs.txt`, e.g.
+```
+$ ls ${FEOTS_DBROOT}/irf/response/*.nc > IRFs.txt
+```
+
+Then, use the batch script to process the IRF files to transport and diffusion operators.
+```
+$ export FEOTS_DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
+$ sbatch --get-user-env slurm/lanl/01-operator-diagnosis.slurm
+```
 
 **Note**
 
@@ -51,7 +66,7 @@ $ wc -l IRFs.txt
 ```
 Then modify line 11 of `slurm/lanl/01-operator-diagnosis.slurm`
 ```
-#SBATCH --array=1-365%1
+#SBATCH --array=1-365%2
 ```
 The number after the `%` symbol indicates how many jobs in the job array can run at any given moment. Setting this number to a higher value can increase parallelism (Note that the operators can be processed in parallel over the IRF files).
 
