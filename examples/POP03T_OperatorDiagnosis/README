@@ -1,9 +1,0 @@
-
-
-Steps for diagnosing operators :
-
-1)  GenerateMeshOnlyFile
-2)  GreedyColoring - generate the impulse fields
-3)  Run POP and generate Impulse Response Functions (IRFs)
-4)  Run OperatorDiagnosis
-
