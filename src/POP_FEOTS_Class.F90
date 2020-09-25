@@ -1450,14 +1450,14 @@ CONTAINS
 
       scFac = 0.0_prec
       vmag  = 0.0_prec
-      !$OMP DO COLLAPSE(2) REDUCTION(+:scFac,vmag)
+      !$OMP MASTER
       DO j = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF 
             scFac = scFac + this % params % JacobianStepSize*( abs(x(i,j)) )
             vmag  = vmag + v(i,j)**2
          ENDDO
       ENDDO
-      !$OMP ENDDO
+      !$OMP END MASTER
 
       !$OMP BARRIER     
 

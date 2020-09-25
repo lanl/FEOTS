@@ -349,15 +349,15 @@ USE netcdf
         PRINT*,'                           Defining mesh variables' 
 ! Create variables -- here we need to create arrays for the dimensions
         CALL Check( nf90_def_var( ncid, "z_t", &
-                                  NF90_DOUBLE, &
+                                  NF90_FLOAT, &
                                   z_dimid, z_varid ) )
 
         CALL Check( nf90_def_var( ncid, "TLAT", &
-                                  NF90_DOUBLE, (/ x_dimid, y_dimid /),&
+                                  NF90_FLOAT, (/ x_dimid, y_dimid /),&
                                   y_varid ) )
 
         CALL Check( nf90_def_var( ncid, "TLONG", &
-                                  NF90_DOUBLE, (/ x_dimid, y_dimid /),&
+                                  NF90_FLOAT, (/ x_dimid, y_dimid /),&
                                   x_varid ) )        
 
         CALL Check( nf90_def_var( ncid, "KMT", &
@@ -365,27 +365,27 @@ USE netcdf
                                   kmt_varid ) )
 
         CALL Check( nf90_def_var( ncid, "dz", &
-                                  NF90_DOUBLE, &
+                                  NF90_FLOAT, &
                                   z_dimid, dz_varid ) )
 
         CALL Check( nf90_def_var( ncid, "dzw", &
-                                  NF90_DOUBLE, &
+                                  NF90_FLOAT, &
                                   z_dimid, dzw_varid ) )
 
         CALL Check( nf90_def_var( ncid, "DXT", &
-                                  NF90_DOUBLE, (/ x_dimid, y_dimid /),&
+                                  NF90_FLOAT, (/ x_dimid, y_dimid /),&
                                   dxt_varid ) )        
 
         CALL Check( nf90_def_var( ncid, "DYT", &
-                                  NF90_DOUBLE, (/ x_dimid, y_dimid /),&
+                                  NF90_FLOAT, (/ x_dimid, y_dimid /),&
                                   dyt_varid ) )        
 
         CALL Check( nf90_def_var( ncid, "TAREA", &
-                                  NF90_DOUBLE, (/ x_dimid, y_dimid /),&
+                                  NF90_FLOAT, (/ x_dimid, y_dimid /),&
                                   tarea_varid ) )        
         
         CALL Check( nf90_def_var( ncid, "TracerMask", &
-                                  NF90_DOUBLE, (/ x_dimid, y_dimid, z_dimid /),&
+                                  NF90_FLOAT, (/ x_dimid, y_dimid, z_dimid /),&
                                   tmask_varid ) )        
         
       CALL Check( nf90_put_att( ncid, tmask_varid, "long_name", "Domain Mask" ) )
