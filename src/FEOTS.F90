@@ -7,6 +7,14 @@ IMPLICIT NONE
   TYPE(FEOTS_CLI) :: cliParams
 
   CALL cliParams % GetCLIConf( )
+
+#ifdef _OPENMP
+!$OMP PARALLEL
+   IF(OMP_GET_THREAD_NUM() == 0)THEN
+     PRINT*, "Number of OpenMP threads = ", OMP_GET_NUM_THREADS()
+   ENDIF
+!$OMP END PARALLEL
+#endif
   
   IF( cliParams % setupSuccess )THEN
 

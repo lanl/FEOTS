@@ -58,6 +58,8 @@ USE FEOTS_CLI_Class
  IMPLICIT NONE
 
 
+#include "FEOTS_Macros.h"
+
 ! ==================================== POP_FEOTS Description ====================================== !
 !
 ! 18.04.2016
@@ -198,6 +200,8 @@ CONTAINS
 !
 !
  SUBROUTINE Build_POP_FEOTS( this, cliParams, myRank, nProcs ) 
+#undef __FUNC__
+#define __FUNC__ "Build_POP_FEOTS"
  ! S/R Build
  !
  ! =============================================================================================== !
@@ -216,7 +220,7 @@ CONTAINS
    CHARACTER(5)   :: fileIDChar
    
 
-      PRINT*, 'S/R : Build_POP_FEOTS : Start...'
+      INFO('Start.')
       this % myRank = myRank
       this % nProcs = nProcs
 
@@ -224,13 +228,13 @@ CONTAINS
       this % params % dbRoot = cliParams % dbRoot
 
       IF( this % params % TracerModel /= DyeModel )THEN
-         PRINT*, 'MPI currently only configured for Passive Dye Model.'
-         STOP 'Stopping!'
+         ERROR('MPI currently only configured for Passive Dye Model.')
+         STOP
       ENDIF
 
       IF( nProcs /= this % params % nTracers )THEN
-         PRINT*, 'Number of MPI ranks must equal the number of tracers.', this % params % nTracers
-         STOP 'Stopping!'
+         ERROR('Number of MPI ranks must equal the number of tracers.')!, this % params % nTracers
+         STOP
       ENDIF
 
 
@@ -241,7 +245,8 @@ CONTAINS
       ELSEIF( this % params % StencilType == Upwind3 )THEN
          stencilSize = 13
       ELSE
-         STOP 'Bad Stencil!'
+         ERROR('Unknown Stencil Type.')
+         STOP
       ENDIF
 
       IF( this % params % Regional )THEN
@@ -376,7 +381,7 @@ CONTAINS
       ! Reset the number of tracers (for each rank) to 1
       this % params % nTracers = 1
 #endif
-      PRINT*, 'S/R : Build_POP_FEOTS : Finish.'
+      INFO('Done.')
 
  END SUBROUTINE Build_POP_FEOTS
 !
@@ -542,6 +547,8 @@ CONTAINS
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
  SUBROUTINE LoadNewStates_POP_FEOTS( this, tn, myRank, operatorPeriod )
+#undef __FUNC__
+#define __FUNC__ "LoadNewStates_POP_FEOTS"
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(in)            :: tn
@@ -565,11 +572,11 @@ CONTAINS
          ELSE
             fileBase = TRIM(this % params % dbRoot)//'/ops'
          ENDIF
-         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//fileIDChar//'.h5'
+         INFO('Loading Operator : '//TRIM(fileBase)//'/transport.'//fileIDChar//'.h5')
          CALL this % solution % transportOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//fileIDChar//'.h5', &
                                                                       this % myRank, this % nProcs ) 
 
-         PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//fileIDChar//'.h5'
+         INFO('Loading Operator : '//TRIM(fileBase)//'/diffusion.'//fileIDChar//'.h5')
          CALL this % solution % diffusionOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion'//fileIDChar//'.h5', &
                                                                       this % myRank, this % nProcs ) 
 
@@ -785,6 +792,8 @@ CONTAINS
  END FUNCTION Mask
 
  SUBROUTINE VerticalMixing_POP_FEOTS( this, rhs )
+#undef __FUNC__
+#define __FUNC__ "VerticalMixing_POP_FEOTS"
    ! Preconditioned Conjugate Gradient used to solve vertical mixing
    ! Algorithm taken from page 3 of
    ! http://www.cse.psu.edu/~b58/cse456/lecture20.pdf
@@ -855,7 +864,9 @@ CONTAINS
      !$OMP FLUSH(residual_magnitude)
 
      IF( residual_magnitude <= cg_tolerance )THEN
-       PRINT*, 'Vertical Mixing : Final Residual :', residual_magnitude
+       !$OMP MASTER
+       INFO('Residual magnitude less than cg_tolerance on start.') !, residual_magnitude)
+       !$OMP END MASTER
        RETURN
      ENDIF
 
@@ -910,16 +921,20 @@ CONTAINS
        !$OMP BARRIER
        rk = this % Mask( rk )
        residual_magnitude = this % GetMax(rk)
-       PRINT*, 'Residual :', residual_magnitude 
+
        !$OMP FLUSH(residual_magnitude)
        IF( residual_magnitude <= cg_tolerance )THEN
-         PRINT*, 'Vertical Mixing : Final Residual :', residual_magnitude
+         !$OMP MASTER
+         INFO('Vertical Mixing Converged. Final Residual =')!, residual_magnitude
+         !$OMP END MASTER
          RETURN
        ENDIF
 
      ENDDO
 
-     PRINT*, 'POP_FEOTS_Class.F90 : VerticalMixing : Failed to converge. Final residual : ', residual_magnitude
+     !$OMP MASTER
+     INFO('Failed to converge. Final residual = ')!, residual_magnitude
+     !$OMP END MASTER
      
 
  END SUBROUTINE VerticalMixing_POP_FEOTS
@@ -965,7 +980,7 @@ CONTAINS
         !$OMP ENDDO
 
         ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
-        !CALL this % VerticalMixing( rhs )
+        CALL this % VerticalMixing( rhs )
 
         !$OMP BARRIER
 

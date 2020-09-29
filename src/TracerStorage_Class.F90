@@ -44,6 +44,7 @@ MODULE TracerStorage_Class
  USE CRSMatrix_Class
 
  IMPLICIT NONE
+#include "FEOTS_Macros.h"
 
 ! ================================ Tracer Storage Description ==================================== !
 !
@@ -114,6 +115,8 @@ MODULE TracerStorage_Class
 !
 !
  SUBROUTINE Build_TracerStorage( thisStorage, nDOF, nOps, nElems, nPeriods, nTracers, opPeriod, dt, myRank, nProcs)
+#undef __FUNC__
+#define __FUNC__ "Build_TracerStorage"
  ! S/R Build
  !
  !    Allocates memory for the tracer storage class.
@@ -197,6 +200,8 @@ MODULE TracerStorage_Class
 !
 !
  SUBROUTINE CheckForNewOperator_TracerStorage( thisStorage, t, filebase, OpSwapped, myRank, nProc )
+#undef __FUNC__
+#define __FUNC__ "CheckForNewOperator_TracerStorage"
  ! 
  ! This routine takes in the simulation time "t" and determines which operator
  ! period needs to be loaded. If the operator period changes, then a new
@@ -229,18 +234,14 @@ MODULE TracerStorage_Class
       ENDIF
 
       IF( newPeriod /= thisStorage % currentPeriod )THEN
-         PRINT*, t, adjT, nthCycle, newPeriod
          WRITE( periodChar, '(I5.5)' ) newPeriod+1
 
-        PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/transport.'//periodChar//'.h5'
+        INFO('Loading Operator : '//TRIM(fileBase)//'/transport.'//periodChar//'.h5')
         CALL thisStorage % transportOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/transport.'//periodChar//'.h5', myRank, nProc ) 
-        PRINT*, '  Loading Operator : '//TRIM(fileBase)//'/diffusion.'//periodChar//'.h5'
+        INFO('Loading Operator : '//TRIM(fileBase)//'/diffusion.'//periodChar//'.h5')
         CALL thisStorage % diffusionOp % ReadCRSMatrix_HDF5( TRIM(fileBase)//'/diffusion.'//periodChar//'.h5', myRank, nProc ) 
          opSwapped = .TRUE.
 
-        PRINT*, 'myRank, min/max transport operator : ',myRank, &
-                                                        MINVAL(thisStorage % transportOp % A), &
-                                                        MAXVAL(thisStorage % transportOp % A)
          IF( thisStorage % nPeriods == 1 )THEN
             thisStorage % currentPeriod = 0
          ELSE 
