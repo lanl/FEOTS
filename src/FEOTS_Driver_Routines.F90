@@ -558,13 +558,13 @@ CONTAINS
                            params % south, params % north, &
                            params % east, params % west, params % maskfile ) 
 
-      CALL regionalMesh % WriteNetCDF( TRIM(params % regionalMeshFile) )
+      CALL regionalMesh % WriteNetCDF( TRIM(cliParams % outdir)//'/mesh.nc' )
       ! Write the regional data structure to a pickup file for later use
 
       IF( TRIM(params % maskfile) == '' )THEN
-         CALL region % WritePickup( TRIM(cliParams % outdir)//'mappings', maskProvided=.FALSE. )
+         CALL region % WritePickup( TRIM(cliParams % outdir)//'/mappings', maskProvided=.FALSE. )
       ELSE
-         CALL region % WritePickup( TRIM(cliParams % outdir)//'mappings', maskProvided=.TRUE. )
+         CALL region % WritePickup( TRIM(cliParams % outdir)//'/mappings', maskProvided=.TRUE. )
       ENDIF
 
 

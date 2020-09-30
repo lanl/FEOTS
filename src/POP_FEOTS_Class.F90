@@ -251,8 +251,8 @@ CONTAINS
       ENDIF
 
       IF( this % params % Regional )THEN
-         CALL this % mesh % LoadWithMask( TRIM(this % params % RegionalMeshFile) )
-         CALL this % feotsMap % ReadPickup( TRIM(cliparams % outdir)//'mappings', maskProvided=.TRUE. )
+         CALL this % mesh % LoadWithMask( TRIM(cliParams % outdir)//'/mesh.nc' )
+         CALL this % feotsMap % ReadPickup( TRIM(cliparams % outdir)//'/mappings', maskProvided=.TRUE. )
 
          !!this % mesh % DOFtoIJK = this % feotsMap % dofToLocalIJK
          DO m = 1, this % feotsMap % nCells
