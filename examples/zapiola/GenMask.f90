@@ -109,7 +109,7 @@ IMPLICIT NONE
          ENDDO
 
       
-      CALL WriteMaskField( mesh, maskField, TRIM(params % maskFile) )
+      CALL WriteMaskField( mesh, maskField, TRIM(cliParams % outdir)//'mask.nc' )
       CALL mesh % Trash( )
       DEALLOCATE( regionMask, maskField )
 

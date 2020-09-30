@@ -3,7 +3,7 @@ SHELL=/bin/bash
 
 
 FC=h5pfc
-OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace -DHAVE_MPI
+OPT=-cpp -O0 -g -ffree-line-length-none -Wall -fcheck=all -ffpe-trap=invalid -fbacktrace -DHAVE_MPI -fopenmp
 #OPT=-cpp -O3 -ffree-line-length-none
 LIB+=$(shell nc-config --flibs) ${FEOTS_LIB}
 INC+=$(shell nc-config --fflags) ${FEOTS_INCLUDE}

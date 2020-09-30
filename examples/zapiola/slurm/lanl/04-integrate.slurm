@@ -9,11 +9,9 @@
 #SBATCH --qos=standard
 
 module use /users/jschoonover/modulefiles
-module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
+module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/baseline
 
-DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
-OUTDIR=/lustre/scratch3/turquoise/${USER}/zapiola
-
-srun -n${SLURM_NTASKS} feots integrate --dbroot ${DBROOT}  \
+#export OMP_NUM_THREADS=4
+srun -n${SLURM_NTASKS} feots integrate --dbroot ${FEOTS_DBROOT}  \
                                        --out ${OUTDIR} \
                                        --param-file ./params/lanl/runtime.params

@@ -9,15 +9,12 @@
 #SBATCH --qos=standard
 
 module use /users/jschoonover/modulefiles
-module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
+module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/baseline
 
-
-DBROOT=/lustre/scratch3/turquoise/jschoonover/feots/E3SMV0-HILAT-5DAVG
-OUTDIR=/lustre/scratch3/turquoise/${USER}/zapiola
 
 mkdir -p ${OUTDIR}
 IRF=$(sed -n 1p ./irfs/lanl/IRFs.txt)
-./genmask --dbroot ${DBROOT}  \
+./genmask --dbroot ${FEOTS_DBROOT}  \
           --irf ${IRF} \
           --out ${OUTDIR} \
           --param-file ./params/lanl/runtime.params
