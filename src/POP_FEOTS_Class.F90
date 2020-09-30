@@ -226,6 +226,7 @@ CONTAINS
 
       CALL this % params % Build(TRIM(cliParams % paramFile))
       this % params % dbRoot = cliParams % dbRoot
+      this % params % regionalOperatorDirectory = cliParams % outdir
 
       IF( this % params % TracerModel /= DyeModel )THEN
          ERROR('MPI currently only configured for Passive Dye Model.')
@@ -251,7 +252,7 @@ CONTAINS
 
       IF( this % params % Regional )THEN
          CALL this % mesh % LoadWithMask( TRIM(this % params % RegionalMeshFile) )
-         CALL this % feotsMap % ReadPickup( TRIM(this % params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
+         CALL this % feotsMap % ReadPickup( TRIM(cliparams % outdir)//'mappings', maskProvided=.TRUE. )
 
          !!this % mesh % DOFtoIJK = this % feotsMap % dofToLocalIJK
          DO m = 1, this % feotsMap % nCells
@@ -358,7 +359,7 @@ CONTAINS
   ! IF( this % params % waterMassTagging )THEN
 
   !    WRITE(fileIDChar, '(I5.5)' ) 1
-  !    oceanStateFile = TRIM(this % params % regionalOperatorDirectory)//'Ocean.'//fileIDChar//'.nc'
+  !    oceanStateFile = TRIM(cliparams % outdir)//'Ocean.'//fileIDChar//'.nc'
   !    PRINT*, 'Loading initial ocean state : ', TRIM(oceanStateFile)
   !    CALL this % nativeSol % LoadOceanState( this % mesh, TRIM(oceanStateFile) )
 
@@ -865,7 +866,7 @@ CONTAINS
 
      IF( residual_magnitude <= cg_tolerance )THEN
        !$OMP MASTER
-       INFO('Residual magnitude less than cg_tolerance on start.') !, residual_magnitude)
+       INFO('Residual magnitude less than cg_tolerance on start.')
        !$OMP END MASTER
        RETURN
      ENDIF
@@ -925,7 +926,8 @@ CONTAINS
        !$OMP FLUSH(residual_magnitude)
        IF( residual_magnitude <= cg_tolerance )THEN
          !$OMP MASTER
-         INFO('Vertical Mixing Converged. Final Residual =')!, residual_magnitude
+         INFO('Vertical Mixing Converged in '//Int2Str(iter)//' iterates')
+         INFO('Final residual = '//Float2Str(residual_magnitude))
          !$OMP END MASTER
          RETURN
        ENDIF
@@ -933,7 +935,7 @@ CONTAINS
      ENDDO
 
      !$OMP MASTER
-     INFO('Failed to converge. Final residual = ')!, residual_magnitude
+     WARNING('Failed to converge. Final residual = '//Float2Str(residual_magnitude))
      !$OMP END MASTER
      
 

@@ -66,6 +66,22 @@ INCLUDE 'mpif.h'
    CHARACTER( * ), PRIVATE, PARAMETER :: lower = 'abcdefghijklmnopqrstuvwxyz'
 
 CONTAINS
+ FUNCTION Int2Str( aNumber ) RESULT( aString )
+   IMPLICIT NONE
+   INTEGER :: aNumber
+   CHARACTER(12) :: aString
+
+     WRITE(aString, '(I9)') aNumber
+
+ END FUNCTION Int2Str
+ FUNCTION Float2Str( aNumber ) RESULT( aString )
+   IMPLICIT NONE
+   REAL(prec) :: aNumber
+   CHARACTER(12) :: aString
+
+     WRITE(aString, '(E12.4)') aNumber
+
+ END FUNCTION Float2Str
 
 
  FUNCTION AlmostEqual( a, b ) RESULT( AisB )

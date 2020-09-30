@@ -3,6 +3,7 @@
 *.png
 *.jpg
 *.o
+*.a
 *.mod
 *.dvi
 *.bbl
@@ -12,6 +13,11 @@
 *.toc
 *.svg
 *.slurm.*
+*.txt
+
+autom4te.cache/*
+penmp
+config.status
 
 GreedyColoring
 GenerateMeshOnlyFile
@@ -21,3 +27,5 @@ RegionalExtraction
 ExtractOceanState
 FEOTSInitialize
 FEOTSDriver
+
+feots_logs*

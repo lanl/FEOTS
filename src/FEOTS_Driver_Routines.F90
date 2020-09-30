@@ -102,7 +102,7 @@ CONTAINS
      ENDDO
 
      WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
-     oceanStateFile = TRIM( feots % params % regionalOperatorDirectory )//'Ocean.'//fileIDChar//'.nc'
+     oceanStateFile = TRIM( cliParams % outDir )//'Ocean.'//fileIDChar//'.nc'
      CALL feots % nativeSol % WriteOceanState( feots % mesh, TRIM(oceanStateFile) )
 
      CALL globalState % Trash( )
@@ -562,9 +562,9 @@ CONTAINS
       ! Write the regional data structure to a pickup file for later use
 
       IF( TRIM(params % maskfile) == '' )THEN
-         CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings', maskProvided=.FALSE. )
+         CALL region % WritePickup( TRIM(cliParams % outdir)//'mappings', maskProvided=.FALSE. )
       ELSE
-         CALL region % WritePickup( TRIM(params % regionalOperatorDirectory)//'mappings', maskProvided=.TRUE. )
+         CALL region % WritePickup( TRIM(cliParams % outdir)//'mappings', maskProvided=.TRUE. )
       ENDIF
 
 
@@ -604,11 +604,11 @@ CONTAINS
                                     region % nCells, &
                                     region % nCells*3 )
 
-      crsFile=TRIM(params % regionalOperatorDirectory)//'/transport.'//fileIDChar//'.h5'
+      crsFile=TRIM(cliParams % outdir)//'/transport.'//fileIDChar//'.h5'
       PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
       CALL regionalTransportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
-      crsFile=TRIM(params % regionalOperatorDirectory)//'/diffusion.'//fileIDChar//'.h5'
+      crsFile=TRIM(cliParams % outdir)//'/diffusion.'//fileIDChar//'.h5'
       PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
       CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
          
