@@ -1,7 +1,6 @@
 &POPMeshOptions
 MeshType    = 'PeriodicTripole',
 StencilType = 'LaxWendroff27',
-MaskFile    = 'Zapiola_mask.nc',
 Regional    = .TRUE.,
 south       = -52.18,
 east        = -24.90,
@@ -22,8 +21,6 @@ operatorPeriod = 432000.0,
 nOperatorsPerCycle = 73,
 /
 &FileOptions
-regionalmeshfile          ='Zapiola_mesh.nc',
-regionalOperatorDirectory ='/lustre/scratch3/turquoise/jschoonover/zapiola/',
 /
 &JFNKOptions
 /

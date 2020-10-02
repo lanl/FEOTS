@@ -10,7 +10,7 @@
 #SBATCH --array=1-2%2 # Modify the number of array indices to set how many operators to extract
 
 module use /users/jschoonover/modulefiles
-module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/preconditioner
+module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
 
 feots region-extraction --dbroot ${FEOTS_DBROOT} \
                         --out ${OUTDIR} \
