@@ -299,29 +299,23 @@ MODULE TracerStorage_Class
                                   tracerField)
 
       DO iTracer = 1, thisStorage % nTracers
-         !$OMP DO
          DO i = 1, thisStorage % nDOF
             tendency(i,iTracer) = tendency(i,iTracer)*thisStorage % mask(i,iTracer)
          ENDDO
-         !$OMP ENDDO
       ENDDO
 
       ! Calculate the cell volume update
-      !$OMP DO  
       DO row = 1, thisStorage % transportOp % nRows
          volCorrection(row) = 0.0_prec
          DO iel = thisStorage % transportOp % rowBounds(1,row), thisStorage % transportOp % rowBounds(2,row)
             volCorrection(row) = volCorrection(row) + thisStorage % transportOp % A(iel)
          ENDDO
       ENDDO
-      !$OMP END DO
 
       DO iTracer = 1, thisStorage % nTracers
-        !$OMP DO  
         DO i = 1, thisStorage % nDOF
          volcorrection(i) = volcorrection(i)*thisStorage % mask(i,iTracer)
         ENDDO
-        !$OMP END DO
       ENDDO
 
  END SUBROUTINE CalculateTendency_TracerStorage
@@ -335,18 +329,17 @@ MODULE TracerStorage_Class
    ! Local 
    INTEGER :: i, iTracer, row, iEl, col
 
-     DO iTracer = 1, nTracers ! Only the passive tracers
 
-        !$OMP DO
+     DO iTracer = 1, nTracers ! Only the passive tracers
         DO row = 1, diffusiveOperator % nRows
+
            tendency(row,iTracer) = 0.0_prec
            DO iel = diffusiveOperator % rowBounds(1,row), diffusiveOperator % rowBounds(2,row)
               col = diffusiveOperator % col(iel)
               tendency(row,iTracer) = tendency(row,iTracer) + diffusiveOperator % A(iel)*tracerfield(col,iTracer)
            ENDDO
-        ENDDO
-        !$OMP ENDDO
 
+        ENDDO
      ENDDO
 
  END FUNCTION DiffusiveAction
@@ -372,27 +365,16 @@ MODULE TracerStorage_Class
 
       ! Calculate the contribution from the transport operator
       DO iTracer = 1, nTracers ! Only the passive tracers
-
-         ! Advect the tracer (vertical diffusion is done implicitly)
-         !$OMP DO
          DO row = 1, transportOperator % nRows
-            tendency(row,iTracer) = 0.0_prec
+
+            tendency(row,iTracer) = (source(row,iTracer) - tracerfield(row,iTracer))*rFac(row,iTracer)
+
             DO iel = transportOperator % rowBounds(1,row), transportOperator % rowBounds(2,row)
                col = transportOperator % col(iel)
                tendency(row,iTracer) = tendency(row,iTracer) + transportOperator % A(iel)*tracerfield(col,iTracer)
             ENDDO
-         ENDDO
-         !$OMP ENDDO
 
-         ! Add in the relaxation term
-         !$OMP DO
-         DO i = 1, nDOF
-            tendency(i,iTracer) = tendency(i,iTracer) + &
-                                      (source(i,iTracer) - tracerfield(i,iTracer))*&
-                                       rFac(i,iTracer)
          ENDDO
-         !$OMP ENDDO
-
       ENDDO
      
  END FUNCTION PassiveDyeModel
@@ -415,13 +397,9 @@ MODULE TracerStorage_Class
 !      DO iTracer = 1, ntracers
 !         ! Advect and settle the particulate field
 !
-!         !$OMP PARALLEL
 !         tendency(:,iTracer) = transportOperators(1) % MatVecMul( tracerfield(:,iTracer) ) 
-!         !$OMP ENDPARALLEL
 !
-!         !$OMP PARALLEL
 !         tendency(:,iTracer) = tendency(:,iTracer) + transportOperators(3) % MatVecMul( tracerfield(:,iTracer) ) 
-!         !$OMP ENDPARALLEL
 !
 !         tendency(1:nDOF,iTracer) = tendency(1:nDOF,iTracer) + &
 !                                   (source(1:nDOF,iTracer) - tracerfield(1:nDOF,iTracer))*&

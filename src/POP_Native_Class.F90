@@ -47,6 +47,7 @@ USE netcdf
 
 
  IMPLICIT NONE
+#include "FEOTS_Macros.h"
 
    TYPE NativeIO
      INTEGER :: ncid
@@ -124,7 +125,6 @@ CONTAINS
    CLASS( POP_IRF ), INTENT(out) :: this
    INTEGER, INTENT(in) :: nX, nY, nZ, nIRF
 
-      PRINT*, 'S/R : Build_POP_IRF : Start...'
       this % nX = nX
       this % nY = nY
       this % nZ = nZ
@@ -136,7 +136,6 @@ CONTAINS
 
       this % irf = 0.0_prec
 
-      PRINT*, 'S/R : Build_POP_IRF : Finish.'
 
  END SUBROUTINE Build_POP_IRF
 !
@@ -164,7 +163,6 @@ CONTAINS
    ! Local 
    INTEGER :: nX, nY, nZ, nT, remainder, i
 
-      PRINT*, 'S/R : Build_POP_Native : Start...'
       nX = mesh % nX
       nY = mesh % nY
       nZ = mesh % nZ
@@ -215,7 +213,6 @@ CONTAINS
 !      this % density     = 0.0_prec
 
 
-      PRINT*, 'S/R : Build_POP_Native : Finish.'
 
  END SUBROUTINE Build_POP_Native
 !
@@ -243,6 +240,8 @@ CONTAINS
  END SUBROUTINE Trash_POP_Native
 !
  SUBROUTINE InitializeForNetCDFWrite_POP_Native( this, modelType, mesh, filename, initOn )
+#undef __FUNC__
+#define __FUNC__ "InitializeForNetCDFWrite_POP_Native"
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(inout) :: this
    INTEGER, INTENT(in)             :: modelType
@@ -254,7 +253,7 @@ CONTAINS
    CHARACTER(2) :: tracerid
 
       ! Create the netcdf file and generate a file handle referenced by the
-      PRINT*, 'Preparing write to '//TRIM(filename)
+      INFO('Opening NetCDF file for write.  '//TRIM(filename) )
       CALL Check( nf90_create( PATH=TRIM(filename),&
                                CMODE=OR(nf90_clobber,nf90_64bit_offset),&
                                NCID=this % ioVars % ncid ) )
@@ -488,7 +487,6 @@ CONTAINS
    CHARACTER(2) :: tracerid
    INTEGER :: varid(1:this % nIRF+1)
 
-      PRINT*, 'Preparing read to '//TRIM(filename)
       start    = (/1, 1, 1/)
       recCount = (/this % nX, this % nY, this % nZ/)
 
@@ -525,7 +523,6 @@ CONTAINS
    INTEGER :: i
    CHARACTER(2) :: tracerid
 
-      PRINT*, 'Preparing read to '//TRIM(filename)
       ! Create the netcdf file and generate a file handle referenced by the
       ! integer "this % ioVars % ncid"
       CALL Check( nf90_open( TRIM(filename), nf90_nowrite, this % ioVars % ncid ) )
@@ -539,7 +536,6 @@ CONTAINS
       
          DO i = 1, this % nTracers-1
             WRITE( tracerid, '(I2.2)') i
-            !PRINT*, "ADV_3D_IRF_"//tracerid
             CALL Check( nf90_inq_varid( this % ioVars % ncid, "ADV_3D_IRF_"//tracerid, &
                                         this % ioVars % tracerVarID(i) ) )
          ENDDO
@@ -639,35 +635,30 @@ CONTAINS
       start3D    = (/1, 1, 1/)
       recCount3D = (/mesh % nX, mesh % nY, mesh % nZ/)
 
-      PRINT*, 'Loading SSH'
       CALL Check( nf90_inq_varid( ncid, "SSH",varid ) )
       CALL Check( nf90_get_var( ncid, &
                                 varid, &
                                 this % volume(:,:,1), &
                                 start2D, recCount2D ) )
 
-!      PRINT*, 'Loading TEMP'
 !      CALL Check( nf90_inq_varid( ncid, "TEMP",varid ) )
 !      CALL Check( nf90_get_var( ncid, &
 !                                varid, &
 !                                this % temperature, &
 !                                start3D, recCount3D ) )
 !
-!      PRINT*, 'Loading SALT'
 !      CALL Check( nf90_inq_varid( ncid, "SALT",varid ) )
 !      CALL Check( nf90_get_var( ncid, &
 !                                varid, &
 !                                this % salinity, &
 !                                start3D, recCount3D ) )
 !
-!      PRINT*, 'Loading PD'
 !      CALL Check( nf90_inq_varid( ncid, "PD",varid ) )
 !      CALL Check( nf90_get_var( ncid, &
 !                                varid, &
 !                                this % density, &
 !                                start3D, recCount3D ) )
 !
-      PRINT*, 'DONE'
 
       CALL Check( nf90_close( ncid ) )
 
@@ -789,7 +780,6 @@ CONTAINS
                                    this % ioVars % volumeVarID, &
                                    this % volume, &
                                    start, recCount ) )      
-      PRINT*, 'MINMAX NATIVE VOL -NETCDF', MINVAL( this % volume ), MAXVAL( this % volume )
 
  END SUBROUTINE WriteNETCDFRecord_POP_Native
 !

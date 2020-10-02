@@ -54,6 +54,8 @@ USE OMP_LIB
 
 IMPLICIT NONE
 
+#include "FEOTS_Macros.h"
+
 
 CONTAINS
 
@@ -556,7 +558,8 @@ CONTAINS
 
       CALL region % Build( globalMesh, regionalMesh, modelstencil, params % meshType, &
                            params % south, params % north, &
-                           params % east, params % west, params % maskfile ) 
+                           params % east, params % west, &
+                           TRIM(cliParams % outdir)//'/mask.nc' ) 
 
       CALL regionalMesh % WriteNetCDF( TRIM(cliParams % outdir)//'/mesh.nc' )
       ! Write the regional data structure to a pickup file for later use
@@ -696,7 +699,8 @@ CONTAINS
  END SUBROUTINE InitialConditions
 
  SUBROUTINE FEOTSIntegrate(cliParams)
-
+#undef __FUNC__
+#define __FUNC__ "FeotsIntegrate"
    IMPLICIT NONE
    TYPE( FEOTS_CLI ), INTENT(in) :: cliParams
    ! Local
@@ -753,9 +757,18 @@ CONTAINS
    
          DO iter = feots % params % iterInit, feots % params % iterInit + feots % params % nTimeSteps -1, feots % params % nStepsPerDump
 
-            !$OMP PARALLEL
+#ifdef _OPENMP
+            t1 = omp_get_wtime()
+#else
+            CALL CPU_TIME(t1)
+#endif
             CALL feots % ForwardStep( tn, feots % params % nStepsPerDump, myRank, nProcs )
-            !$OMP END PARALLEL 
+#ifdef _OPENMP
+            t2 = omp_get_wtime()
+#else
+            CALL CPU_TIME(t2)
+#endif
+            INFO('ForwardStep wall-time = '//Float2Str(t2-t1)//' s')
  
             CALL feots % MapTracerFromDOF( )
 

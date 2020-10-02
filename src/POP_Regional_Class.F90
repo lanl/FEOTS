@@ -54,6 +54,8 @@ USE netcdf
 
 IMPLICIT NONE
 
+#include "FEOTS_Macros.h"
+
 
 ! Bounding latitudes should always be specified in degrees North
 ! Bounding longitudes should always be specified in degrees East
@@ -167,7 +169,8 @@ CONTAINS
  END SUBROUTINE Trash_POP_Regional
 !
  SUBROUTINE LoadMaskField_POP_Regional( myRegion, mesh, maskfield, maskfile )
-
+#undef __FUNC__
+#define  __FUNC__ "LoadMaskField_POP_Regional"
    IMPLICIT NONE
    CLASS( POP_Regional ), INTENT(inout) :: myRegion
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
@@ -181,6 +184,7 @@ CONTAINS
       start    = (/1, 1/)
       recCount = (/mesh % nX, mesh % nY/)
 
+      INFO('Loading '//TRIM(maskfile))
       CALL Check( nf90_open( TRIM(maskfile), nf90_nowrite, ncid ) )
 
       CALL Check( nf90_inq_varid( ncid, "nMasks", varid ) )
