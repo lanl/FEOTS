@@ -109,7 +109,7 @@ IMPLICIT NONE
          ENDDO
 
       
-      CALL WriteMaskField( mesh, maskField, TRIM(cliParams % outdir)//'mask.nc' )
+      CALL WriteMaskField( mesh, maskField, TRIM(cliParams % outdir)//'/mask.nc' )
       CALL mesh % Trash( )
       DEALLOCATE( regionMask, maskField )
 
@@ -126,6 +126,7 @@ CONTAINS
    INTEGER :: ncid, varid(1:nMasks), nMaskid, x_dimid, y_dimid, iMask
    CHARACTER(3) :: maskChar
 
+      PRINT*, 'Writing mask to '//TRIM(maskfile)
       start    = (/1, 1/)
       recCount = (/mesh % nX, mesh % nY/)
 

@@ -50,7 +50,6 @@ CONTAINS
    INTEGER  :: i, j, k, m, nn, iTracer
 
       iTracer = myRank+1  !1, myFeots % params % nTracers
-      PRINT*, 'RANK, nPCELLS', myRank, myFeots % feotsMap % bMap(iTracer) % nPCells
       DO m = 1, myFeots % feotsMap % bMap(iTracer) % nPCells
 
          nn = myFeots % feotsMap % bMap(iTracer) % prescribedCells(m)

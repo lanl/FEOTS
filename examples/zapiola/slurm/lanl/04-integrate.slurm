@@ -9,9 +9,9 @@
 #SBATCH --qos=standard
 
 module use /users/jschoonover/modulefiles
-module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/baseline
+module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/preconditioner
 
-#export OMP_NUM_THREADS=4
-srun -n${SLURM_NTASKS} feots integrate --dbroot ${FEOTS_DBROOT}  \
-                                       --out ${OUTDIR} \
-                                       --param-file ./params/lanl/runtime.params
+
+srun -n${SLURM_NTASKS} -c${OMP_NUM_THREADS} feots integrate --dbroot ${FEOTS_DBROOT}  \
+                                                            --out ${OUTDIR} \
+                                                            --param-file ./params/lanl/runtime.params

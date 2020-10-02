@@ -16,16 +16,12 @@
 *.txt
 
 autom4te.cache/*
+output*
 penmp
 config.status
 
-GreedyColoring
-GenerateMeshOnlyFile
-GenMask
-OperatorDiagnosis
-RegionalExtraction
-ExtractOceanState
-FEOTSInitialize
-FEOTSDriver
-
 feots_logs*
+genmask
+init
+feots
+Makefile
