@@ -184,13 +184,13 @@ USE FEOTS_CLI_Class
       PROCEDURE :: VerticalMixing => VerticalMixing_POP_FEOTS
       PROCEDURE :: VerticalMixingAction
       PROCEDURE :: VerticalMixingPrecondition
-      PROCEDURE :: GetMax
+      PROCEDURE :: GetMagnitude
       PROCEDURE :: Mask
 
    END TYPE POP_FEOTS
 
-   REAL(prec), PARAMETER, PRIVATE :: cg_tolerance = 1.0D-7
-   INTEGER, PARAMETER, PRIVATE    :: cg_itermax   = 50000
+   REAL(prec), PARAMETER, PRIVATE :: cg_tolerance = 1.0D-6
+   INTEGER, PARAMETER, PRIVATE    :: cg_itermax   = 100
 
 CONTAINS
 !
@@ -747,7 +747,7 @@ CONTAINS
            Dx = 0.0_prec
            DO iel = this % solution % diffusionOp % rowBounds(1,i), this % solution % diffusionOp % rowBounds(2,i)
               col = this % solution % diffusionOp % col(iel)
-              Dx = Dx + this % solution % diffusionOp % A(iel)*x(i,m)
+              Dx = Dx + this % solution % diffusionOp % A(iel)*x(col,m)
            ENDDO
 
          Ax(i,m) = (1.0_prec + this % solution % volume(i))*x(i,m) - this % params % dt*Dx
@@ -756,22 +756,22 @@ CONTAINS
 
  END FUNCTION VerticalMixingAction 
     
- FUNCTION GetMax( this, x ) RESULT( maxX )
+ FUNCTION GetMagnitude( this, x ) RESULT( magX )
    IMPLICIT NONE
    CLASS( POP_FEOTS ) :: this
    REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: maxX
+   REAL(prec) :: magX
    ! Local
    INTEGER :: i, m
 
-     maxX = 0.0_prec 
+     magX = 0.0_prec 
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
-          maxX = MAX(ABS(x(i,m)), maxX)
+          magX = magX + x(i,m)*x(i,m)*this % solution % mask(i,m)
        ENDDO
      ENDDO
 
- END FUNCTION GetMax
+ END FUNCTION GetMagnitude
 
  FUNCTION Mask( this, x ) RESULT( y )
    IMPLICIT NONE
@@ -831,54 +831,68 @@ CONTAINS
    REAL(prec) :: w(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: p(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: alpha, beta, residual_magnitude, sol_magnitude, update_magnitude
+   REAL(prec) :: alpha, beta, r0, s0, rm, sm, update_magnitude
    INTEGER :: m, i, iter
    REAL(prec) :: mag_divisor
   
-
+     !$OMP PARALLEL
+     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          x(i,m) = this % solution % tracers(i,m)
        ENDDO
      ENDDO
+     !$OMP ENDDO
+     !$OMP END PARALLEL
     
      Ax = this % VerticalMixingAction( x )
 
+     !$OMP PARALLEL
+     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
-         r(i,m)  = rhs(i,m) - Ax(i,m)
+         r(i,m)  = ( rhs(i,m) - Ax(i,m) )*this % solution % mask(i,m)
        ENDDO
      ENDDO
+     !$OMP ENDDO
+     !$OMP END PARALLEL
 
-     r = this % Mask( r )
+     s0 = this % GetMagnitude(x)
+     r0 = this % GetMagnitude(r)
+
+     IF( r0/s0 <= cg_tolerance .OR. s0 <= TOL )THEN
+       INFO('Residual magnitude less than cg_tolerance on start. (r0, s0, r0/s0): '//Float2Str(r0)//', '//Float2Str(s0)//', '//Float2Str(r0/s0))
+       RETURN
+     ENDIF
 
      ! Invert the preconditioner Mz = r.
      z = this % VerticalMixingPrecondition(r)
 
+     !$OMP PARALLEL
+     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          p(i,m) = z(i,m)
        ENDDO
      ENDDO  
+     !$OMP ENDDO
+     !$OMP END PARALLEL
 
      w = this % VerticalMixingAction( p ) 
-
      alpha = this % DotProduct( r, z )/this % DotProduct( p, w )
 
+     !$OMP PARALLEL
+     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          x(i,m) = x(i,m) + alpha*p(i,m)
          rk(i,m) = r(i,m) - alpha*w(i,m)
        ENDDO
      ENDDO
+     !$OMP ENDDO
+     !$OMP END PARALLEL
 
      rk = this % Mask( rk )
-     residual_magnitude = this % GetMax(rk)
-
-     IF( residual_magnitude <= cg_tolerance )THEN
-       INFO('Residual magnitude less than cg_tolerance on start.')
-       RETURN
-     ENDIF
 
      DO iter = 1, cg_itermax
 
@@ -886,11 +900,15 @@ CONTAINS
 
        beta = this % DotProduct(rk,zk)/this % DotProduct(r,z)
        
+       !$OMP PARALLEL
+       !$OMP DO COLLAPSE(2)
        DO m = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF
            p(i,m) = zk(i,m) + beta*p(i,m)
          ENDDO
        ENDDO  
+       !$OMP ENDDO
+       !$OMP END PARALLEL
 
        w = this % VerticalMixingAction( p ) 
 
@@ -898,6 +916,8 @@ CONTAINS
 
        p = this % Mask( p )
 
+       !$OMP PARALLEL
+       !$OMP DO COLLAPSE(2)
        DO m = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF
 
@@ -909,19 +929,21 @@ CONTAINS
 
          ENDDO
        ENDDO
+       !$OMP ENDDO
+       !$OMP END PARALLEL
      
        rk = this % Mask( rk )
-       residual_magnitude = this % GetMax(rk)
+       rm = this % GetMagnitude(rk)
 
-       IF( residual_magnitude <= cg_tolerance )THEN
+       IF( rm/r0 <= cg_tolerance )THEN
          INFO('Vertical Mixing Converged in '//Int2Str(iter)//' iterates')
-         INFO('Final residual = '//Float2Str(residual_magnitude))
+         INFO('Final (relative) residual = '//Float2Str(rm/r0))
          RETURN
        ENDIF
 
      ENDDO
 
-     WARNING('Failed to converge. Final residual = '//Float2Str(residual_magnitude))
+     WARNING('Failed to converge. Final (relative) residual = '//Float2Str(rm/r0))
      
 
  END SUBROUTINE VerticalMixing_POP_FEOTS
