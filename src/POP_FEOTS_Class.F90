@@ -483,8 +483,8 @@ CONTAINS
 
       DO i = 1, this % solution % nTracers 
          this % solution % tracers(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % tracer(:,:,:,i) )
+         this % solution % volume(:,i) = this % mesh % MapFromIJKtoDOF( this % nativeSol % volume(:,:,:,i) )
       ENDDO
-      this % solution % volume = this % mesh % MapFromIJKtoDOF( this % nativeSol % volume )
    
  END SUBROUTINE MapTracerToDOF_POP_FEOTS
 !
@@ -543,8 +543,8 @@ CONTAINS
 
       DO i = 1, this % solution % nTracers
          this % nativeSol % tracer(:,:,:,i) = this % mesh % MapFromDOFtoIJK( this % solution % tracers(:,i) )
+         this % nativeSol % volume(:,:,:,i) = this % mesh % MapFromDOFtoIJK( this % solution % volume(:,i) )
       ENDDO
-      this % nativeSol % volume = this % mesh % MapFromDOFtoIJK( this % solution % volume )
    
  END SUBROUTINE MapTracerFromDOF_POP_FEOTS
 !
@@ -750,7 +750,7 @@ CONTAINS
               Dx = Dx + this % solution % diffusionOp % A(iel)*x(col,m)
            ENDDO
 
-         Ax(i,m) = (1.0_prec + this % solution % volume(i))*x(i,m) - this % params % dt*Dx
+         Ax(i,m) = (1.0_prec + this % solution % volume(i,m))*x(i,m) - this % params % dt*Dx
        ENDDO
      ENDDO
 
@@ -807,7 +807,7 @@ CONTAINS
            ENDIF
          ENDDO
 
-         diag = (1.0_prec + this % solution % volume(i)) - this % params % dt*this % solution % diffusionOp % A(diagIndex)
+         diag = (1.0_prec + this % solution % volume(i,m)) - this % params % dt*this % solution % diffusionOp % A(diagIndex)
          z(i,m) = r(i,m)/diag
        ENDDO
      ENDDO
@@ -835,27 +835,19 @@ CONTAINS
    INTEGER :: m, i, iter
    REAL(prec) :: mag_divisor
   
-     !$OMP PARALLEL
-     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          x(i,m) = this % solution % tracers(i,m)
        ENDDO
      ENDDO
-     !$OMP ENDDO
-     !$OMP END PARALLEL
     
      Ax = this % VerticalMixingAction( x )
 
-     !$OMP PARALLEL
-     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          r(i,m)  = ( rhs(i,m) - Ax(i,m) )*this % solution % mask(i,m)
        ENDDO
      ENDDO
-     !$OMP ENDDO
-     !$OMP END PARALLEL
 
      s0 = this % GetMagnitude(x)
      r0 = this % GetMagnitude(r)
@@ -868,29 +860,21 @@ CONTAINS
      ! Invert the preconditioner Mz = r.
      z = this % VerticalMixingPrecondition(r)
 
-     !$OMP PARALLEL
-     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          p(i,m) = z(i,m)
        ENDDO
      ENDDO  
-     !$OMP ENDDO
-     !$OMP END PARALLEL
 
      w = this % VerticalMixingAction( p ) 
      alpha = this % DotProduct( r, z )/this % DotProduct( p, w )
 
-     !$OMP PARALLEL
-     !$OMP DO COLLAPSE(2)
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          x(i,m) = x(i,m) + alpha*p(i,m)
          rk(i,m) = r(i,m) - alpha*w(i,m)
        ENDDO
      ENDDO
-     !$OMP ENDDO
-     !$OMP END PARALLEL
 
      rk = this % Mask( rk )
 
@@ -900,15 +884,11 @@ CONTAINS
 
        beta = this % DotProduct(rk,zk)/this % DotProduct(r,z)
        
-       !$OMP PARALLEL
-       !$OMP DO COLLAPSE(2)
        DO m = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF
            p(i,m) = zk(i,m) + beta*p(i,m)
          ENDDO
        ENDDO  
-       !$OMP ENDDO
-       !$OMP END PARALLEL
 
        w = this % VerticalMixingAction( p ) 
 
@@ -916,8 +896,6 @@ CONTAINS
 
        p = this % Mask( p )
 
-       !$OMP PARALLEL
-       !$OMP DO COLLAPSE(2)
        DO m = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF
 
@@ -929,8 +907,6 @@ CONTAINS
 
          ENDDO
        ENDDO
-       !$OMP ENDDO
-       !$OMP END PARALLEL
      
        rk = this % Mask( rk )
        rm = this % GetMagnitude(rk)
@@ -952,34 +928,26 @@ CONTAINS
    IMPLICIT NONE
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(in)            :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec), INTENT(in)            :: dVdt(1:this % solution % nDOF)
+   REAL(prec), INTENT(in)            :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    INTEGER, INTENT(in)               :: nTimeSteps
    ! Local
    INTEGER    :: maskID, m, i
-   REAL(prec) :: vol(1:this % solution % nDOF)
+   REAL(prec) :: vol(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: Dx(1:this % solution % nDOF, 1:this % solution % nTracers)
 
 
-        DO i = 1, this % solution % nDOF
-           ! Calculate volume correction
-           vol(i) = this % solution % volume(i) + this % params % dt*dVdt(i)
-        ENDDO
-
         DO m = 1, this % solution % nTracers
            DO i = 1, this % solution % nDOF
 
-             rhs(i,m)  = ((1.0_prec+this % solution % volume(i))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
+             vol(i,m) = this % solution % volume(i,m) + this % params % dt*dVdt(i,m)
+             rhs(i,m)  = ((1.0_prec+this % solution % volume(i,m))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
 
              ! Set the initial guess for the vertical diffusion
-             this % solution % tracers(i,m) = rhs(i,m)/(1.0_prec+vol(i))
+             this % solution % tracers(i,m) = rhs(i,m)/(1.0_prec+vol(i,m))
+             this % solution % volume(i,m) = vol(i,m)
 
            ENDDO
-        ENDDO
-
-        ! Update volume
-        DO i = 1, this % solution % nDOF
-           this % solution % volume(i) = vol(i)
         ENDDO
 
         ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
@@ -1005,7 +973,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: dVdt(1:this % solution % nDOF)
+   REAL(prec) :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    INTEGER    :: iT
 
 
@@ -1038,7 +1006,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: dVdt(1:this % solution % nDOF)
+   REAL(prec) :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
@@ -1094,7 +1062,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: dVdt(1:this % solution % nDOF)
+   REAL(prec) :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    INTEGER         :: i, j, k, m, iT, dof, iTracer, iLayer, iMask
    LOGICAL         :: operatorsSwapped
    CHARACTER(400)  :: oceanStateFile
@@ -1188,7 +1156,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: dVdt(1:this % solution % nDOF)
+   REAL(prec) :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: tn, dt
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
@@ -1244,7 +1212,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: dVdt(1:this % solution % nDOF)
+   REAL(prec) :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: tn, dt
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
@@ -1316,7 +1284,7 @@ CONTAINS
    REAL(prec) :: weightedTracers(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: dCdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: diffTendency(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: dVdt(1:this % solution % nDOF)
+   REAL(prec) :: dVdt(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: tn, dt
    INTEGER    :: nPeriods, nSteps, i, j, k, m 
    CHARACTER(5) :: periodChar
