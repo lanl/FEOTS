@@ -51,6 +51,7 @@ IMPLICIT NONE
      LOGICAL :: run_Initialize
      LOGICAL :: run_Equilibrator
      LOGICAL :: run_Integrator
+     LOGICAL :: verticalMixing
      LOGICAL :: setupSuccess
      LOGICAL :: helpNeeded
 
@@ -78,7 +79,7 @@ CONTAINS
     ! Local
     INTEGER :: nArg, argID
     CHARACTER(500) :: argName
-    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided
+    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided, mixingProvided
 
       PRINT*, 'FEOTS (feots) Command Line Interface' 
       PRINT*, ' Copyright Los Alamos National Laboratory (2017-2020)'
@@ -100,6 +101,7 @@ CONTAINS
     cliParams % run_Initialize = .FALSE.
     cliParams % run_Equilibrator = .FALSE.
     cliParams % run_Integrator = .FALSE.
+    cliParams % verticalMixing = .TRUE.
     cliParams % helpNeeded = .FALSE.
     cliParams % paramFile = './runtime.params'
     cliParams % irfFile = ''
@@ -176,6 +178,10 @@ CONTAINS
 
           CASE( "--out" )
             outProvided = .TRUE.
+
+          CASE( "--no-vertical-mixing" )
+            cliParams % verticalMixing = .FALSE.
+
 
           CASE DEFAULT
 
@@ -280,6 +286,9 @@ CONTAINS
       PRINT*, ' '
       PRINT*, '    --out /path/to/output/directory'
       PRINT*, '       Specifies the path to write model output. Defaults to ./'
+      PRINT*, ' '
+      PRINT*, '    --no-vertical-mixing'
+      PRINT*, '       Disables the vertical mixing operator for forward integration and equilibration'
       PRINT*, ' '
       PRINT*, ' '
 

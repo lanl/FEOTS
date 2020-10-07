@@ -306,7 +306,7 @@ CONTAINS
    
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(i), "long_name", &
                                       "Dye tracer concentration of tracer "//tracerid ) )
-            CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(i), "units", "" ) )
+            CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(i), "units", "%" ) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(i), "coordinates", &
                                       "TLONG TLAT z_t" ) )
             CALL Check( nf90_put_att( this % ioVars % ncid, this % ioVars % tracerVarID(i), "_FillValue", &
@@ -427,6 +427,8 @@ CONTAINS
  END SUBROUTINE LoadNetCDF_POP_IRF
 
  SUBROUTINE InitializeForNetCDFRead_POP_Native( this, modelType, filename, initOn )
+#undef __FUNC__
+#define __FUNC__ "InitializeForNetCDFRead_POP_Native"
    IMPLICIT NONE
    CLASS( POP_Native ), INTENT(inout) :: this
    INTEGER, INTENT(in)             :: modelType
@@ -436,6 +438,7 @@ CONTAINS
    INTEGER :: i
    CHARACTER(2) :: tracerid
 
+      INFO('Initializing NetCDF file for read. '//TRIM(filename))
       ! Create the netcdf file and generate a file handle referenced by the
       ! integer "this % ioVars % ncid"
       CALL Check( nf90_open( TRIM(filename), nf90_nowrite, this % ioVars % ncid ) )
@@ -470,12 +473,19 @@ CONTAINS
       
             DO i = 1, this % nTracers
                WRITE( tracerid, '(I2.2)') this % tracerIds(i)-1
+               INFO('Obtain variable ID for DyeTracer_'//TRIM(tracerid))
                CALL Check( nf90_inq_varid( this % ioVars % ncid, "DyeTracer_"//tracerid, &
                                          this % ioVars % tracerVarID(i) ) )
+               INFO('Obtain variable ID for Volume_'//TRIM(tracerid))
+               CALL Check( nf90_inq_varid( this % ioVars % ncid,"Volume_"//tracerid, &
+                                           this % ioVars % volumeVarID(i) ) )
+               INFO('Obtain variable ID for Source_'//TRIM(tracerid))
                CALL Check( nf90_inq_varid( this % ioVars % ncid, "Source_"//tracerid, &
                                          this % ioVars % sourceVarID(i) ) )
+               INFO('Obtain variable ID for rFac_'//TRIM(tracerid))
                CALL Check( nf90_inq_varid( this % ioVars % ncid, "rFac_"//tracerid, &
                                          this % ioVars % rFacVarid(i) ) )
+               INFO('Obtain variable ID for mask_'//TRIM(tracerid))
                CALL Check( nf90_inq_varid( this % ioVars % ncid, "mask_"//tracerid, &
                                          this % ioVars % maskVarID(i) ) )
             ENDDO
@@ -484,8 +494,10 @@ CONTAINS
 
             DO i = 1, this % nTracers
                WRITE( tracerid, '(I2.2)') this % tracerIds(i)-1
+               INFO('Obtain variable ID for DyeTracer_'//TRIM(tracerid))
                CALL Check( nf90_inq_varid( this % ioVars % ncid, "DyeTracer_"//tracerid, &
                                          this % ioVars % tracerVarID(i) ) )
+               INFO('Obtain variable ID for Volume_'//TRIM(tracerid))
                CALL Check( nf90_inq_varid( this % ioVars % ncid,"Volume_"//tracerid, &
                                            this % ioVars % volumeVarID(i) ) )
             ENDDO
@@ -494,6 +506,8 @@ CONTAINS
 
       
       ENDIF
+
+      INFO('Done.')
 
  END SUBROUTINE InitializeForNetCDFRead_POP_Native
 !   

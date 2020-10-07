@@ -68,6 +68,7 @@ USE ConstantsDictionary
       INTEGER    :: nRecordsPerfile
       LOGICAL    :: WaterMassTagging
       INTEGER    :: nLayers
+      LOGICAL    :: verticalMixing
       ! OperatorOptions
       REAL(prec) :: operatorPeriod
       INTEGER    :: nOperatorsPerCycle
@@ -233,6 +234,7 @@ USE ConstantsDictionary
       thisParam % WaterMassTagging = WaterMassTagging
       thisParam % nLayers          = nLayers
       thisParam % settlingVelocity = settlingVelocity
+      thisParam % verticalMixing = .TRUE.
       !**********************************************************!
       ! If your your model must use a fixed number of tracers,
       ! then you MUST hard-set the "nTracers" attribute here

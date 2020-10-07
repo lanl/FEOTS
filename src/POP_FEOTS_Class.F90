@@ -228,6 +228,7 @@ CONTAINS
       CALL this % params % Build(TRIM(cliParams % paramFile))
       this % params % dbRoot = cliParams % dbRoot
       this % params % regionalOperatorDirectory = cliParams % outdir
+      this % params % verticalMixing = cliParams % verticalMixing
 
       IF( this % params % TracerModel /= DyeModel )THEN
          ERROR('MPI currently only configured for Passive Dye Model.')
@@ -951,7 +952,9 @@ CONTAINS
         ENDDO
 
         ! Need to invert ( 1 + vol(i) - D )*c = rhs with Conjugate Gradient.
-        CALL this % VerticalMixing( rhs )
+        IF( this % params % verticalMixing )THEN
+          CALL this % VerticalMixing( rhs )
+        ENDIF
 
 
  END SUBROUTINE StepForward
