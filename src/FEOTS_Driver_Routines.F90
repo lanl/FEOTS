@@ -100,7 +100,7 @@ CONTAINS
         feots % nativeSol % temperature(i_local,j_local,k_local) = globalState % temperature(i,j,k)
         feots % nativeSol % salinity(i_local,j_local,k_local)    = globalState % salinity(i,j,k)
         feots % nativeSol % density(i_local,j_local,k_local)     = globalState % density(i,j,k)
-        feots % nativeSol % volume(i_local,j_local,k_local)      = globalState % volume(i,j,k)
+        !feots % nativeSol % volume(i_local,j_local,k_local)      = globalState % volume(i,j,k)
      ENDDO
 
      WRITE(fileIDChar, '(I5.5)' ) cliParams % oplevel
@@ -564,12 +564,7 @@ CONTAINS
       CALL regionalMesh % WriteNetCDF( TRIM(cliParams % outdir)//'/mesh.nc' )
       ! Write the regional data structure to a pickup file for later use
 
-      IF( TRIM(params % maskfile) == '' )THEN
-         CALL region % WritePickup( TRIM(cliParams % outdir)//'/mappings', maskProvided=.FALSE. )
-      ELSE
-         CALL region % WritePickup( TRIM(cliParams % outdir)//'/mappings', maskProvided=.TRUE. )
-      ENDIF
-
+      CALL region % WritePickup( TRIM(cliParams % outdir)//'/mappings', maskProvided=.TRUE. )
 
       CALL advstencil % Build( stencilFlag = params % stencilType, &
                                flavor      = Normal )

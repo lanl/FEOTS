@@ -87,7 +87,7 @@ MODULE TracerStorage_Class
       TYPE( CRSMatrix )              :: transportOp 
       TYPE( CRSMatrix )              :: diffusionOp 
       REAL(prec), ALLOCATABLE        :: tracers(:,:)
-      REAL(prec), ALLOCATABLE        :: volume(:)
+      REAL(prec), ALLOCATABLE        :: volume(:,:)
       REAL(prec), ALLOCATABLE        :: source(:,:), rFac(:,:)
       REAL(prec), ALLOCATABLE        :: mask(:,:)
       INTEGER, ALLOCATABLE           :: tracerIDs(:) ! Tracer ID lower and upper bounds
@@ -103,8 +103,6 @@ MODULE TracerStorage_Class
 
    END TYPE TracerStorage
 
-
-!   PRIVATE :: PassiveDyeModel, ParticulateRadioNuclideModel
 
  CONTAINS
 !
@@ -155,7 +153,7 @@ MODULE TracerStorage_Class
       
       ALLOCATE( thisStorage % tracerIDs(1:thisStorage % nTracers) )
       ALLOCATE( thisStorage % tracers(1:nDOF,1:thisStorage % nTracers) )
-      ALLOCATE( thisStorage % volume(1:nDOF) )
+      ALLOCATE( thisStorage % volume(1:nDOF,1:thisStorage % nTracers) )
       ALLOCATE( thisStorage % source(1:nDOF,1:thisStorage % nTracers) )
       ALLOCATE( thisStorage % rFac(1:nDOF,1:thisStorage % nTracers) )
       ALLOCATE( thisStorage % mask(1:nDOF,1:thisStorage % nTracers) )
@@ -268,7 +266,7 @@ MODULE TracerStorage_Class
 
  END SUBROUTINE MaskField_TracerStorage
 !
- SUBROUTINE CalculateTendency_TracerStorage( thisStorage, tracerfield, t, modelflag, tendency, volCorrection )
+ SUBROUTINE CalculateTendency_TracerStorage( this, tracerfield, t, modelflag, tendency, volCorrection )
  ! CalculateTendency
  !
  !  This subroutine manages the call to the correct model for calculating the tendency of a 
@@ -279,183 +277,35 @@ MODULE TracerStorage_Class
  ! 
  ! =============================================================================================== !
    IMPLICIT NONE
-   CLASS( TracerStorage ), INTENT(in) :: thisStorage
-   REAL(prec), INTENT(in)             :: tracerfield(1:thisStorage % nDOF, 1:thisStorage % nTracers)
-   REAL(prec), INTENT(out)            :: tendency(1:thisStorage % nDOF, 1:thisStorage % nTracers)
-   REAL(prec), INTENT(out)            :: volCorrection(1:thisStorage % nDOF)
+   CLASS( TracerStorage ), INTENT(in) :: this
+   REAL(prec), INTENT(in)             :: tracerfield(1:this % nDOF, 1:this % nTracers)
+   REAL(prec), INTENT(out)            :: tendency(1:this % nDOF, 1:this % nTracers)
+   REAL(prec), INTENT(out)            :: volCorrection(1:this % nDOF, 1:this % nTracers)
    REAL(prec), INTENT(in)             :: t
    INTEGER, INTENT(in)                :: modelflag
    ! Local
-   INTEGER    :: iTracer, i, row, iel
-   REAL(prec) :: fieldOfOnes(1:thisStorage % nDOF)
+   INTEGER    :: iTracer, i, row, iel, col
+   REAL(prec) :: fieldOfOnes(1:this % nDOF)
 
 
-      tendency = PassiveDyeModel( thisStorage % nOps, &
-                                  thisStorage % nTracers, &
-                                  thisStorage % nDOF, &
-                                  thisStorage % transportOp, &
-                                  thisStorage % source, &
-                                  thisStorage % rFac, &
-                                  tracerField)
+      ! Apply the transport operator
+      DO iTracer = 1, this % nTracers
+         DO row = 1, this % transportOp % nRows
 
-      DO iTracer = 1, thisStorage % nTracers
-         DO i = 1, thisStorage % nDOF
-            tendency(i,iTracer) = tendency(i,iTracer)*thisStorage % mask(i,iTracer)
-         ENDDO
-      ENDDO
+            volCorrection(row,iTracer) = 0.0_prec
+            tendency(row,iTracer) = (this % source(row,iTracer) - tracerfield(row,iTracer))*this % rFac(row,iTracer)
 
-      ! Calculate the cell volume update
-      DO row = 1, thisStorage % transportOp % nRows
-         volCorrection(row) = 0.0_prec
-         DO iel = thisStorage % transportOp % rowBounds(1,row), thisStorage % transportOp % rowBounds(2,row)
-            volCorrection(row) = volCorrection(row) + thisStorage % transportOp % A(iel)
-         ENDDO
-      ENDDO
-
-      DO iTracer = 1, thisStorage % nTracers
-        DO i = 1, thisStorage % nDOF
-         volcorrection(i) = volcorrection(i)*thisStorage % mask(i,iTracer)
-        ENDDO
-      ENDDO
-
- END SUBROUTINE CalculateTendency_TracerStorage
-!
- FUNCTION DiffusiveAction( diffusiveOperator, tracerField, nTracers, nDOF ) RESULT( tendency )
-   IMPLICIT NONE
-   TYPE(CRSMatrix) :: diffusiveOperator
-   INTEGER         :: nDOF, nTracers
-   REAL(prec)      :: tracerField(1:nDOF,1:nTracers)
-   REAL(prec)      :: tendency(1:nDOF,1:nTracers)
-   ! Local 
-   INTEGER :: i, iTracer, row, iEl, col
-
-
-     DO iTracer = 1, nTracers ! Only the passive tracers
-        DO row = 1, diffusiveOperator % nRows
-
-           tendency(row,iTracer) = 0.0_prec
-           DO iel = diffusiveOperator % rowBounds(1,row), diffusiveOperator % rowBounds(2,row)
-              col = diffusiveOperator % col(iel)
-              tendency(row,iTracer) = tendency(row,iTracer) + diffusiveOperator % A(iel)*tracerfield(col,iTracer)
-           ENDDO
-
-        ENDDO
-     ENDDO
-
- END FUNCTION DiffusiveAction
-!
- FUNCTION PassiveDyeModel( nOperators, nTracers, nDOF,transportOperator, source, rfac, tracerfield ) RESULT( tendency )
- ! PassiveDyeModel
- !
- !  This function calculates the tendency at time t via a matrix vector multiplication of the 
- !  interpolated transport operator and the tracer field.
- !  
- !  *Model flag is passed in as a way to choose from a variety of model options. In this base code
- ! 
- ! =============================================================================================== !
-   IMPLICIT NONE
-   INTEGER         :: nOperators, nTracers, nDOF
-   TYPE(CRSMatrix) :: transportOperator
-   REAL(prec)      :: tracerfield(1:nDOF, 1:nTracers)
-   REAL(prec)      :: source(1:nDOF, 1:nTracers)
-   REAL(prec)      :: rfac(1:nDOF, 1:nTracers)
-   REAL(prec)      :: tendency(1:nDOF, 1:nTracers)
-   ! LOCAL
-   INTEGER         :: iTracer, i, row, col, iel
-
-      ! Calculate the contribution from the transport operator
-      DO iTracer = 1, nTracers ! Only the passive tracers
-         DO row = 1, transportOperator % nRows
-
-            tendency(row,iTracer) = (source(row,iTracer) - tracerfield(row,iTracer))*rFac(row,iTracer)
-
-            DO iel = transportOperator % rowBounds(1,row), transportOperator % rowBounds(2,row)
-               col = transportOperator % col(iel)
-               tendency(row,iTracer) = tendency(row,iTracer) + transportOperator % A(iel)*tracerfield(col,iTracer)
+            DO iel = this % transportOp % rowBounds(1,row), this % transportOp % rowBounds(2,row)
+               col = this % transportOp % col(iel)
+               tendency(row,iTracer) = tendency(row,iTracer) + this % transportOp % A(iel)*tracerfield(col,iTracer)
+               volCorrection(row,iTracer) = volCorrection(row,iTracer) + this % transportOp % A(iel)
             ENDDO
-
+            tendency(row,iTracer) = tendency(row,iTracer)*this % mask(row,iTracer)
+            volCorrection(row,iTracer) = volCorrection(row,iTracer)*this % mask(row,iTracer)
+          
          ENDDO
       ENDDO
-     
- END FUNCTION PassiveDyeModel
-!
-! FUNCTION ParticulateSettlingModel( nOperators, nTracers, nDOF,transportOperators, source, rfac,tracerfield ) RESULT( tendency )
-! ! ParticulateSettlingModel
-! !
-! ! =============================================================================================== !
-!   IMPLICIT NONE
-!   INTEGER         :: nOperators, nTracers, nDOF
-!   TYPE(CRSMatrix) :: transportOperators(1:nOperators)
-!   REAL(prec)      :: tracerfield(1:nDOF, 1:nTracers)
-!   REAL(prec)      :: source(1:nDOF, 1:nTracers)
-!   REAL(prec)      :: rfac(1:nDOF, 1:nTracers)
-!   REAL(prec)      :: tendency(1:nDOF, 1:nTracers)
-!   ! LOCAL
-!   INTEGER         :: iTracer, iOp, iEl
-!   REAL(prec)      :: p, k, sWeight
-!
-!      DO iTracer = 1, ntracers
-!         ! Advect and settle the particulate field
-!
-!         tendency(:,iTracer) = transportOperators(1) % MatVecMul( tracerfield(:,iTracer) ) 
-!
-!         tendency(:,iTracer) = tendency(:,iTracer) + transportOperators(3) % MatVecMul( tracerfield(:,iTracer) ) 
-!
-!         tendency(1:nDOF,iTracer) = tendency(1:nDOF,iTracer) + &
-!                                   (source(1:nDOF,iTracer) - tracerfield(1:nDOF,iTracer))*&
-!                                    rFac(1:nDOF,iTracer)
-!      ENDDO
-!
-!      
-! END FUNCTION ParticulateSettlingModel
-!!
-! FUNCTION ParticulateRadioNuclideModel( nOperators, nTracers, nDOF, transportOperators, source, rfac, tracerfield ) RESULT( tendency )
-! ! 
-! ! =============================================================================================== !
-!   IMPLICIT NONE
-!   INTEGER         :: nOperators, nTracers, nDOF
-!   TYPE(CRSMatrix) :: transportOperators(1:nOperators)
-!   REAL(prec)      :: tracerfield(1:nDOF, 1:nTracers)
-!   REAL(prec)      :: source(1:nDOF, 1:nTracers)
-!   REAL(prec)      :: rfac(1:nDOF, 1:nTracers)
-!   REAL(prec)      :: tendency(1:nDOF, 1:nTracers)
-!   ! LOCAL
-!   INTEGER         :: iTracer, iOp, iEl
-!   REAL(prec)      :: p, k, sWeight
-!
-!      DO iTracer = 1, ntracers
-!         ! Perform the advection and diffusion of the particulate field
-!         tendency(:,iTracer) = transportOperators(1) % MatVecMul( tracerfield(:,iTracer) ) 
-!      !   tendency(:,iTracer) = tendency(:,iTracer) + transportOperators(2) % MatVecMul( tracerfield(:,iTracer) ) 
-!      ENDDO
-!
-!      ! Perform the particulate settling -> Assumes the second transport operator is
-!      ! the settling operator, and the first field is the particulate field
-!      tendency(:,1) = tendency(:,1) +&
-!                      transportOperators(3) % MatVecMul( tracerfield(:,1) )
-!
-!      ! Build the "scavenging operator"
-!      ! This operator is a weighted version of the settling operator.
-!      ! Each column of the scavenging operator is multiplied by 
-!      !  kP/(1+kP) 
-!      ! where "k" is a scavenging efficiency coefficient, and "P" is the corresponding 
-!      ! particulate field.
-!      ! The scavenging coefficient is stored in the "rFac" field
-!      ! Notice that the 3rd transport operator houses the scavenging operator
-!      DO iEl = 1, transportOperators(4) % nElems
-!
-!         p   = tracerfield(transportOperators(4) % col(iEl),1) !obtain the particulate concentration
-!         k   = rfac(transportOperators(4) % col(iEl), 1) ! and the scavenging coefficient
-!         sWeight = k*p/( 1.0_prec + k*p ) ! Calculate the equilibrium scavenging flux per unit radionuclide
-!         transportOperators(4) % A(iEl) = transportOperators(3) % A(iEl)*sWeight
-!
-!      ENDDO
-!
-!      ! Add in the scavenging operator for the radionuclide
-!      tendency(:,2) = tendency(:,2) + transportOperators(4) % MatVecMul( tracerfield(:,2) )
-!      ! Add in the uniform source for the radionuclide
-!      tendency(:,2) = tendency(:,2) + source(1:nDOF,2)
-!      
-! END FUNCTION ParticulateRadioNuclideModel
+      
+ END SUBROUTINE CalculateTendency_TracerStorage
 !
 END MODULE TracerStorage_Class
