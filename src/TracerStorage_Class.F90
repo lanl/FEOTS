@@ -288,7 +288,6 @@ MODULE TracerStorage_Class
    REAL(prec) :: fieldOfOnes(1:this % nDOF)
 
 
-      ! Apply the transport operator
       DO iTracer = 1, this % nTracers
          DO row = 1, this % transportOp % nRows
 

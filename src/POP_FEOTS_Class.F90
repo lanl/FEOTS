@@ -942,10 +942,12 @@ CONTAINS
            DO i = 1, this % solution % nDOF
 
              vol(i,m) = this % solution % volume(i,m) + this % params % dt*dVdt(i,m)
-             rhs(i,m)  = ((1.0_prec+this % solution % volume(i,m))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
+             rhs(i,m) = ((1.0_prec+this % solution % volume(i,m))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
 
-             ! Set the initial guess for the vertical diffusion
-             this % solution % tracers(i,m) = rhs(i,m)/(1.0_prec+vol(i,m))
+             ! Set the initial guess for the vertical diffusion - hold the
+             ! solution constant for boundary and prescribed cells
+             this % solution % tracers(i,m) = (1.0_prec-this % solution % mask(i,m))*this % solution % tracers(i,m) + &
+                                              this % solution % mask(i,m)*rhs(i,m)/(1.0_prec+vol(i,m))
              this % solution % volume(i,m) = vol(i,m)
 
            ENDDO
