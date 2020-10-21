@@ -530,7 +530,7 @@ CONTAINS
 
   END SUBROUTINE OperatorDiagnosis
 
-  SUBROUTINE RegionalExtraction(cliParams)
+  SUBROUTINE RegionalMaps(cliParams)
 
     IMPLICIT NONE
     TYPE( FEOTS_CLI )    :: cliParams
@@ -565,6 +565,46 @@ CONTAINS
       ! Write the regional data structure to a pickup file for later use
 
       CALL region % WritePickup( TRIM(cliParams % outdir)//'/mappings', maskProvided=.TRUE. )
+
+      ! Clean up memory !
+      CALL globalMesh % Trash( )
+      CALL regionalMesh % Trash( )
+      CALL region % Trash( )    
+
+  END SUBROUTINE RegionalMaps
+
+  SUBROUTINE RegionalExtraction(cliParams)
+
+    IMPLICIT NONE
+    TYPE( FEOTS_CLI )    :: cliParams
+    TYPE( CRSMatrix )    :: transportOp, diffusionOP
+    TYPE( CRSMatrix )    :: regionalTransportOp, regionalDiffusionOP
+    TYPE( POP_Params )   :: params
+    TYPE( POP_Mesh )     :: globalMesh 
+    TYPE( POP_Mesh )     :: regionalMesh 
+    TYPE( Stencil )      :: modelstencil, advStencil
+    TYPE( POP_Regional ) :: region
+    
+    INTEGER        :: fileID
+    INTEGER     ::  nGentries, nRentries
+    !INTEGER, ALLOCATABLE :: maskfield(:,:)
+    CHARACTER(5)   :: fileIDChar
+    CHARACTER(400) :: crsFile
+    INTEGER :: irfStart, irfEnd
+
+      CALL params % Build(cliParams % paramFile)
+
+      CALL globalMesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc'  )
+
+      CALL modelstencil % Build( stencilFlag = params % stencilType, &
+                                 flavor      = LateralPlusCorners )
+
+      CALL region % Build( globalMesh, regionalMesh, modelstencil, params % meshType, &
+                           params % south, params % north, &
+                           params % east, params % west, &
+                           TRIM(cliParams % regionalDb)//'/mask.nc' ) 
+
+      CALL regionalMesh % WriteNetCDF( TRIM(cliParams % regionalDb)//'/mesh.nc' )
 
       CALL advstencil % Build( stencilFlag = params % stencilType, &
                                flavor      = Normal )
@@ -602,11 +642,11 @@ CONTAINS
                                     region % nCells, &
                                     region % nCells*3 )
 
-      crsFile=TRIM(cliParams % outdir)//'/transport.'//fileIDChar//'.h5'
+      crsFile=TRIM(cliParams % regionalDb)//'/transport.'//fileIDChar//'.h5'
       PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
       CALL regionalTransportOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
 
-      crsFile=TRIM(cliParams % outdir)//'/diffusion.'//fileIDChar//'.h5'
+      crsFile=TRIM(cliParams % regionalDb)//'/diffusion.'//fileIDChar//'.h5'
       PRINT*,'Writing CRS Matrix files : '//TRIM(crsFile)
       CALL regionalDiffusionOp % WriteCRSMatrix_HDF5( TRIM(crsFile) )
          

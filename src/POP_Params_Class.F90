@@ -85,7 +85,7 @@ USE ConstantsDictionary
       !CHARACTER(400) :: meshfile
       CHARACTER(400) :: regionalMeshfile
       CHARACTER(200) :: dbRoot
-      !CHARACTER(400) :: outputDirectory
+      CHARACTER(400) :: outputDirectory
       ! JFNKOptions
       LOGICAL    :: IsPickupRun
       INTEGER    :: maxItersJFNK
@@ -151,7 +151,7 @@ USE ConstantsDictionary
       !INTEGER        :: nIRFFiles
       !CHARACTER(400) :: meshfile
       CHARACTER(400) :: regionalMeshfile
-      !CHARACTER(400) :: outputDirectory
+      CHARACTER(400) :: outputDirectory
       ! JFNKOptions
       LOGICAL    :: IsPickupRun
       INTEGER    :: maxItersJFNK

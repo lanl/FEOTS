@@ -60,7 +60,8 @@ IMPLICIT NONE
      CHARACTER(200) :: paramFile
      CHARACTER(200) :: irfFile
      CHARACTER(200) :: dbRoot
-     CHARACTER(100) :: outdir
+     CHARACTER(200) :: outdir
+     CHARACTER(200) :: regionalDb
      INTEGER :: oplevel
      
      CONTAINS
@@ -79,7 +80,7 @@ CONTAINS
     ! Local
     INTEGER :: nArg, argID
     CHARACTER(500) :: argName
-    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided, mixingProvided
+    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided, mixingProvided, rdbProvided
 
       PRINT*, 'FEOTS (feots) Command Line Interface' 
       PRINT*, ' Copyright Los Alamos National Laboratory (2017-2020)'
@@ -108,6 +109,7 @@ CONTAINS
     cliParams % oplevel = -1
     cliParams % dbRoot = './'
     cliParams % outdir = './'
+    cliParams % regionalDb = './'
 
 
     paramFileProvided = .FALSE.
@@ -179,6 +181,9 @@ CONTAINS
           CASE( "--out" )
             outProvided = .TRUE.
 
+          CASE( "--regional-db" )
+            rdbProvided = .TRUE.
+
           CASE( "--no-vertical-mixing" )
             cliParams % verticalMixing = .FALSE.
 
@@ -218,6 +223,13 @@ CONTAINS
 
               cliParams % outdir = TRIM( argName )
               outProvided = .FALSE.
+
+            ENDIF
+
+            IF( rdbProvided )THEN
+
+              cliParams % regionalDb = TRIM( argName )
+              rdbProvided = .FALSE.
 
             ENDIF
 
@@ -289,6 +301,10 @@ CONTAINS
       PRINT*, ' '
       PRINT*, '    --no-vertical-mixing'
       PRINT*, '       Disables the vertical mixing operator for forward integration and equilibration'
+      PRINT*, ' '
+      PRINT*, '    --regional-db /path/to/regional-database/directory'
+      PRINT*, '       Specifies the path to read/write regional operators. Defaults to ./'
+      PRINT*, ' '
       PRINT*, ' '
       PRINT*, ' '
 

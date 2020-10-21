@@ -227,7 +227,8 @@ CONTAINS
 
       CALL this % params % Build(TRIM(cliParams % paramFile))
       this % params % dbRoot = cliParams % dbRoot
-      this % params % regionalOperatorDirectory = cliParams % outdir
+      this % params % regionalOperatorDirectory = cliParams % regionalDb
+      this % params % outputDirectory = cliParams % outdir
       this % params % verticalMixing = cliParams % verticalMixing
 
       IF( this % params % TracerModel /= DyeModel )THEN
