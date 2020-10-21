@@ -12,8 +12,8 @@
 module use /users/jschoonover/modulefiles
 module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
 
-feots region-extraction --dbroot ${FEOTS_DBROOT} \
-                        --regional-db ${REGIONAL_DB} \
-                        --out ${OUTDIR} \
-                        --oplevel ${SLURM_ARRAY_TASK_ID} \
-                        --param-file ./runtime.params
+feots genmaps --dbroot ${FEOTS_DBROOT} \
+              --regional-db ${REGIONAL_DB} \
+              --out ${OUTDIR} \
+              --oplevel ${SLURM_ARRAY_TASK_ID} \
+              --param-file ./runtime.params

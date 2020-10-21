@@ -16,6 +16,7 @@ mkdir -p ${OUTDIR}
 IRF=$(sed -n 1p ./irfs/lanl/IRFs.txt)
 ./genmask --dbroot ${FEOTS_DBROOT}  \
           --irf ${IRF} \
+          --regional-db ${REGIONAL_DB} \
           --out ${OUTDIR} \
-          --param-file ./params/lanl/runtime.params
+          --param-file ./runtime.params
 

@@ -12,5 +12,6 @@ module use /users/jschoonover/modulefiles
 module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
 
 srun -n${SLURM_NTASKS} ./init --dbroot ${FEOTS_DBROOT}  \
+                              --regional-db ${REGIONAL_DB} \
                               --out ${OUTDIR} \
-                              --param-file ./params/lanl/runtime.params
+                              --param-file ./runtime.params
