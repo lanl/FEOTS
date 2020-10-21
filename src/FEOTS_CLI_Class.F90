@@ -47,6 +47,7 @@ IMPLICIT NONE
      LOGICAL :: run_PopMesh
      LOGICAL :: run_genmask
      LOGICAL :: run_regionalExtraction
+     LOGICAL :: run_regionalMaps
      LOGICAL :: run_operatorDiagnosis
      LOGICAL :: run_Initialize
      LOGICAL :: run_Equilibrator
@@ -98,6 +99,7 @@ CONTAINS
     cliParams % run_PopMesh = .FALSE.
     cliParams % run_genmask = .FALSE.
     cliParams % run_regionalExtraction = .FALSE.
+    cliParams % run_regionalMaps = .FALSE.
     cliParams % run_operatorDiagnosis = .FALSE.
     cliParams % run_Initialize = .FALSE.
     cliParams % run_Equilibrator = .FALSE.
@@ -141,6 +143,10 @@ CONTAINS
           CASE( "genmask" )
             !GenMask
             cliParams % run_genmask = .TRUE.
+
+          CASE( "genmaps" )
+            !RegionalMaps 
+            cliParams % run_regionalMaps = .TRUE.
 
           CASE( "region-extraction" )
             !RegionalExtraction 
@@ -264,7 +270,12 @@ CONTAINS
       PRINT*, '     You must specify the IRF file using the --irf option.'
       PRINT*, ' '
       PRINT*, '   region-extraction'
-      PRINT*, '     Create regional transport operators from global transport operators'
+      PRINT*, '     Create regional transport operators from global transport operators. Regional'
+      PRINT*, '     operators are stored in the --regional-db directory.'
+      PRINT*, ' '
+      PRINT*, '   genmaps'
+      PRINT*, '     Create a mappings.regional file from a valid mask file. The mappings.regional'
+      PRINT*, '     file is stored in the --out directory.'
       PRINT*, ' '
       PRINT*, '   initialize'
       PRINT*, '     Use the built in initialization routines to create tracer initial conditions'

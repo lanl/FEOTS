@@ -34,6 +34,10 @@ IMPLICIT NONE
 
       CALL RegionalExtraction(cliParams)
 
+    ELSEIF( cliParams % run_regionalMaps )THEN
+
+      CALL RegionalMaps(cliParams)
+
     ELSEIF( cliParams % run_operatorDiagnosis )THEN
 
       CALL OperatorDiagnosis(cliParams)
