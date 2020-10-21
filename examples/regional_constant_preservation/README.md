@@ -67,3 +67,29 @@ The `FEOTS_DBROOT` is the path to a FEOTS database. `OUTDIR` is the path to wher
 4. Forward step the model - ` sbatch --get-user-env slurm/lanl/04-integrate.slurm`
 
 To modify this experiment on Turquoise, you can edit `params/lanl/runtime.params`
+
+### On a local workstation
+Extraction of the regional operators requires about 30 GB RAM. If you have extracted the regional operators already, this regional simulation is lightweight enough that it can be run on a local workstation with 1 core/hyperthread and about 3 GB RAM.
+Set the following environment variables
+```
+export REGIONAL_DB=/home/joe/feots_output/regional_constant_preservation
+export OUTDIR=/home/joe/feots_output/regional_constant_preservation/no-mixing
+```
+If you would like to disable vertical mixing
+```
+export FEOTS_FLAGS='--no-vertical-mixing'
+```
+To unset the `FEOTS_FLAGS` variable, use `unset FEOTS_FLAGS`.
+
+Make sure that the following files are present in the $OUTDIR
+* `mappings.regional`
+* `mask.nc`
+* `mesh.nc`
+* `transport.*.h5`
+* `diffusion.*.h5`
+
+If you plan on running the post-processor, make sure you install the python dependencies before running the pipeline
+
+When you are ready, simply run `bash ./bash/job-pipeline.sh`. This will run through initial condition creation, forward integration, and post-processing stages. If you want to run the individual steps in the job pipeline, take the time to review the `bash/job-pipeline.sh` script to see how it works.
+
+

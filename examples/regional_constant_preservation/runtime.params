@@ -1,0 +1,28 @@
+&POPMeshOptions
+MeshType    = 'PeriodicTripole',
+StencilType = 'LaxWendroff27',
+Regional    = .TRUE.,
+south       = -52.18,
+east        = -24.90,
+west        = -70.25,
+north       = -28.06,  
+/
+&TracerModelOptions
+TracerModel = 'DyeModel',
+timeStepScheme = 'euler',
+dt = 1080,
+runMode     = 'Forward',
+nStepsPerDump   = 400,
+iterInit        = 0,
+nTimeSteps      = 146000,
+nTracers        = 1,
+/
+&OperatorOptions
+operatorPeriod = 432000.0,
+nOperatorsPerCycle = 365,
+/
+&FileOptions
+/
+&JFNKOptions
+/
+

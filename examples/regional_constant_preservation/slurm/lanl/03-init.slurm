@@ -2,7 +2,7 @@
 #SBATCH --job-name=zapiola    # Job name
 #SBATCH --ntasks=1                    # Run on a single CPU
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=50G
+#SBATCH --mem=3G
 #SBATCH --time=10:00               # Time limit hrs:min:sec
 #SBATCH --output=feots_logs   # Standard output and error log
 #SBATCH -A climatehilat
