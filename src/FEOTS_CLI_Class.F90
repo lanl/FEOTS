@@ -41,6 +41,8 @@ USE CommonRoutines
 
 IMPLICIT NONE
 
+#include "FEOTS_Macros.h"
+
    TYPE FEOTS_CLI
 
      LOGICAL :: run_Impulse
@@ -69,6 +71,7 @@ IMPLICIT NONE
 
      PROCEDURE :: GetCLIConf
      PROCEDURE :: ValidateCLI
+     PROCEDURE :: LogParameters
 
    END TYPE FEOTS_CLI
 
@@ -323,7 +326,23 @@ CONTAINS
 
     CALL cliParams % ValidateCLI( )
 
+    CALL cliParams % LogParameters( )
+
   END SUBROUTINE GetCLIConf
+
+  SUBROUTINE LogParameters(cliParams)
+#undef __FUNC__
+#define __FUNC__ "LogParameters"
+    IMPLICIT NONE
+    CLASS(FEOTS_CLI), INTENT(in) :: cliParams
+
+      INFO('paramFile = '//TRIM(cliParams % paramFile))
+      INFO('irfFile = '//TRIM(cliParams % irfFile))
+      INFO('dbRoot = '//TRIM(cliParams % dbRoot))
+      INFO('outdir = '//TRIM(cliParams % outdir))
+      INFO('regionalDb = '//TRIM(cliParams % regionalDb))
+
+  END SUBROUTINE LogParameters
 
   SUBROUTINE ValidateCLI(cliParams)
     IMPLICIT NONE
