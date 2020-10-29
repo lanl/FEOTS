@@ -7,7 +7,6 @@
 #SBATCH --output=feots_logs   # Standard output and error log
 #SBATCH -A climatehilat
 #SBATCH --qos=standard
-#SBATCH --array=1-2%2 # Modify the number of array indices to set how many operators to extract
 
 module use /users/jschoonover/modulefiles
 module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
@@ -15,5 +14,4 @@ module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 
 feots genmaps --dbroot ${FEOTS_DBROOT} \
               --regional-db ${REGIONAL_DB} \
               --out ${OUTDIR} \
-              --oplevel ${SLURM_ARRAY_TASK_ID} \
               --param-file ./runtime.params
