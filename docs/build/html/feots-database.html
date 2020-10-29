@@ -1,0 +1,153 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Database &#8212; feots 0.0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="License" href="license.html" />
+    <link rel="prev" title="Workflow" href="feots-workflow.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="database">
+<h1>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h1>
+<p>The FEOTS ecosystem understands two types of databases</p>
+<ol class="arabic simple">
+<li><p>Global</p></li>
+<li><p>Regional</p></li>
+</ol>
+<p>Both databases are essentially a filesystem hierarchy with expected HDF5, NetCDF, and text files stored appropriately.</p>
+<div class="section" id="global-database">
+<h2>Global Database<a class="headerlink" href="#global-database" title="Permalink to this headline">¶</a></h2>
+<p>A “Global” database is the database that is closely linked to the parent model. It contains the parent model mesh, impulse response functions produced by the parent model, as well as the impulse fields and the diagnose “global” transport operators. A global FEOTS database has the following directory structure:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">metadata</span><span class="o">.</span><span class="n">json</span>
+<span class="n">irf</span><span class="o">/</span><span class="n">impulse</span><span class="o">/</span><span class="n">graph</span><span class="o">.</span><span class="n">h5</span>
+<span class="n">irf</span><span class="o">/</span><span class="n">impulse</span><span class="o">/</span><span class="n">ImpulseFields</span><span class="o">.</span><span class="n">nc</span>
+<span class="n">irf</span><span class="o">/</span><span class="n">response</span><span class="o">/</span><span class="n">IRF</span><span class="o">.*.</span><span class="n">nc</span>
+<span class="n">ops</span><span class="o">/</span><span class="n">transport</span><span class="o">.*.</span><span class="n">h5</span>
+<span class="n">ops</span><span class="o">/</span><span class="n">diffusion</span><span class="o">.*.</span><span class="n">h5</span>
+<span class="n">mesh</span><span class="o">/</span><span class="n">mesh</span><span class="o">.</span><span class="n">nc</span>
+</pre></div>
+</div>
+<div class="section" id="metadata-json">
+<h3>metadata.json<a class="headerlink" href="#metadata-json" title="Permalink to this headline">¶</a></h3>
+<p>The metadata.json file stores useful information that describes the parent model and some of the characteristics of the IRF fields, such as the time average period for each operator and how many operators are provided in the database. The metadata.json file has the following schema:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+ <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+ <span class="s2">&quot;model_description_url&quot;</span><span class="p">:</span> <span class="n">string</span><span class="p">,</span>
+ <span class="s2">&quot;model_validation_url&quot;</span><span class="p">:</span> <span class="n">string</span>
+ <span class="s2">&quot;model_git_url&quot;</span><span class="p">:</span> <span class="n">string</span>
+ <span class="s2">&quot;operator_tavg_period_sec&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+ <span class="s2">&quot;n_operators&quot;</span><span class="p">:</span> <span class="n">integer</span><span class="p">,</span>
+ <span class="s2">&quot;stencil_type&quot;</span><span class="p">:</span> <span class="n">string</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="regional-database">
+<h2>Regional Database<a class="headerlink" href="#regional-database" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">feots</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="feots-workflow.html">Workflow</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Database</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#global-database">Global Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#regional-database">Regional Database</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help.html">Contact</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="feots-workflow.html" title="previous chapter">Workflow</a></li>
+      <li>Next: <a href="license.html" title="next chapter">License</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Los Alamos National Laboratory.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/feots-database.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
