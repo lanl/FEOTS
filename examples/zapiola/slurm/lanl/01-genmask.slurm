@@ -9,13 +9,19 @@
 #SBATCH --qos=standard
 
 module use /users/jschoonover/modulefiles
-module load gcc/8.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
+module load gcc/9.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
 
 
 mkdir -p ${OUTDIR}
-IRF=$(sed -n 1p ./irfs/lanl/IRFs.txt)
+
+echo "Creating mask for FEOTS regional database"
+feots genmask --dbroot ${FEOTS_DBROOT} \
+              --regional-db ${REGIONAL_DB} \
+              --param-file ./runtime.params
+
+
+echo "Creating mask for FEOTS simulation database"
 ./genmask --dbroot ${FEOTS_DBROOT}  \
-          --irf ${IRF} \
           --regional-db ${REGIONAL_DB} \
           --out ${OUTDIR} \
           --param-file ./runtime.params

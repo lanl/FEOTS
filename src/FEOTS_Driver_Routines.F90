@@ -233,12 +233,11 @@ CONTAINS
 
       CALL params % Build(cliParams % paramFile)
 
-      CALL mesh % Load( TRIM(cliParams % irfFile)  )
+      CALL mesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc'  )
 
       ALLOCATE( maskField(1:mesh % nX,1:mesh % nY) )
 
       maskField = 0
-
       DO j = 1, mesh % nY
          DO i = 1, mesh % nX
 
@@ -248,21 +247,21 @@ CONTAINS
             IF( x >= 180.0_prec )THEN
                x = x -360.0_prec
             ENDIF
-            ! Build a circular region around the Agulhas            
-            r = sqrt( (x-20.0_prec)**2 + (y+40.0_prec)**2 )
-            IF( r <= 30.0_prec )THEN
-               IF( r > 29.5_prec )THEN
-                  maskfield(i,j) = -1 ! Prescribed Points
-               ELSE
-                  maskfield(i,j) = 1  ! Interior Points
-               ENDIF
+           
+            IF( y >= params % south .AND. y <= params % north .AND. &
+                x >= params % west .AND. x <= params % east)THEN
+ 
+              ! Set interior points for the mesh
+              maskfield(i,j) = 1
+           
             ENDIF
 
          ENDDO
       ENDDO
 
-      CALL WriteMaskField( mesh, maskField, TRIM(params % maskFile) )
+      CALL WriteMaskField( mesh, maskField, TRIM(cliParams % regionalDb)//'/mask.nc' )
       CALL mesh % Trash( )
+      DEALLOCATE(maskfield)
 
  END SUBROUTINE GenMask
 

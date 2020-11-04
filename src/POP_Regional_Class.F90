@@ -630,11 +630,7 @@ CONTAINS
             STATUS='REPLACE', &
             ACTION='WRITE' )
 
-     IF( maskProvided )THEN
-        WRITE( fUnit, * ) myRegional % nCells, myRegional % nMasks, myRegional % nDOF
-     ELSE
-        WRITE( fUnit, * ) myRegional % nCells, myRegional % bMap(1) % nBCells, myRegional % nDOF
-     ENDIF    
+     WRITE( fUnit, * ) myRegional % nCells, myRegional % nMasks, myRegional % nDOF
  
      DO i = 1, myRegional % nCells
         WRITE(fUnit,*) myRegional % ijkInRegion(1:3,i), &
@@ -652,14 +648,12 @@ CONTAINS
         ENDDO
      ENDDO
 
-     IF( maskProvided )THEN
-        DO j = 1, myRegional % nMasks
-           WRITE( fUnit, * ) myRegional % bMap(j) % nPCells
-           DO i = 1, myRegional % bMap(j) % nPCells
-              WRITE(fUnit,*)myRegional % bMap(j) % prescribedCells(i)
-           ENDDO
+     DO j = 1, myRegional % nMasks
+        WRITE( fUnit, * ) myRegional % bMap(j) % nPCells
+        DO i = 1, myRegional % bMap(j) % nPCells
+           WRITE(fUnit,*)myRegional % bMap(j) % prescribedCells(i)
         ENDDO
-     ENDIF
+     ENDDO
 
      DO i = 1, myRegional % nDOF
         WRITE(fUnit,*)myRegional % inverseDOFMap(i)
@@ -685,7 +679,6 @@ CONTAINS
             STATUS='OLD', &
             ACTION='READ' )
 
-     IF( maskProvided )THEN
         READ( fUnit, * ) myRegional % nCells, myRegional % nMasks, myRegional % nDOF
      
         ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
@@ -693,19 +686,6 @@ CONTAINS
                   myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
                   myRegional % bMap(1:myRegional % nMasks), &
                   myRegional % inverseDOFMap(1:myRegional % nDOF) )
-     ELSE
-
-        ALLOCATE( myRegional % bMap(1) )
-        READ( fUnit, * ) myRegional % nCells, myRegional % bMap(1) % nBCells, myRegional % nDOF
-        ALLOCATE( myRegional % ijkInRegion(1:3,1:myRegional % nCells), &
-                  myRegional % dofInRegion(1:myRegional % nCells), &
-                  myRegional % dofToLocalIJK(1:3,1:myRegional % nCells), &
-                  myRegional % inverseDOFMap(1:myRegional % nDOF) )
-        myRegional %  bMap(1) % nPCells = 0
-        myRegional % nMasks  = 1
-       ! ALLOCATE( myRegional % bMap(1) % boundaryCells(1:myRegional % bMap(1) % nBCells),&
-       !           myRegional % bMap(1) % prescribedCells(1) )
-     ENDIF    
      
      DO i = 1, myRegional % nCells
         READ(fUnit,*) myRegional % ijkInRegion(1:3,i), &
@@ -724,15 +704,13 @@ CONTAINS
         ENDDO
      ENDDO
 
-     IF( maskProvided )THEN
-        DO j = 1, myRegional % nMasks
-           READ( fUnit, * ) myRegional % bMap(j) % nPCells
-           ALLOCATE( myRegional % bMap(j) % prescribedCells(1:myRegional % bMap(j) % nPCells) )
-           DO i = 1, myRegional % bMap(j) % nPCells
-              READ(fUnit,*)myRegional % bMap(j) % prescribedCells(i)
-           ENDDO
+     DO j = 1, myRegional % nMasks
+        READ( fUnit, * ) myRegional % bMap(j) % nPCells
+        ALLOCATE( myRegional % bMap(j) % prescribedCells(1:myRegional % bMap(j) % nPCells) )
+        DO i = 1, myRegional % bMap(j) % nPCells
+           READ(fUnit,*)myRegional % bMap(j) % prescribedCells(i)
         ENDDO
-     ENDIF
+     ENDDO
 
      DO i = 1, myRegional % nDOF
         READ(fUnit,*,IOSTAT=readStatus)myRegional % inverseDOFMap(i)
