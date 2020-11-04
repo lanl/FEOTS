@@ -269,12 +269,14 @@ CONTAINS
 
    IMPLICIT NONE
    TYPE( POP_Mesh ), INTENT(inout)      :: mesh
-   INTEGER, INTENT(in)                  :: maskfield(1:mesh % nX, 1:mesh % nY)
+   INTEGER, INTENT(in)                  :: maskfield(1:mesh % nX, 1:mesh %nY)
    CHARACTER(*), INTENT(in)             :: maskfile
    ! Local
    INTEGER :: start(1:2), recCount(1:2)
-   INTEGER :: ncid, varid, x_dimid, y_dimid
+   INTEGER :: ncid, varid, nMaskid, x_dimid, y_dimid, iMask
+   CHARACTER(3) :: maskChar
 
+      PRINT*, 'Writing mask to '//TRIM(maskfile)
       start    = (/1, 1/)
       recCount = (/mesh % nX, mesh % nY/)
 
@@ -283,22 +285,24 @@ CONTAINS
                                NCID=ncid ) )
       CALL Check( nf90_def_dim( ncid, "nlon", mesh % nX, x_dimid ) )
       CALL Check( nf90_def_dim( ncid, "nlat", mesh % nY, y_dimid ) )
-      CALL Check( nf90_def_var( ncid, "mask",NF90_INT,&
-                               (/ x_dimid, y_dimid /),&
-                                varid ) )
+      CALL Check( nf90_def_var( ncid, "nMasks",NF90_INT, nMaskid ) )
+
+      WRITE( maskChar,'(I3.3)' )1
+      CALL Check( nf90_def_var( ncid, "mask"//maskChar,NF90_INT,&
+                            (/ x_dimid, y_dimid /),&
+                             varid ) )
 
       CALL Check( nf90_put_att( ncid, varid, "long_name", "Domain Mask" ) )
       CALL Check( nf90_put_att( ncid, varid, "units", "" ) )
-!      CALL Check( nf90_put_att( ncid, varid, "_FillValue", fillValue) )
-!      CALL Check( nf90_put_att( ncid, varid, "missing_value", fillValue) )
 
       CALL Check( nf90_enddef(ncid) )
+ 
+      CALL Check( nf90_put_var(ncid, nMaskid, 1 ) ) 
 
       CALL Check( nf90_put_var( ncid, &
                                 varid, &
                                 maskfield, &
                                 start, recCount ) )
-
 
       CALL Check( nf90_close( ncid ) )
 

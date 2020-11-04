@@ -22,7 +22,7 @@ IMPLICIT NONE
       CALL cliParams % GetCLIConf( )
       CALL feots % Build( cliParams, myRank, nProcs )
 
-      CALL SourceTerms( feots )
+      CALL Init( feots )
 
       !  //////////////////////////////////////////// File I/O  //////////////////////////////////////////////////////// !
       CALL feots % nativeSol % InitializeForNetCDFWrite( feots % params % TracerModel, &
@@ -41,7 +41,7 @@ IMPLICIT NONE
 
 CONTAINS
 
- SUBROUTINE SourceTerms( myFeots )
+ SUBROUTINE Init( myFeots )
  ! Sets the source terms and the "relaxation factor" for each tracer
  !
    IMPLICIT NONE
@@ -102,7 +102,7 @@ CONTAINS
 
         ENDDO
 
- END SUBROUTINE SourceTerms
+ END SUBROUTINE Init
 !  
 
 END PROGRAM FEOTSInitialize

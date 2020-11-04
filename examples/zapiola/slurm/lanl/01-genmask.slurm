@@ -14,13 +14,17 @@ module load gcc/9.3.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 
 
 mkdir -p ${OUTDIR}
 
+echo "================================================"
 echo "Creating mask for FEOTS regional database"
+echo ""
 feots genmask --dbroot ${FEOTS_DBROOT} \
               --regional-db ${REGIONAL_DB} \
               --param-file ./runtime.params
 
-
+echo ""
+echo "================================================"
 echo "Creating mask for FEOTS simulation database"
+echo ""
 ./genmask --dbroot ${FEOTS_DBROOT}  \
           --regional-db ${REGIONAL_DB} \
           --out ${OUTDIR} \
