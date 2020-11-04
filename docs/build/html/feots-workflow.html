@@ -15,7 +15,7 @@
     <script src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="License" href="license.html" />
+    <link rel="next" title="Database" href="feots-database.html" />
     <link rel="prev" title="Getting Started" href="getting-started.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -35,11 +35,40 @@
             
   <div class="section" id="workflow">
 <h1>Workflow<a class="headerlink" href="#workflow" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>This section of the documentation discusses the steps required to run offline tracer simulations. In short, the following tasks must be accomplished :</p>
+<ul class="simple">
+<li><p>Create impulse fields and passive tracer initial conditions for the parent model</p></li>
+<li><p>Run the parent model to produce impulse response functions</p></li>
+<li><p>Diagnose transport operators from the impulse and impulse response functions</p></li>
+<li><p>Use the transport operators to run offline tracer simulations</p></li>
+</ul>
+<p>For offline tracer simulations, FEOTS has the capability to run in either a global or regional configuration. In the regional configuration, FEOTS provides tools to extract regional transport operators from global operators.</p>
+<p>Below, we provide the details for all of the steps in this process while describing how FEOTS global, regional, and simulation databases are created.</p>
 <div class="section" id="create-transport-operators">
-<h2>Create Transport Operators<a class="headerlink" href="#create-transport-operators" title="Permalink to this headline">¶</a></h2>
+<h3>Create Transport Operators<a class="headerlink" href="#create-transport-operators" title="Permalink to this headline">¶</a></h3>
+<p>When we discuss “transport operator diagnosis”, we specifically mean that we are diagnosing the rows and columns of a sparse matrix that is equivalent to the application of a discrete advection-diffusion operator as implemented in an ocean general circulation model (the parent model). In every time-step of the parent model, we pass a set of impulse fields through passive-tracer forward stepping. The difference in the forward-stepped field and the impulse field, divided by the parent model time step size, provides us with the columns of the transport operator matrix.</p>
+<p>We have provided tools in FEOTS to aid in the process of impulse field generation and operator diagnosis based on these ideas. This allows you to create your own transport operator databases from an online POP model simulation.</p>
+<div class="section" id="mesh-extraction-from-a-parent-model">
+<h4>Mesh Extraction from a Parent Model<a class="headerlink" href="#mesh-extraction-from-a-parent-model" title="Permalink to this headline">¶</a></h4>
+<a class="reference internal image-reference" href="_images/feots_popmesh.png"><img alt="FEOTS Mesh Extraction from a parent model" src="_images/feots_popmesh.png" style="width: 50%;" /></a>
+</div>
+<div class="section" id="impulse-field-generation">
+<h4>Impulse Field Generation<a class="headerlink" href="#impulse-field-generation" title="Permalink to this headline">¶</a></h4>
+<a class="reference internal image-reference" href="_images/feots_impulse.png"><img alt="FEOTS Impulse field generation" src="_images/feots_impulse.png" style="width: 50%;" /></a>
+<p>An impulse field is simply a discrete field of 1’s and 0’s. Where we place the non-zero impulse values depends on the domain-of-influence of the discrete advection-diffusion operators and the shape of the discrete ocean boundaries.</p>
+</div>
+<div class="section" id="parent-model-execution">
+<h4>Parent Model Execution<a class="headerlink" href="#parent-model-execution" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="operator-diagnosis">
+<h4>Operator Diagnosis<a class="headerlink" href="#operator-diagnosis" title="Permalink to this headline">¶</a></h4>
+</div>
 </div>
 <div class="section" id="run-offline-simulations">
-<h2>Run Offline Simulations<a class="headerlink" href="#run-offline-simulations" title="Permalink to this headline">¶</a></h2>
+<h3>Run Offline Simulations<a class="headerlink" href="#run-offline-simulations" title="Permalink to this headline">¶</a></h3>
+</div>
 <div class="section" id="regional-simulations">
 <h3>Regional Simulations<a class="headerlink" href="#regional-simulations" title="Permalink to this headline">¶</a></h3>
 <div class="section" id="mask-generation">
@@ -97,10 +126,10 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Workflow</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#create-transport-operators">Create Transport Operators</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#run-offline-simulations">Run Offline Simulations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="feots-database.html">Database</a></li>
 <li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
 <li class="toctree-l1"><a class="reference internal" href="help.html">Contact</a></li>
 </ul>
@@ -110,7 +139,7 @@
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="getting-started.html" title="previous chapter">Getting Started</a></li>
-      <li>Next: <a href="license.html" title="next chapter">License</a></li>
+      <li>Next: <a href="feots-database.html" title="next chapter">Database</a></li>
   </ul></li>
 </ul>
 </div>

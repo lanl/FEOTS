@@ -12,6 +12,9 @@ Both databases are essentially a filesystem hierarchy with expected HDF5, NetCDF
 
 Global Database
 ===============
+.. image:: images/feots_global-db.png
+   :width: 50%
+   :alt: FEOTS Global Database
 
 A "Global" database is the database that is closely linked to the parent model. It contains the parent model mesh, impulse response functions produced by the parent model, as well as the impulse fields and the diagnose "global" transport operators. A global FEOTS database has the following directory structure::
 
@@ -42,3 +45,13 @@ The metadata.json file stores useful information that describes the parent model
 
 Regional Database
 ==================
+.. image:: images/feots_regional-db.png
+   :width: 25%
+   :alt: FEOTS Regional Database
+
+
+Simulation Database
+===============================
+.. image:: images/feots_simulation-db.png
+   :width: 25%
+   :alt: FEOTS Simulation Database
