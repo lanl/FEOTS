@@ -184,7 +184,6 @@ USE FEOTS_CLI_Class
       PROCEDURE :: VerticalMixing => VerticalMixing_POP_FEOTS
       PROCEDURE :: VerticalMixingAction
       PROCEDURE :: VerticalMixingPrecondition
-      PROCEDURE :: GetMagnitude
       PROCEDURE :: Mask
 
    END TYPE POP_FEOTS
@@ -734,6 +733,22 @@ CONTAINS
 
  END SUBROUTINE ForwardStep_POP_FEOTS
 !
+ FUNCTION Mask( this, x ) RESULT( y )
+   IMPLICIT NONE
+   CLASS( POP_FEOTS ) :: this
+   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: y(1:this % solution % nDOF, 1:this % solution % nTracers)
+   ! Local
+   INTEGER :: i, m
+
+     DO m = 1, this % solution % nTracers
+       DO i = 1, this % solution % nDOF
+          y(i,m) = this % solution % mask(i,m)*x(i,m) 
+       ENDDO
+     ENDDO
+
+ END FUNCTION Mask
+
  FUNCTION VerticalMixingAction( this, x ) RESULT(Ax)
    IMPLICIT NONE
    CLASS( POP_FEOTS ) :: this
@@ -757,39 +772,6 @@ CONTAINS
      ENDDO
 
  END FUNCTION VerticalMixingAction 
-    
- FUNCTION GetMagnitude( this, x ) RESULT( magX )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ) :: this
-   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: magX
-   ! Local
-   INTEGER :: i, m
-
-     magX = 0.0_prec 
-     DO m = 1, this % solution % nTracers
-       DO i = 1, this % solution % nDOF
-          magX = magX + x(i,m)*x(i,m)*this % solution % mask(i,m)
-       ENDDO
-     ENDDO
-
- END FUNCTION GetMagnitude
-
- FUNCTION Mask( this, x ) RESULT( y )
-   IMPLICIT NONE
-   CLASS( POP_FEOTS ) :: this
-   REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: y(1:this % solution % nDOF, 1:this % solution % nTracers)
-   ! Local
-   INTEGER :: i, m
-
-     DO m = 1, this % solution % nTracers
-       DO i = 1, this % solution % nDOF
-          y(i,m) = this % solution % mask(i,m)*x(i,m) 
-       ENDDO
-     ENDDO
-
- END FUNCTION Mask
 
  FUNCTION VerticalMixingPrecondition( this, r ) RESULT(z)
    IMPLICIT NONE
@@ -820,22 +802,20 @@ CONTAINS
 #undef __FUNC__
 #define __FUNC__ "VerticalMixing_POP_FEOTS"
    ! Preconditioned Conjugate Gradient used to solve vertical mixing
-   ! Algorithm taken from page 3 of
-   ! http://www.cse.psu.edu/~b58/cse456/lecture20.pdf
+   ! Algorithm taken from page Appendix B3 of
+   ! https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf
+   !
    CLASS( POP_FEOTS ), INTENT(inout) :: this
    REAL(prec), INTENT(in)            :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
    ! Local
    REAL(prec) :: Ax(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: r(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: z(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: rk(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: zk(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: w(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: p(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: d(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: q(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: s(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: alpha, beta, r0, s0, rm, sm, update_magnitude
+   REAL(prec) :: alpha, beta, delta0, s0, deltaNew, deltaOld
    INTEGER :: m, i, iter
-   REAL(prec) :: mag_divisor
   
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
@@ -851,77 +831,64 @@ CONTAINS
        ENDDO
      ENDDO
 
-     s0 = this % GetMagnitude(x)
-     r0 = this % GetMagnitude(r)
-
-     IF( r0/s0 <= cg_tolerance .OR. s0 <= TOL )THEN
-       INFO('Residual magnitude less than cg_tolerance on start. (r0, s0, r0/s0): '//Float2Str(r0)//', '//Float2Str(s0)//', '//Float2Str(r0/s0))
-       RETURN
-     ENDIF
-
-     ! Invert the preconditioner Mz = r.
-     z = this % VerticalMixingPrecondition(r)
-
-     DO m = 1, this % solution % nTracers
-       DO i = 1, this % solution % nDOF
-         p(i,m) = z(i,m)
-       ENDDO
-     ENDDO  
-
-     w = this % VerticalMixingAction( p ) 
-     alpha = this % DotProduct( r, z )/this % DotProduct( p, w )
-
-     DO m = 1, this % solution % nTracers
-       DO i = 1, this % solution % nDOF
-         x(i,m) = x(i,m) + alpha*p(i,m)
-         rk(i,m) = r(i,m) - alpha*w(i,m)
-       ENDDO
-     ENDDO
-
-     rk = this % Mask( rk )
+     ! Invert the preconditioner d = M^(-1)r.
+     d = this % VerticalMixingPrecondition(r)
+     deltaNew = this % DotProduct(r, d)
+     delta0 = deltaNew
 
      DO iter = 1, cg_itermax
 
-       zk = this % VerticalMixingPrecondition(rk)
-
-       beta = this % DotProduct(rk,zk)/this % DotProduct(r,z)
-       
-       DO m = 1, this % solution % nTracers
-         DO i = 1, this % solution % nDOF
-           p(i,m) = zk(i,m) + beta*p(i,m)
-         ENDDO
-       ENDDO  
-
-       w = this % VerticalMixingAction( p ) 
-
-       alpha = this % DotProduct(rk,zk)/this % DotProduct(p,w)
-
-       p = this % Mask( p )
-
-       DO m = 1, this % solution % nTracers
-         DO i = 1, this % solution % nDOF
-
-           r(i,m) = rk(i,m)
-           z(i,m) = zk(i,m)
-
-           this % solution % tracers(i,m) = this % solution % tracers(i,m) + alpha*p(i,m)
-           rk(i,m) = r(i,m) - alpha*w(i,m)
-
-         ENDDO
-       ENDDO
-     
-       rk = this % Mask( rk )
-       rm = this % GetMagnitude(rk)
-
-       IF( rm/r0 <= cg_tolerance )THEN
+       IF( deltaNew <= cg_tolerance*delta0 )THEN
          INFO('Vertical Mixing Converged in '//Int2Str(iter)//' iterates')
-         INFO('Final (relative) residual = '//Float2Str(rm/r0))
+         INFO('Final (relative) residual = '//Float2Str(deltaNew/delta0))
          RETURN
        ENDIF
 
+       q = this % VerticalMixingAction(d)
+
+       alpha = deltaNew/this % DotProduct(d,q)
+
+       DO m = 1, this % solution % nTracers
+         DO i = 1, this % solution % nDOF
+           x(i,m) = x(i,m) + alpha*d(i,m)
+         ENDDO
+       ENDDO  
+
+       IF( mod(i,50) == 0 )THEN
+
+         Ax = this % VerticalMixingAction( x )
+
+         DO m = 1, this % solution % nTracers
+           DO i = 1, this % solution % nDOF
+             r(i,m)  = ( rhs(i,m) - Ax(i,m) )*this % solution % mask(i,m)
+           ENDDO
+         ENDDO
+
+       ELSE
+
+         DO m = 1, this % solution % nTracers
+           DO i = 1, this % solution % nDOF
+             r(i,m) = r(i,m) - alpha*q(i,m)
+           ENDDO
+         ENDDO  
+       ENDIF
+
+       s = this % VerticalMixingPrecondition(r)
+
+       deltaOld = deltaNew
+       deltaNew = this % DotProduct(r,s)
+
+       beta = deltaNew/deltaOld
+       
+       DO m = 1, this % solution % nTracers
+         DO i = 1, this % solution % nDOF
+           d(i,m) = s(i,m) + beta*d(i,m)
+         ENDDO
+       ENDDO  
+
      ENDDO
 
-     WARNING('Failed to converge. Final (relative) residual = '//Float2Str(rm/r0))
+     WARNING('Failed to converge. Final (relative) residual = '//Float2Str(deltaNew/delta0))
      
 
  END SUBROUTINE VerticalMixing_POP_FEOTS
@@ -934,22 +901,20 @@ CONTAINS
    INTEGER, INTENT(in)               :: nTimeSteps
    ! Local
    INTEGER    :: maskID, m, i
-   REAL(prec) :: vol(1:this % solution % nDOF, 1:this % solution % nTracers)
+   REAL(prec) :: vol
    REAL(prec) :: rhs(1:this % solution % nDOF, 1:this % solution % nTracers)
-   REAL(prec) :: Dx(1:this % solution % nDOF, 1:this % solution % nTracers)
-
 
         DO m = 1, this % solution % nTracers
            DO i = 1, this % solution % nDOF
 
-             vol(i,m) = this % solution % volume(i,m) + this % params % dt*dVdt(i,m)
+             vol = this % solution % volume(i,m) + this % params % dt*dVdt(i,m)
              rhs(i,m) = ((1.0_prec+this % solution % volume(i,m))*this % solution % tracers(i,m) + this % params % dt*(dCdt(i,m)))
 
-             ! Set the initial guess for the vertical diffusion - hold the
-             ! solution constant for boundary and prescribed cells
-             this % solution % tracers(i,m) = (1.0_prec-this % solution % mask(i,m))*this % solution % tracers(i,m) + &
-                                              this % solution % mask(i,m)*rhs(i,m)/(1.0_prec+vol(i,m))
-             this % solution % volume(i,m) = vol(i,m)
+             ! Set the initial guess for the vertical diffusion
+             this % solution % tracers(i,m) = rhs(i,m)/(1.0_prec+vol)
+
+             ! Set the new volume
+             this % solution % volume(i,m) = vol
 
            ENDDO
         ENDDO
