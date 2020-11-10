@@ -61,6 +61,7 @@ IMPLICIT NONE
      LOGICAL :: irfProvided
 
      CHARACTER(200) :: paramFile
+     CHARACTER(200) :: popFile
      CHARACTER(200) :: irfFile
      CHARACTER(200) :: dbRoot
      CHARACTER(200) :: outdir
@@ -84,7 +85,7 @@ CONTAINS
     ! Local
     INTEGER :: nArg, argID
     CHARACTER(500) :: argName
-    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided, mixingProvided, rdbProvided
+    LOGICAL :: helpNeeded, paramFileProvided, irfProvided, oplevelProvided, dbRootProvided, outProvided, mixingProvided, rdbProvided, popFileProvided
 
       PRINT*, 'FEOTS (feots) Command Line Interface' 
       PRINT*, ' Copyright Los Alamos National Laboratory (2017-2020)'
@@ -111,6 +112,7 @@ CONTAINS
     cliParams % helpNeeded = .FALSE.
     cliParams % paramFile = './runtime.params'
     cliParams % irfFile = ''
+    cliParams % popFile = ''
     cliParams % oplevel = -1
     cliParams % dbRoot = './'
     cliParams % outdir = './'
@@ -184,6 +186,9 @@ CONTAINS
           CASE( "--irf" )
             irfProvided = .TRUE.
 
+          CASE( "--pop-file" )
+            popFileProvided = .TRUE.
+
           CASE( "--dbroot" )
             dbRootProvided = .TRUE.
 
@@ -221,6 +226,13 @@ CONTAINS
 
             ENDIF
 
+            IF( popFileProvided )THEN
+
+              cliParams % popFile = TRIM( argName )
+              popFileProvided = .FALSE.
+
+            ENDIF
+
             IF( dbRootProvided )THEN
 
               cliParams % dbRoot = TRIM( argName )
@@ -253,6 +265,8 @@ CONTAINS
     ENDIF
 
     IF( cliParams % helpNeeded ) THEN
+
+      cliParams % setupSuccess = .FALSE.
 
       PRINT*, '  feots [tool] [options]'      
       PRINT*, ' '
@@ -299,6 +313,10 @@ CONTAINS
       PRINT*, '       the feots application. If not provided, runtime.params in  '
       PRINT*, '       your current directory is assumed.                          '
       PRINT*, ' '
+      PRINT*, '    --pop-file /path/to/irf-file'
+      PRINT*, '       Specifies the full path to a netcdf file with standard POP output'
+      PRINT*, '       (For popmesh)'
+      PRINT*, ' '
       PRINT*, '    --irf /path/to/irf-file'
       PRINT*, '       Specifies the full path to a netcdf file with IRFs'
       PRINT*, '       (For operator diagnosis and regional extraction)'
@@ -321,6 +339,8 @@ CONTAINS
       PRINT*, ' '
       PRINT*, ' '
       PRINT*, ' '
+
+      RETURN
 
     ENDIF
 

@@ -46,62 +46,85 @@
 </ul>
 <p>For offline tracer simulations, FEOTS has the capability to run in either a global or regional configuration. In the regional configuration, FEOTS provides tools to extract regional transport operators from global operators.</p>
 <p>Below, we provide the details for all of the steps in this process while describing how FEOTS global, regional, and simulation databases are created.</p>
+</div>
 <div class="section" id="create-transport-operators">
-<h3>Create Transport Operators<a class="headerlink" href="#create-transport-operators" title="Permalink to this headline">¶</a></h3>
+<h2>Create Transport Operators<a class="headerlink" href="#create-transport-operators" title="Permalink to this headline">¶</a></h2>
 <p>When we discuss “transport operator diagnosis”, we specifically mean that we are diagnosing the rows and columns of a sparse matrix that is equivalent to the application of a discrete advection-diffusion operator as implemented in an ocean general circulation model (the parent model). In every time-step of the parent model, we pass a set of impulse fields through passive-tracer forward stepping. The difference in the forward-stepped field and the impulse field, divided by the parent model time step size, provides us with the columns of the transport operator matrix.</p>
 <p>We have provided tools in FEOTS to aid in the process of impulse field generation and operator diagnosis based on these ideas. This allows you to create your own transport operator databases from an online POP model simulation.</p>
+<div class="section" id="create-a-global-database">
+<h3>Create a Global Database<a class="headerlink" href="#create-a-global-database" title="Permalink to this headline">¶</a></h3>
+<p>If you are planning to use FEOTS to create a transport operator database, your first step is to create the global operator database scaffolding. The global operator database scaffolding refers to the directory structure that is used for storing impulse fields, the transport operator connectivity graph, the parent model global mesh, impulse response functions, transport operators, and a metadata file that describes the database.</p>
+<p>To create a global database, you can use the provided <code class="code docutils literal notranslate"><span class="pre">mkdb.sh</span></code> script.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/fluidnumerics/feots.git
+<span class="nb">cd</span> feots/scripts
+<span class="nb">export</span> <span class="nv">FEOTS_DBROOT</span><span class="o">=</span>/path/to/db/root
+bash ./mkdb.sh <span class="nv">$FEOTS_DBROOT</span>
+</pre></div>
+</div>
+<p>After creating the database, we recommend that you open <code class="code docutils literal notranslate"><span class="pre">/path/to/db/root/metadata.json</span></code> and fill out as much of the details as you can about your operator database at this stage.</p>
+</div>
 <div class="section" id="mesh-extraction-from-a-parent-model">
-<h4>Mesh Extraction from a Parent Model<a class="headerlink" href="#mesh-extraction-from-a-parent-model" title="Permalink to this headline">¶</a></h4>
+<h3>Mesh Extraction from a Parent Model<a class="headerlink" href="#mesh-extraction-from-a-parent-model" title="Permalink to this headline">¶</a></h3>
 <a class="reference internal image-reference" href="_images/feots_popmesh.png"><img alt="FEOTS Mesh Extraction from a parent model" src="_images/feots_popmesh.png" style="width: 50%;" /></a>
+<p>Almost all of the utilities in FEOTS require a NetCDF file that contains the POP Mesh information. While you can simply store the standard POP output in the global database, the standard NetCDF output contains more information than needed to support impulse field generation, operator diagnosis, and output remapping for offline simulations.</p>
+<p>To create impulse functions and corresponding tracer fields to insert into POP for IRF diagnosis, you first need to run the parent model to create at least one output file. Then, you can use the <code class="code docutils literal notranslate"><span class="pre">feots</span> <span class="pre">popmesh</span></code> to extract the necessary POP mesh information from standard POP NetCDF output.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>feots popmesh --pop-file /path/to/pop/output.nc --dbroot <span class="nv">$FEOTS_DBROOT</span>
+</pre></div>
+</div>
+<p>Running this FEOTS command will read <code class="code docutils literal notranslate"><span class="pre">/path/to/pop/output.nc</span></code>, extract the necessary mesh information, and save the POP mesh file under <code class="code docutils literal notranslate"><span class="pre">$FEOTS_DBROOT/mesh/mesh.nc</span></code>.</p>
 </div>
 <div class="section" id="impulse-field-generation">
-<h4>Impulse Field Generation<a class="headerlink" href="#impulse-field-generation" title="Permalink to this headline">¶</a></h4>
+<h3>Impulse Field Generation<a class="headerlink" href="#impulse-field-generation" title="Permalink to this headline">¶</a></h3>
 <a class="reference internal image-reference" href="_images/feots_impulse.png"><img alt="FEOTS Impulse field generation" src="_images/feots_impulse.png" style="width: 50%;" /></a>
-<p>An impulse field is simply a discrete field of 1’s and 0’s. Where we place the non-zero impulse values depends on the domain-of-influence of the discrete advection-diffusion operators and the shape of the discrete ocean boundaries.</p>
+<p>An impulse field is a discrete field of 1’s and 0’s used to diagnose the sparse matrices that capture the advection-diffusion operators in the parent model. Non-zero impulse value placement depends on the domain-of-influence of the discrete advection-diffusion operators and the shape of the discrete ocean boundaries. Together, the mesh information, the parent model advection scheme, and the desire to not have impulse response fields from each grid cell overlap results in a graph coloring problem that FEOTS solves using the Greedy Algorithm.</p>
+<p>The advection scheme is specified in the FEOTS namelist file (runtime.params). In future versions of FEOTS, the advection scheme will be read from the <code class="code docutils literal notranslate"><span class="pre">$FEOTS_DBROOT/metadata.json</span></code> file.</p>
+<p>Currently, operator diagnosis is only supported for the 27-point Lax-Wendroff advection scheme on a global tripole grid.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>feots impulse --dbroot <span class="nv">$FEOTS_DBROOT</span> --param-file /path/to/runtime.params
+</pre></div>
+</div>
 </div>
 <div class="section" id="parent-model-execution">
-<h4>Parent Model Execution<a class="headerlink" href="#parent-model-execution" title="Permalink to this headline">¶</a></h4>
+<h3>Parent Model Execution<a class="headerlink" href="#parent-model-execution" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="operator-diagnosis">
-<h4>Operator Diagnosis<a class="headerlink" href="#operator-diagnosis" title="Permalink to this headline">¶</a></h4>
-</div>
-</div>
+<h3>Operator Diagnosis<a class="headerlink" href="#operator-diagnosis" title="Permalink to this headline">¶</a></h3>
 <div class="section" id="run-offline-simulations">
-<h3>Run Offline Simulations<a class="headerlink" href="#run-offline-simulations" title="Permalink to this headline">¶</a></h3>
+<h4>Run Offline Simulations<a class="headerlink" href="#run-offline-simulations" title="Permalink to this headline">¶</a></h4>
 </div>
 <div class="section" id="regional-simulations">
-<h3>Regional Simulations<a class="headerlink" href="#regional-simulations" title="Permalink to this headline">¶</a></h3>
+<h4>Regional Simulations<a class="headerlink" href="#regional-simulations" title="Permalink to this headline">¶</a></h4>
+</div>
+</div>
 <div class="section" id="mask-generation">
-<h4>Mask Generation<a class="headerlink" href="#mask-generation" title="Permalink to this headline">¶</a></h4>
+<h3>Mask Generation<a class="headerlink" href="#mask-generation" title="Permalink to this headline">¶</a></h3>
 <p>The first step in running a regional simulation is to create a mask file that</p>
 </div>
 <div class="section" id="regional-extraction">
-<h4>Regional Extraction<a class="headerlink" href="#regional-extraction" title="Permalink to this headline">¶</a></h4>
+<h3>Regional Extraction<a class="headerlink" href="#regional-extraction" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="regional-mapping">
-<h4>Regional Mapping<a class="headerlink" href="#regional-mapping" title="Permalink to this headline">¶</a></h4>
+<h3>Regional Mapping<a class="headerlink" href="#regional-mapping" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="initial-conditions">
-<h4>Initial Conditions<a class="headerlink" href="#initial-conditions" title="Permalink to this headline">¶</a></h4>
+<h3>Initial Conditions<a class="headerlink" href="#initial-conditions" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="forward-integration">
-<h4>Forward Integration<a class="headerlink" href="#forward-integration" title="Permalink to this headline">¶</a></h4>
+<h3>Forward Integration<a class="headerlink" href="#forward-integration" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="equilibration">
-<h4>Equilibration<a class="headerlink" href="#equilibration" title="Permalink to this headline">¶</a></h4>
-</div>
-</div>
+<h3>Equilibration<a class="headerlink" href="#equilibration" title="Permalink to this headline">¶</a></h3>
 <div class="section" id="global-simulations">
-<h3>Global Simulations<a class="headerlink" href="#global-simulations" title="Permalink to this headline">¶</a></h3>
+<h4>Global Simulations<a class="headerlink" href="#global-simulations" title="Permalink to this headline">¶</a></h4>
+</div>
+</div>
 <div class="section" id="id1">
-<h4>Initial Conditions<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<h3>Initial Conditions<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="id2">
-<h4>Forward Integration<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h4>
+<h3>Forward Integration<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
 </div>
 <div class="section" id="id3">
-<h4>Equilibration<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h4>
-</div>
+<h3>Equilibration<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
 </div>
 </div>
 </div>
@@ -127,6 +150,7 @@
 <li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Workflow</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#create-transport-operators">Create Transport Operators</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="feots-database.html">Database</a></li>
