@@ -77,45 +77,111 @@ When you run this FEOTS command, the :code:`$FEOTS_DBROOT/mesh/mesh.nc` file is 
 
 Parent Model Execution
 ***********************
+.. image:: images/feots_parent-model-execution.png
+   :width: 50%
+   :alt: FEOTS parent model execution
+
+In the parent model execution, you are creating time averaged impulse response fields by leveraging the passive tracer POP module. At this stage, you must decide the time averaging period and the number of transport operators to capture. 
+
+The POP NetCDF output must contain the IRF fields :code:`ADV_IRF_NN` and the time averaged salinity diffusion coefficients :code:`VDC_S`. Both of these fields are used during operator diagnosis to create the sparse matrices for transport (advection + lateral diffusion) and vertical diffusion. 
+
+After running the parent model, move or symbolically link the NetCDF output to :code:`$FEOTS_DBROOT/irf/response/IRF.*.nc`
 
 Operator Diagnosis
 ******************
+.. image:: images/feots_operator-diagnosis.png
+   :width: 50%
+   :alt: FEOTS operator diagnosis
+
+Once you have run the parent model and populated the global database with impulse response function output, you are now ready to diagnose the transport and vertical diffusion operators. The operator diagnosis process uses the connectivity graph, the impulse response fields, and the model mesh to create the transport and vertical diffusion operators.
+
+To create a transport and vertical diffusion operator from an impulse response function, you can use the :code:`feots operator-diagnosis` command.
+
+.. code-block:: shell
+
+  k=0
+  for irf in $FEOTS_DBROOT/irf/response/*.nc; do
+
+    feots operator-diagnosis --dbroot $FEOTS_DBROOT \
+                             --irf-file $irf
+                             --oplevel $k
+                             --param-file /path/to/runtime.params
+    k=$((k+1))
+  done
+
+The :code:`irf-file` option specifies the full path the the IRF NetCDF file and :code:`--oplevel` is used to index the transport and vertical diffusion output files. For example, when :code:`k=5`, the files :code:`$FEOTS_DBROOT/ops/transport.0005.h5` and :code:`$FEOTS_DBROOT/ops/diffusion.0005.h5` are created as output, and contain the transport and vertical diffusion matrices, respectively, in compressed row storage format.
+
+If you have access to the Slurm job scheduler and sufficient compute resources, the operator-diagnosis can be handled in parallel using `Slurm job arrays <https://slurm.schedmd.com/job_array.html>`_ . In this case, it's helpful to first create a file that contains a list of all of the IRF files
 
 
+.. code-block:: shell
+
+  ls $FEOTS_DBROOT/irf/response/*.nc > IRFs.txt
+
+Then, you can use something similar to the following batch file to perform operator diagnosis in parallel
+
+.. code-block:: shell
+
+  #!/bin/bash
+  #SBATCH --ntasks=1
+  #SBATCH --ntasks-per-node=1
+  #SBATCH --cpus-per-task=36
+  #SBATCH --mem=56G
+  #SBATCH --time=15:00
+  #SBATCH --output=feots_logs-%j
+  #SBATCH --array=1-365%50
+
+  IRF=$(sed -n ${SLURM_ARRAY_TASK_ID}p IRFs.txt)
+  echo $IRF
+  feots operator-diagnosis --dbroot $FEOTS_DBROOT \
+                           --irf $IRF \
+                           --oplevel $SLURM_ARRAY_TASK_ID 
+
+This example will schedule 365 batch jobs, allowing 50 of them to run simultaneously (if sufficient compute resources are present). Each job uses the :code:`$SLURM_ARRAY_TASK_ID` to instruct each job to diagnose its own distinct operator.
+
+=======================
 Run Offline Simulations
 =======================
 
-Regional Simulations
-====================
 
 Mask Generation
 ***************
+.. image:: images/feots_regional-genmask.png
+   :width: 50%
+   :alt: FEOTS Regional Mask Generation
+
 The first step in running a regional simulation is to create a mask file that 
 
 Regional Extraction
 *******************
+.. image:: images/feots_regional-region-extraction.png
+   :width: 50%
+   :alt: FEOTS regional operator extraction
+
+Multi-Tracer Mask Generation
+****************************
+.. image:: images/feots_simulation-genmask.png
+   :width: 50%
+   :alt: FEOTS Impulse field generation
 
 Regional Mapping
 ****************
+.. image:: images/feots_simulation-genmaps.png
+   :width: 50%
+   :alt: FEOTS Impulse field generation
 
 Initial Conditions
 ******************
+.. image:: images/feots_simulation-initialize.png
+   :width: 50%
+   :alt: FEOTS tracer field initialization
 
 Forward Integration
 *******************
+.. image:: images/feots_simulation-integrate.png
+   :width: 50%
+   :alt: FEOTS forward integration
 
-Equilibration
-*************
-
-
-Global Simulations
-====================
-
-Initial Conditions
-******************
-
-Forward Integration
-*******************
 
 Equilibration
 *************
