@@ -259,7 +259,7 @@ CONTAINS
          ENDDO
       ENDDO
 
-      CALL WriteMaskField( mesh, maskField, TRIM(cliParams % regionalDb)//'/mask.nc' )
+      CALL WriteMaskField( mesh, maskField, TRIM(cliParams % outdir)//'/mask.nc' )
       CALL mesh % Trash( )
       DEALLOCATE(maskfield)
 
