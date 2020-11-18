@@ -29,7 +29,8 @@ for f in ${OUTDIR}/Tracer.00000.00*.nc; do
   ncwa -y mabs ${OUTDIR}/diff/${outfile} ${OUTDIR}/diff/absmax/${outfile}
 
   # Get the absolute max value from the netcdf file and write to the curve file
-  ncdump -v DyeTracer_00 ${OUTDIR}/diff/absmax/${outfile} | grep "DyeTracer_00 = " | awk -F '=' '{print $2}' | sed 's/;//g' >> ${OUTDIR}/diff/absmax/error.curve
+  absmax=$(ncdump -v DyeTracer_00 ${OUTDIR}/diff/absmax/${outfile} | grep "DyeTracer_00 = " | awk -F '=' '{print $2}' | sed 's/;//g')
+  echo "$iterate, $absmax" >> ${OUTDIR}/diff/absmax/error.curve
 
 
   ## <><><><><><><><><><><><> Plot Volume Scatter Plot <><><><><><><><><><><><> ##
@@ -47,4 +48,13 @@ for f in ${OUTDIR}/Tracer.00000.00*.nc; do
   python3 zProfile.py plot ${OUTDIR}/diff/${outfile} --opts="logx" --field="DyeTracer_00" --out="${OUTDIR}/plots/DyeTracer_00/error"
 
 done
-deactivate
+
+  ## <><><><><><><><><><><><> Plot Curve Data <><><><><><><><><><><><> ##
+  #
+  # Here, we call a python script to plot the time series of the max dye
+  # tracer error in error.curve
+  plotCurve plot ${OUTDIR}/diff/absmax/error.curve \
+                 --out=${OUTDIR}/diff/absmax/error.png \
+                 --scalex=0.00125 \
+                 --xlabel="Time (days)" \
+                 --ylabel="Tracer Error"
