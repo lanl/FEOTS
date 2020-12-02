@@ -188,7 +188,7 @@ USE FEOTS_CLI_Class
 
    END TYPE POP_FEOTS
 
-   REAL(prec), PARAMETER, PRIVATE :: cg_tolerance = 1.0D-6
+   REAL(prec), PARAMETER, PRIVATE :: cg_tolerance = 1.0D-5
    INTEGER, PARAMETER, PRIVATE    :: cg_itermax   = 100
 
 CONTAINS
@@ -816,13 +816,13 @@ CONTAINS
    REAL(prec) :: x(1:this % solution % nDOF, 1:this % solution % nTracers)
    REAL(prec) :: alpha, beta, delta0, s0, deltaNew, deltaOld
    INTEGER :: m, i, iter
-  
+
      DO m = 1, this % solution % nTracers
        DO i = 1, this % solution % nDOF
          x(i,m) = this % solution % tracers(i,m)
        ENDDO
      ENDDO
-    
+
      Ax = this % VerticalMixingAction( x )
 
      DO m = 1, this % solution % nTracers
@@ -839,6 +839,11 @@ CONTAINS
      DO iter = 1, cg_itermax
 
        IF( deltaNew <= cg_tolerance*delta0 )THEN
+         DO m = 1, this % solution % nTracers
+           DO i = 1, this % solution % nDOF
+             this % solution % tracers(i,m) = x(i,m)
+           ENDDO
+         ENDDO
          INFO('Vertical Mixing Converged in '//Int2Str(iter)//' iterates')
          INFO('Final (relative) residual = '//Float2Str(deltaNew/delta0))
          RETURN
@@ -852,7 +857,7 @@ CONTAINS
          DO i = 1, this % solution % nDOF
            x(i,m) = x(i,m) + alpha*d(i,m)
          ENDDO
-       ENDDO  
+       ENDDO
 
        IF( mod(i,50) == 0 )THEN
 
@@ -879,7 +884,6 @@ CONTAINS
        deltaNew = this % DotProduct(r,s)
 
        beta = deltaNew/deltaOld
-       
        DO m = 1, this % solution % nTracers
          DO i = 1, this % solution % nDOF
            d(i,m) = s(i,m) + beta*d(i,m)
@@ -888,8 +892,13 @@ CONTAINS
 
      ENDDO
 
+     DO m = 1, this % solution % nTracers
+       DO i = 1, this % solution % nDOF
+         this % solution % tracers(i,m) = x(i,m)
+       ENDDO
+     ENDDO
+
      WARNING('Failed to converge. Final (relative) residual = '//Float2Str(deltaNew/delta0))
-     
 
  END SUBROUTINE VerticalMixing_POP_FEOTS
 !
@@ -1541,7 +1550,6 @@ CONTAINS
             ! The new basis vector is obtained by multiplying the previous basis vector by the matrix
             ! and orthogonalizing wrt to all of the previous basis vectors using a Gram-Schmidt process.
             DO k = 1, i
-                              
                hki = 0.0_prec
 
                DO jj = 1, this % solution % nTracers
@@ -1559,7 +1567,6 @@ CONTAINS
 
             ENDDO
 
-                              
             hki = 0.0_prec
             DO jj = 1, this % solution % nTracers
                DO ii = 1, this % solution % nDOF
@@ -1579,7 +1586,6 @@ CONTAINS
             ENDDO
 
             rho(1,i) = h(1,i)
-     
             ! Givens rotations are applied to the upper hessenburg matrix and to the residual vectors
             ! that are formed from the orthogonalization process. Here, they are done "on-the-fly"
             ! as opposed to building the entire upper hessenburg matrix and orthonormal basis
@@ -1622,8 +1628,7 @@ CONTAINS
             ENDDO
             y(k) = y(k)/rho(k,k)
          ENDDO
-  
-     
+
          DO jj = 1, nr
             DO i = 1, this % solution % nTracers
                DO ii = 1, this % solution % nDOF
@@ -1731,7 +1736,6 @@ CONTAINS
          ! which is the RHS of the Linearized fixed point problem
          !    J*dx = -Gx
 
-         
          PRINT*, 'S/R JFNK : Call to SolveGMRES '
          CALL this % SolveGMRES( x, Gx, dx, residual, ioerr, myRank )
          ! Check for convergence
