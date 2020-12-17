@@ -6,7 +6,7 @@ set -x
 dts=(1080 540 270 135)
 nTimeSteps=(400 800 1600 3200)
 nStepsPerDump=(400 800 1600 3200)
-integrators=("euler","ab2","ab3")
+integrators=("euler" "ab2" "ab3")
 GCS_DEST="gs://feots-db/simulation/zapiola"
 
 export OUTDIR_ROOT=/home/joe/apps/feots_output/zapiola/
@@ -29,9 +29,9 @@ for dt in ${dts[@]}; do
     bash ./bash/job-pipeline.sh > ./feots.logs
     mv ./feots.logs ${OUTDIR}
 
-    k+=1
 #    gsutil cp -r ${OUTDIR} ${GCS_DEST}
 #    rm -rf ${OUTDIR}
 
   done
+  k=$((k+1))
 done

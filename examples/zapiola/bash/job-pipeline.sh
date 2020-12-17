@@ -10,7 +10,7 @@ echo "OUTDIR=$OUTDIR"
 mkdir -p ${OUTDIR}
 
 set -x
-#bash ./bash/01-genmask.sh
+bash ./bash/01-genmask.sh
 bash ./bash/02-genmaps.sh
 bash ./bash/03-init.sh
 bash ./bash/04-integrate.sh

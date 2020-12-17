@@ -8,11 +8,9 @@ integrators=("euler")
 GCS_DEST="gs://feots-db/simulation/zapiola_equilibrate"
 
 export FEOTS_DBROOT=/home/joe/apps/feots_output/E3SMV0-HILAT-5DAVG
-export OUTDIR_ROOT=/home/joe/apps/feots_output/zapiola
-export REGIONAL_DB=/home/joe/apps/feots_output/regional_constant_preservation/
+export OUTDIR_ROOT=/home/joe/apps/feots_output/zapiola_equilibrate
+export REGIONAL_DB=/home/joe/apps/feots_output/argentine_basin/
 export FEOTS_FLAGS=''
-export OUTDIR="${OUTDIR_ROOT}/two-tracer-test"
-
 
 k=0
 for dt in ${dts[@]}; do
@@ -21,11 +19,11 @@ for dt in ${dts[@]}; do
     sed -i -e "s/timeStepScheme.*/timeStepScheme = '$integrator',/" ./runtime.params
     export OUTDIR="${OUTDIR_ROOT}/${integrator}-${dt}"
     bash ./bash/job-pipeline.sh > ./feots.logs
-    mv ./feots.logs ${OUTDIR}
+#    mv ./feots.logs ${OUTDIR}
 
     k+=1
-    gsutil cp -r ${OUTDIR} ${GCS_DEST}
-    rm -rf ${OUTDIR}
+#    gsutil cp -r ${OUTDIR} ${GCS_DEST}
+#rm -rf ${OUTDIR}
 
   done
 done

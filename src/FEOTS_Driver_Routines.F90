@@ -839,60 +839,42 @@ CONTAINS
    INTEGER       :: mpiErr, myRank, nProcs, iter
    REAL(prec)    :: tn
    REAL(prec)    :: t1, t2
-   
-#ifdef HAVE_MPI
+   CHARACTER(5)  :: rankChar
+
       CALL MPI_INIT( mpiErr )
       CALL MPI_COMM_RANK( MPI_COMM_WORLD, myRank, mpiErr )
       CALL MPI_COMM_SIZE( MPI_COMM_WORLD, nProcs, mpiErr )
-#else
-      myRank = 0
-      nProcs = 1
-#endif
 
       CALL feots % Build( cliParams, myRank, nProcs )
 
+      WRITE( rankChar, '(I5.5)' ) myRank
       recordID = 1
-      IF( myRank == 0 )THEN
-        ! Tracer.init.nc is read for the mask and source terms
-         CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.init.nc', .TRUE. )
-         CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
+      ! Tracer.init.nc is read for the mask and source terms
+      CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,TRIM(cliParams % outDir)//'/Tracer.'//rankChar//'.init.nc', .TRUE. )
+      CALL feots % nativeSol % ReadSourceEtcNetCDF( feots % mesh )
+      CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
+      CALL feots % nativeSol % FinalizeNetCDF( )
+
+      IF( feots % params % isPickupRun )THEN
+         CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,TRIM(cliParams % outDir)//'/Tracer.'//rankChar//'.pickup.nc', .TRUE. )
          CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
          CALL feots % nativeSol % FinalizeNetCDF( )
-   
-  
-         IF( feots % params % isPickupRun )THEN  
-            CALL feots % nativeSol % InitializeForNetCDFRead( feots % params % TracerModel,'Tracer.pickup.nc', .FALSE. )
-            CALL feots % nativeSol % ReadNetCDFRecord( feots % mesh, recordID )
-            CALL feots % nativeSol % FinalizeNetCDF( )
-            tn = REAL(feots % params % iterInit,prec)*feots % params % dt
-   
-         ENDIF
-   
-         ! /////////////////////////////////////////////////////////////////////////////// !
-         
-         ! Transfer the data from the native storage to the FEOTS storage
-         CALL feots % MapAllToDOF( )
+         tn = REAL(feots % params % iterInit,prec)*feots % params % dt
       ENDIF
+      ! /////////////////////////////////////////////////////////////////////////////// !
+      ! Transfer the data from the native storage to the FEOTS storage
+      CALL feots % MapAllToDOF( )
 
-#ifdef HAVE_OPENMP   
-      t1 = omp_get_wtime( )
-#else
       CALL CPU_TIME( t1 )
-#endif
       CALL feots % JFNK( myRank )
 
-          
-#ifdef HAVE_OPENMP
-      t2 = omp_get_wtime( )
-#else
       CALL CPU_TIME( t2 )
-#endif
+
       PRINT*, 'JFNK wall time :', t2-t1
 
       CALL feots % Trash( )
-#ifdef HAVE_MPI
+
       CALL MPI_FINALIZE( mpiErr )
-#endif
 
   END SUBROUTINE FEOTSEquilibrate
 

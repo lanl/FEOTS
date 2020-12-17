@@ -9,7 +9,7 @@ north       = -28.06,
 /
 &TracerModelOptions
 TracerModel = 'DyeModel',
-timeStepScheme = 'euler',
+timeStepScheme = 'ab3',
 dt = 1080,
 runMode     = 'Forward',
 nStepsPerDump   = 400,

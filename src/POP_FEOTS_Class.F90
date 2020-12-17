@@ -1706,7 +1706,9 @@ CONTAINS
    INTEGER      :: iter, iterMax, ioerr, nIt, m, i, j, k, tk, fUnit, nr
    INTEGER      :: maskID 
    CHARACTER(4) :: iterChar
+   CHARACTER(5) :: rankChar
 
+      WRITE( rankChar, '(I5.5)' ) myRank
 
       iterMax   = this % params % maxItersJFNK
       tolerance = this % params % toleranceJFNK
@@ -1793,7 +1795,7 @@ CONTAINS
          CALL this % MapTracerFromDOF( ) ! Map from DOF to native storage
          CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
                                                            this % mesh, &
-                                                           'Tracer.equilibrium.nc', &
+                                                           TRIM(this % params % outputDirectory)//'/Tracer.'//rankChar//'.equilibrium.nc', &
                                                            .false. )
          CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
          CALL this % nativeSol % FinalizeNetCDF( )
@@ -1806,7 +1808,7 @@ CONTAINS
          !
          CALL this % nativeSol % InitializeForNetCDFWrite( this % params % TracerModel, &
                                                            this % mesh, &
-                                                           'Tracer.pickup.nc', &
+                                                           TRIM(this % params % outputDirectory)//'/Tracer.'//rankChar//'.pickup.nc', &
                                                            .false. )
          CALL this % nativeSol % WriteNetCDFRecord( this % mesh, 1 )
          CALL this % nativeSol % FinalizeNetCDF( )

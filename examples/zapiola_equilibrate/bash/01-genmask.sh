@@ -1,9 +1,10 @@
 #!/bin/bash
 
-mkdir -p ${OUTDIR}
-IRF=$(sed -n 1p ${IRF_FILE})
+echo ""
+echo "================================================"
+echo "Creating mask for FEOTS simulation database"
+echo ""
 ./genmask --dbroot ${FEOTS_DBROOT}  \
-          --irf ${IRF} \
+          --regional-db ${REGIONAL_DB} \
           --out ${OUTDIR} \
           --param-file ./runtime.params
-

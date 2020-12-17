@@ -64,7 +64,7 @@ IMPLICIT NONE
 
       CALL mesh % Load( TRIM(cliParams % dbRoot)//'/mesh/mesh.nc'  )
   
-      nMasks = params % nTracers
+      nMasks = 6
 
       ALLOCATE( maskField(1:mesh % nX,1:mesh % nY,1:nMasks) )
       ALLOCATE( regionMask(1:mesh % nX,1:mesh % nY) )
