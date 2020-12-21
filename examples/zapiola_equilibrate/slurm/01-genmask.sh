@@ -9,16 +9,7 @@
 #SBATCH --qos=standard
 
 module use /users/jschoonover/modulefiles
-module load gcc/9.3.0 openmpi/3.1.6 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev
-
-mkdir -p ${OUTDIR}
-
-echo "================================================"
-echo "Creating mask for FEOTS regional database"
-echo ""
-feots genmask --dbroot ${FEOTS_DBROOT} \
-              --regional-db ${REGIONAL_DB} \
-              --param-file ./runtime.params
+module load gcc/9.3.0 openmpi/3.1.6 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0 feots/dev 
 
 echo ""
 echo "================================================"
@@ -28,4 +19,3 @@ echo ""
           --regional-db ${REGIONAL_DB} \
           --out ${OUTDIR} \
           --param-file ./runtime.params
-
