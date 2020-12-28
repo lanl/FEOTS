@@ -153,7 +153,9 @@ Mask Generation
 A regional simulation with FEOTS is a simulation that models a geographic subset of the parent model. If you plan on running a regional simulation, you will first need to create a mask file. A mask file is a NetCDF file that has dimensions :code:`nlon` and :code:`nlat` and variables :code:`nMasks` and :code:`maskXXX` where the :code:`XXX` is a 3-digit zero-padded integer.
 
 You can generate a mask file easily by using the :code:`feots genmask` command. When using this command, you are limited to choosing regional domains by specifying min/max latitude and longitude.
+
 .. code-block:: shell
+
   export REGIONAL_DB=/path/to/regional/database
   mkdir -p ${REGIONAL_DB}
   feots genmask --dbroot ${FEOTS_DBROOT}  \
@@ -162,7 +164,9 @@ You can generate a mask file easily by using the :code:`feots genmask` command. 
                 --param-file ./runtime.params
 
 To control the latitude and longitude bounding your region, set the following parameters in your :code:`runtime.params` namelist file
+
 .. code-block:: shell
+
   &POPMeshOptions
   MeshType    = 'PeriodicTripole',
   Regional    = .TRUE.,
@@ -181,7 +185,9 @@ Regional Extraction
 When running a regional simulation, FEOTS requires that you extract regional transport operators from the "global" operators. Under the hood, this simply means that you extract the rows and columns from the transport matrices that correspond to the interior and prescribed cells in your region. Once you have a region mask, you need to create a regional map that maps the local degrees of freedom to the global degrees of freedom and then create the regional transport operators. This can be accomplished using the `feots region-extraction` command.
 
 As with the operator diagnosis, the regional-extraction can be executed in parallel. If you are using a job scheduler, such as slurm, job arrays can be used to parallelize this step of the workflow. The region-extraction command will create a file :code:`$REGIONAL_DB/mappings.regional` in addition to :code:`transport.*.h5` and :code:`diffusion.*.h5` files that contain the global to regional mapping information, regional transport matrices, and regional vertical diffusion matrices, respectively.
+
 .. code-block:: shell
+
   #!/bin/bash
   #SBATCH --job-name=regional-extraction
   #SBATCH --ntasks=1
@@ -215,7 +221,9 @@ Regional Mapping
    :alt: FEOTS Impulse field generation
 
 The :code:`mappings.regional` file created during region-extraction is only valid for simulations with one passive tracer and no explicitly prescribed cells. Because of this, it is recommended that you create a regional mapping file after regional-extraction, use the :code:`genmaps` command. This will create a file :code:`${OUTDIR}/mappings.regional`, where :code:`${OUTDIR}` is set to the path where simulation output will be stored.
+
 .. code-block:: shell
+
   feots genmaps --out ${OUTDIR} \
                 --regional-db ${REGIONAL_DB} \
                 --dbroot ${FEOTS_DBROOT} \
@@ -239,7 +247,9 @@ Forward Integration
    :alt: FEOTS forward integration
 
 FEOTS can run transient tracer simulations using forward integration. Forward integration always uses 1st order backward euler for the vertical mixing and can use forward euler, 2nd order Adams-Bashforth, or 3rd order Adams-Bashforth for transport (advection and lateral diffusion). The integration options are controlled in the :code:`runtime.params` namelist file
+
 .. code-block:: shell
+
   &TracerModelOptions
   timeStepScheme = 'ab3',
   dt = 1080.0,
@@ -253,6 +263,7 @@ The :code:`timeStepScheme` can be set to :code:`euler`, :code:`ab2`, or :code:`a
 When running forward integration, one MPI rank is assigned to each tracer. Thus, when launching the :code:`feots integrate` program, you must set the number of MPI ranks equivalent to the number of tracers in your simulation.
 
 .. code-block:: shell
+
   mpirun -np ${NTRACERS} feots integrate --dbroot ${FEOTS_DBROOT} \
                                          --regional-db ${REGIONAL_DB} \
                                        --out ${OUTDIR} \
