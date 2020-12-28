@@ -150,7 +150,27 @@ Mask Generation
    :width: 50%
    :alt: FEOTS Regional Mask Generation
 
-The first step in running a regional simulation is to create a mask file that 
+A regional simulation with FEOTS is a simulation that models a geographic subset of the parent model. If you plan on running a regional simulation, you will first need to create a mask file. A mask file is a NetCDF file that has dimensions :code:`nlon` and :code:`nlat` and variables :code:`nMasks` and :code:`maskXXX` where the :code:`XXX` is a 3-digit zero-padded integer.
+
+You can generate a mask file easily by using the :code:`feots genmask` command. When using this command, you are limited to choosing regional domains by specifying min/max latitude and longitude.
+.. code-block:: shell
+  export REGIONAL_DB=/path/to/regional/database
+  mkdir -p ${REGIONAL_DB}
+  feots genmask --dbroot ${FEOTS_DBROOT}  \
+                --regional-db ${REGIONAL_DB} \
+                --out ${OUTDIR} \
+                --param-file ./runtime.params
+
+To control the latitude and longitude bounding your region, set the following parameters in your :code:`runtime.params` namelist file
+.. code-block:: shell
+  &POPMeshOptions
+  MeshType    = 'PeriodicTripole',
+  Regional    = .TRUE.,
+  south       = -52.18,
+  east        = -24.90,
+  west        = -70.25,
+  north       = -28.06,
+
 
 Regional Extraction
 *******************
@@ -158,11 +178,35 @@ Regional Extraction
    :width: 50%
    :alt: FEOTS regional operator extraction
 
+When running a regional simulation, FEOTS requires that you extract regional transport operators from the "global" operators. Under the hood, this simply means that you extract the rows and columns from the transport matrices that correspond to the interior and prescribed cells in your region. Once you have a region mask, you need to create a regional map that maps the local degrees of freedom to the global degrees of freedom and then create the regional transport operators. This can be accomplished using the `feots region-extraction` command.
+
+As with the operator diagnosis, the regional-extraction can be executed in parallel. If you are using a job scheduler, such as slurm, job arrays can be used to parallelize this step of the workflow. The region-extraction command will create a file :code:`$REGIONAL_DB/mappings.regional` in addition to :code:`transport.*.h5` and :code:`diffusion.*.h5` files that contain the global to regional mapping information, regional transport matrices, and regional vertical diffusion matrices, respectively.
+.. code-block:: shell
+  #!/bin/bash
+  #SBATCH --job-name=regional-extraction
+  #SBATCH --ntasks=1
+  #SBATCH --cpus-per-task=1
+  #SBATCH --mem=20G
+  #SBATCH --time=25:00
+  #SBATCH --output=feots_logs
+  #SBATCH --array=1-365%50
+
+  feots region-extraction --dbroot ${FEOTS_DBROOT} \
+                          --regional-db ${REGIONAL_DB} \
+                          --oplevel ${SLURM_ARRAY_TASK_ID} \
+                          --param-file ./runtime.params
+
 Multi-Tracer Mask Generation
 ****************************
 .. image:: images/feots_simulation-genmask.png
    :width: 50%
    :alt: FEOTS Impulse field generation
+
+The regional operators stored under :code:`${REGIONAL_DB}` can be used for multiple offline tracer simulations. To run an offline tracer simulation with more than one tracer, you need to write a program that creates such a mask file. A mask file is a NetCDF file that has dimensions :code:`nlon` and :code:`nlat` and variables :code:`nMasks` and :code:`maskXXX` where the :code:`XXX` is a 3-digit zero-padded integer.
+
+The :code:`maskXXX` variables are :code:`NF90_INT` of size :code:`(nlon,nlat)`, where `(nlon,nlat)` are the number of longitude and latitude grid points on the parent model mesh. The mask variable is used to define the model domain for an array of tracers in FEOTS. Cells marked with a mask value of 1 are "interior" cells for the region. Cells marked with a mask value of 0 are not in the region, and cells marked with a mask value of -1 cells that are explicitly prescribed for the associated tracer. Note that FEOTS will automatically mark region boundary cells as prescribed cells.
+
+See the `Zapiola GenMask.F90 program <https://github.com/FluidNumerics/FEOTS/blob/master/examples/zapiola/GenMask.f90>`_ for an example of a custom mask generation program for multiple tracers.
 
 Regional Mapping
 ****************
@@ -170,17 +214,49 @@ Regional Mapping
    :width: 50%
    :alt: FEOTS Impulse field generation
 
+The :code:`mappings.regional` file created during region-extraction is only valid for simulations with one passive tracer and no explicitly prescribed cells. Because of this, it is recommended that you create a regional mapping file after regional-extraction, use the :code:`genmaps` command. This will create a file :code:`${OUTDIR}/mappings.regional`, where :code:`${OUTDIR}` is set to the path where simulation output will be stored.
+.. code-block:: shell
+  feots genmaps --out ${OUTDIR} \
+                --regional-db ${REGIONAL_DB} \
+                --dbroot ${FEOTS_DBROOT} \
+                --param-file ./runtime.params
+
+
 Initial Conditions
 ******************
 .. image:: images/feots_simulation-initialize.png
    :width: 50%
    :alt: FEOTS tracer field initialization
 
+To start a simulation, you need to create initial conditions and store them in :code:`${OUTDIR}/Tracer.XXXXX.init.nc`, where :code:`XXXXX` is a 5-digit padded integer (0-based) denoting the tracer id. The initial condition values on boundary and prescribed cells for a regional simulation are held fixed over time in a FEOTS simulation.
+
+Generally, you will create a custom program to specify initial conditions; see the `Zapiola FEOTSInitialize.F90 program <https://github.com/FluidNumerics/FEOTS/blob/master/examples/zapiola/FEOTSInitialize.f90>`_ for an example.
+
 Forward Integration
 *******************
 .. image:: images/feots_simulation-integrate.png
    :width: 50%
    :alt: FEOTS forward integration
+
+FEOTS can run transient tracer simulations using forward integration. Forward integration always uses 1st order backward euler for the vertical mixing and can use forward euler, 2nd order Adams-Bashforth, or 3rd order Adams-Bashforth for transport (advection and lateral diffusion). The integration options are controlled in the :code:`runtime.params` namelist file
+.. code-block:: shell
+  &TracerModelOptions
+  timeStepScheme = 'ab3',
+  dt = 1080.0,
+  nStepsPerDump = 200,
+  iterInit = 0,
+  nTimeSteps = 1600,
+  nTracers = 6,
+
+The :code:`timeStepScheme` can be set to :code:`euler`, :code:`ab2`, or :code:`ab3` for Forward Euler, 2nd order Adams-Bashforth, or 3rd order Adams-Bashforth, respectively. :code:`dt` controls the time step size and is specified in seconds. :code:`nStepsPerDump` controls how many time steps are taken in between each output of the model and :code:`nTimeSteps` controls the total number of timesteps for the transient simulation.
+
+When running forward integration, one MPI rank is assigned to each tracer. Thus, when launching the :code:`feots integrate` program, you must set the number of MPI ranks equivalent to the number of tracers in your simulation.
+
+.. code-block:: shell
+  mpirun -np ${NTRACERS} feots integrate --dbroot ${FEOTS_DBROOT} \
+                                         --regional-db ${REGIONAL_DB} \
+                                       --out ${OUTDIR} \
+                                       --param-file ./runtime.params
 
 
 Equilibration
