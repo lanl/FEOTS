@@ -844,8 +844,8 @@ CONTAINS
              this % solution % tracers(i,m) = x(i,m)
            ENDDO
          ENDDO
-         INFO('Vertical Mixing Converged in '//Int2Str(iter)//' iterates')
-         INFO('Final (relative) residual = '//Float2Str(deltaNew/delta0))
+         !INFO('Vertical Mixing Converged in '//Int2Str(iter)//' iterates')
+         !INFO('Final (relative) residual = '//Float2Str(deltaNew/delta0))
          RETURN
        ENDIF
 
