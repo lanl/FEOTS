@@ -3,6 +3,7 @@ Fast Equilibration of Ocean Tracers
 
 
 ## Getting Started
+* [Run the Argentine Basin offline tracer simulation on Google Cloud](https://fluidnumerics.github.io/FEOTS/codelabs/feots-on-google-cloud/#0)
 
 ### Package Dependencies
 * Fortran Compiler (2008 Compliant)
