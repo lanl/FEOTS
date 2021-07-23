@@ -1,0 +1,282 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Run FEOTS Offline Tracer Simulations on Google Cloud</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/codelab-elements/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14"></google-codelab-analytics>
+  <google-codelab codelab-gaid="UA-125720260-6"
+                  id="feots-on-google-cloud"
+                  title="Run FEOTS Offline Tracer Simulations on Google Cloud"
+                  environment="web"
+                  feedback-link="">
+    
+      <google-codelab-step label="Introduction" duration="0">
+        <p><strong>Last Updated:</strong> 2021-07-23</p>
+<h2 is-upgraded><strong>What you will build</strong></h2>
+<p>In this codelab, you are going to deploy a compute optimized Google Compute Engine (GCE) instance Google Cloud with FEOTS pre-installed. You will use <a href="https://www.terraform.io/" target="_blank">Terraform</a> to deploy the instance, it&#39;s VPC Network, Firewall rules, and service account. Then, you will use this infrastructure to run the Argentine Basin test case.</p>
+<h2 is-upgraded><strong>What you will learn</strong></h2>
+<ul>
+<li>How to configure Identity and Access Management (IAM) policies for operating an HPC cluster on Google Cloud Platform</li>
+<li>How to deploy a compute optimized GCE instance</li>
+<li>How to run an offline tracer simulation with FEOTS</li>
+</ul>
+<h2 is-upgraded><strong>What you will need</strong></h2>
+<ul>
+<li><a href="https://www.google.com/gmail/" target="_blank">Gmail Account</a>, <a href="https://gsuite.google.com/" target="_blank">Google Workspace</a>, or <a href="https://cloud.google.com/identity" target="_blank">Cloud Identity</a> account</li>
+<li><a href="https://cloud.google.com/resource-manager/docs/creating-managing-projects" target="_blank">Google Cloud Platform Project with Billing enabled</a></li>
+<li>Project owner role on your Google Cloud Project</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Configure IAM" duration="5">
+        <h2 is-upgraded>Set IAM Policies</h2>
+<p>In HPC, there are clear distinctions between system administrators and system users. System administrators generally have &#34;root access&#34; enabling them to manage and operate compute resources. System users are generally researchers, scientists, and application engineers who only need to use the resources to execute jobs.</p>
+<p>On Google Cloud, the <a href="https://cloud.google.com/compute/docs/oslogin/" target="_blank">OS Login API</a> provisions POSIX user information from Google Workspace, Cloud Identity, and Gmail accounts. Additionally, OS Login integrates with GCP&#39;s <a href="https://cloud.google.com/iam" target="_blank">Identity and Access Management (IAM)</a> system to determine if users should be allowed to escalate privileges on Linux systems.</p>
+<p>In this tutorial, we assume you are filling the system administrator and compute engine administrator roles. We will configure IAM policies to give you sufficient permissions to accomplish the following tasks </p>
+<ul>
+<li>Create/Delete Google Compute Engine (GCE) VM instances</li>
+<li>SSH into GCE VM instances</li>
+</ul>
+<p class="image-container"><img style="width: 516.50px" src="img/74e3b6764c32a120.png"></p>
+<p>To give yourself the necessary IAM roles to complete this tutorial, in the Google Cloud Console:</p>
+<ol type="1" start="1">
+<li>Navigate to IAM &amp; Admin &gt; IAM in the Products and Services menu. </li>
+<li>Click &#34;+Add&#34; near the top of the page. </li>
+<li>Type in your Google Workspace account, Cloud Identity Account, or Gmail account under &#34;New members&#34;</li>
+<li>Add the following roles :  Compute Admin, Compute OS Login, and Service Account User</li>
+<li>Click Save</li>
+</ol>
+<aside class="warning"><p><strong>Option:</strong> If the Console UI is not aligned to what is shown here, the following gcloud commands will give the same results, replacing  <code>YOUR_PROJECT</code> and <code>EMAIL_ADDRESS</code> with your project and email address.</p>
+<ul>
+<li>gcloud projects add-iam-policy-binding <code>YOUR_PROJECT</code> --role roles/iam.serviceAccountUser --member=&#34;user:<code>EMAIL_ADDRESS</code>&#34;</li>
+<li>gcloud projects add-iam-policy-binding <code>YOUR_PROJECT</code> --role roles/compute.osLogin --member=&#34;user:<code>EMAIL_ADDRESS</code>&#34;</li>
+<li>gcloud projects add-iam-policy-binding <code>YOUR_PROJECT</code> --role roles/compute.admin --member=&#34;user:<code>EMAIL_ADDRESS</code>&#34;</li>
+</ul>
+</aside>
+<p>Your login now has the permissions required to initiate the creation of the HPC cluster.</p>
+<p>To verify you have assigned the correct roles, <a href="https://console.cloud.google.com/?cloudshell=true" target="_blank">open your Cloud Shell</a>, and run the following command, replacing  <code>YOUR_PROJECT</code> and <code>EMAIL_ADDRESS</code> with your project and email address.</p>
+<pre>$ gcloud projects get-iam-policy YOUR_PROJECT --flatten=&#34;bindings[].members&#34; --format=&#39;table(bindings.role)&#39; --filter=&#34;bindings.members=user:EMAIL_ADDRESS&#34;</pre>
+<p>This command will yield the output:</p>
+<pre>ROLE
+roles/compute.osLogin
+roles/iam.serviceAccountUser
+roles/compute.admin</pre>
+<aside class="warning"><p><strong>Caution:</strong> If you plan to use third-party SSH (e.g. OpenSSH) to connect to your cluster, be sure you attach an ssh key to your cloud identity profile using OS Login. <a href="https://cloud.google.com/compute/docs/instances/managing-instance-access#add_oslogin_keys" target="_blank">Learn more about adding SSH keys to your cloud identity profile</a>.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Deploy a compute optimized GCE instance with FEOTS" duration="5">
+        <p>In this section, you will deploy a single <a href="https://cloud.google.com/compute/docs/compute-optimized-machines" target="_blank">compute optimized GCE instance</a> that will be used to run FEOTS.  This instance will have 16 Intel Cascade Lake vCPU&#39;s.</p>
+<ol type="1" start="1">
+<li><a href="https://console.cloud.google.com/?cloudshell=true" target="_blank">Open your Cloud Shell on GCP.</a></li>
+<li>Clone the FluidNumerics/hpc-apps-gcp repository</li>
+</ol>
+<pre>cd ~
+git clone https://github.com/FluidNumerics/hpc-apps-gcp.git</pre>
+<ol type="1" start="3">
+<li>Change to the <code>feots</code> terraform directory:</li>
+</ol>
+<pre>cd  ~/hpc-apps-gcp/feots/tf/gce_cluster</pre>
+<aside class="special"><p><strong>Note:</strong> By default, the deployment is configured to launch with one c2-standard-16 instance in us-west1-b using your currently active GCP project in cloud-shell. To change the machine type, set the <code>FEOTS_MACHINE_TYPE</code> environment variable. To change the project you want to deploy the instance on, set the FEOTS_PROJECT environment variable to your Google Cloud project ID.</p>
+</aside>
+<ol type="1" start="4">
+<li>Create the plan with the make command, which will concretize a `fluid.auto.tfvars` file for you and run `terraform init &amp;&amp; terraform plan`.</li>
+</ol>
+<pre>make plan</pre>
+<ol type="1" start="5">
+<li>Deploy the cluster. The setup process only takes a few minutes since FEOTS and its dependencies come pre-installed on your cluster.</li>
+</ol>
+<pre>make apply</pre>
+<ol type="1" start="6">
+<li>SSH to the compute node created in the previous step. You can see this node in the previous step (probably called <em>feots-0</em>)<em>. </em>You can do this by clicking on the SSH button next to the list of VM Instances in the console menu item <em>Compute Engine -&gt; VM instance.<br></em></li>
+</ol>
+<p><strong>Option:</strong> This pair of gcloud commands will figure out the login node name and SSH into it:</p>
+<pre><code>export CLUSTER_LOGIN_NODE=$(gcloud compute instances list --zones us-west1-b --filter=&#34;name ~ feots.*&#34; --format=&#34;value(name)&#34; | head -n1)
+gcloud compute ssh ${CLUSTER_LOGIN_NODE} --zone us-west1-b</code></pre>
+<ol type="1" start="7">
+<li>Once you are connected to the login node, to verify your cluster setup, check that FEOTS is installed</li>
+</ol>
+<pre>$ feots --help
+ FEOTS (feots) Command Line Interface
+  Copyright Los Alamos National Laboratory (2017-2020)
+  Licensed for use under 3-Clause BSD License
+  
+  For support related issues, https://github.com/lanl/feots/issues/new
+  
+  A program for performing creating impulse functions, diagnosing transport
+  operators from POP IRFs, and conducting offline tracer simulations using 
+  diagnosed transport operators.
+  
+   feots [tool] [options]
+  
+  [tool] can be :
+  
+    impulse
+      Use a POP-Mesh, with land-mask, and a chosen advection-difussion stencil
+      to create impulse fields for capturing impulse response functions.
+  
+    popmesh
+      Extract POP-Mesh information from POP standard output.
+  
+    genmask
+      Create a regional FEOTS mask using lat-lon domain bounds
+  
+    operator-diagnosis
+      Diagnose transport operators using impulse fields and POP IRF output.
+      You must specify the IRF file using the --irf option.
+  
+    region-extraction
+      Create regional transport operators from global transport operators. Regional
+      operators are stored in the --regional-db directory.
+  
+    genmaps
+      Create a mappings.regional file from a valid mask file. The mappings.regional
+      file is stored in the --out directory.
+  
+    initialize
+      Use the built in initialization routines to create tracer initial conditions
+  
+    integrate
+      Run the offline tracer simulation in a forward integration mode
+  
+    equilibrate
+      Run the offline tracer simulation using JFNK to find the equilibrated tracer field
+  
+   [options] can be :
+  
+    --help
+      Display this help message
+  
+     --param-file /path/to/param/file
+        Specifies the full path to a file with namelist settings for
+        the feots application. If not provided, runtime.params in  
+        your current directory is assumed.                          
+  
+     --pop-file /path/to/irf-file
+        Specifies the full path to a netcdf file with standard POP output
+        (For popmesh)
+  
+     --irf /path/to/irf-file
+        Specifies the full path to a netcdf file with IRFs
+        (For operator diagnosis and regional extraction)
+  
+     --oplevel 0
+        Specifies the index of the operator in the operator sequence
+        This option determines the time level encoded to _advect.{oplevel}.data/conn
+  
+     --dbroot /path/to/feot/db
+        Specifies the path to a FEOTS database
+  
+     --out /path/to/output/directory
+        Specifies the path to write model output. Defaults to ./
+  
+     --no-vertical-mixing
+        Disables the vertical mixing operator for forward integration and equilibration
+  
+     --regional-db /path/to/regional-database/directory
+        Specifies the path to read/write regional operators. Defaults to ./</pre>
+<ol type="1" start="8">
+<li>Verify that <code>/opt/feots/examples/zapiola</code> has the contents listed below. </li>
+</ol>
+<pre>$ ls /opt/feots/examples/zapiola
+bash  demo.sh  FEOTSInitialize.f90  FEOTSInitialize.o  genmask  GenMask.f90  GenMask.o  init  irfs  makefile  README.md  runtime.params  slurm</pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Run the Argentine Basin (Zapiola Rise) demo" duration="10">
+        <p>To run the Argentine Basin demo, you will execute a provided script that</p>
+<ul>
+<li>Creates a regional mask for Argentine Basin domain</li>
+<li>Generates a mapping between grid cells in the Argentine Basin region and the global mesh from the E3SMV0 simulation.</li>
+<li>Creates initial and boundary conditions for six tracer fields that tag upper and lower water masses on the southern, eastern, and northern boundaries of the Argentine Basin domain.</li>
+<li>Runs a transient simulation of the tracers using five-day averaged transport operators. </li>
+</ul>
+<p>The input decks for this example are included in the FEOTS VM image under <code>/opt/feots-db</code>. This includes a global mesh file and the regional extracted transport and vertical mixing operators for the Argentine Basin simulation. </p>
+<p>For this section, you must be SSH connected to the <em>feots-0 </em>node created in the previous section</p>
+<ol type="1" start="1">
+<li>Run the Argentine Basin (Zapiola Rise) demo using the provided script.</li>
+</ol>
+<pre>$ bash /opt/feots/examples/zapiola/demo.sh</pre>
+<p>Wait for the job to complete.<br></p>
+<ol type="1" start="2">
+<li>When the job completes, you will see a directory called <code>feots/</code> that contains the simulation output. The directory will contain NetCDF output for each dye tracer for every 200 iterations ( 2.5 simulation days )</li>
+</ol>
+<pre>$ ls feots/
+genmask                     Tracer.00000.0000001000.nc  Tracer.00001.0000001400.nc  Tracer.00002.init.nc        Tracer.00004.0000000400.nc  Tracer.00005.0000000800.nc
+gmon.out                    Tracer.00000.0000001200.nc  Tracer.00001.0000001600.nc  Tracer.00003.0000000200.nc  Tracer.00004.0000000600.nc  Tracer.00005.0000001000.nc
+init                        Tracer.00000.0000001400.nc  Tracer.00001.init.nc        Tracer.00003.0000000400.nc  Tracer.00004.0000000800.nc  Tracer.00005.0000001200.nc
+mappings.regional           Tracer.00000.0000001600.nc  Tracer.00002.0000000200.nc  Tracer.00003.0000000600.nc  Tracer.00004.0000001000.nc  Tracer.00005.0000001400.nc
+mask.nc                     Tracer.00000.init.nc        Tracer.00002.0000000400.nc  Tracer.00003.0000000800.nc  Tracer.00004.0000001200.nc  Tracer.00005.0000001600.nc
+mesh.nc                     Tracer.00001.0000000200.nc  Tracer.00002.0000000600.nc  Tracer.00003.0000001000.nc  Tracer.00004.0000001400.nc  Tracer.00005.init.nc
+runtime.params              Tracer.00001.0000000400.nc  Tracer.00002.0000000800.nc  Tracer.00003.0000001200.nc  Tracer.00004.0000001600.nc
+Tracer.00000.0000000200.nc  Tracer.00001.0000000600.nc  Tracer.00002.0000001000.nc  Tracer.00003.0000001400.nc  Tracer.00004.init.nc
+Tracer.00000.0000000400.nc  Tracer.00001.0000000800.nc  Tracer.00002.0000001200.nc  Tracer.00003.0000001600.nc  Tracer.00005.0000000200.nc
+Tracer.00000.0000000600.nc  Tracer.00001.0000001000.nc  Tracer.00002.0000001400.nc  Tracer.00003.init.nc        Tracer.00005.0000000400.nc
+Tracer.00000.0000000800.nc  Tracer.00001.0000001200.nc  Tracer.00002.0000001600.nc  Tracer.00004.0000000200.nc  Tracer.00005.0000000600.nc
+</pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Congratulations" duration="0">
+        <p>In this codelab, you created a compute optimized GCE instance on Google Cloud and ran an offline tracer simulation using FEOTS and ocean transport operators generated from a state-of-the-art climate simulation.</p>
+<h2 is-upgraded>Cleaning up</h2>
+<p>To avoid incurring charges to your Google Cloud account for the resources used in this codelab:</p>
+<h3 is-upgraded>Delete the project</h3>
+<p>The easiest way to eliminate billing is to delete the project you created for the codelab.</p>
+<p><strong>Caution</strong>: Deleting a project has the following effects:</p>
+<ul>
+<li><strong>Everything in the project is deleted.</strong> If you used an existing project for this codelab, when you delete it, you also delete any other work you&#39;ve done in the project.</li>
+<li><strong>Custom project IDs are lost.</strong> When you created this project, you might have created a custom project ID that you want to use in the future. To preserve the URLs that use the project ID, such as an <strong>appspot.com</strong> URL, delete selected resources inside the project instead of deleting the whole project.</li>
+</ul>
+<p>If you plan to explore multiple codelabs and quickstarts, reusing projects can help you avoid exceeding project quota limits.</p>
+<ol type="1" start="1">
+<li>In the Cloud Console, go to the <strong>Manage resources</strong> page.<br><a href="https://console.cloud.google.com/iam-admin/projects" target="_blank">Go to the Manage resources page</a></li>
+<li>In the project list, select the project that you want to delete and then click <strong>Delete </strong><img style="width: 20.00px" src="img/dc096e8341a05fec.png">.</li>
+<li>In the dialog, type the project ID and then click <strong>Shut down</strong> to delete the project.</li>
+</ol>
+<h3 is-upgraded>Delete the individual resources</h3>
+<ol type="1" start="1">
+<li><a href="https://console.cloud.google.com/?cloudshell=true" target="_blank">Open your cloud shell</a> and navigate to the <code>feots/tf/gce_cluster</code> example directory</li>
+</ol>
+<pre><code>cd  ~/hpc-apps-gcp/feots/tf/gce_cluster</code></pre>
+<ol type="1" start="2">
+<li>Run make destroy to delete all of the resources.</li>
+</ol>
+<pre><code>make destroy</code></pre>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/codelab-elements/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/prettify.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>
