@@ -1,6 +1,8 @@
 # FEOTs
 Fast Equilibration of Ocean Tracers
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5576912.svg)](https://doi.org/10.5281/zenodo.5576912)
+
 
 ## Getting Started
 * [Run the Argentine Basin offline tracer simulation on Google Cloud](https://fluidnumerics.github.io/FEOTS/codelabs/feots-on-google-cloud/#0)
