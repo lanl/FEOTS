@@ -90,14 +90,14 @@ roles/compute.admin</pre>
         <p>In this section, you will deploy a single <a href="https://cloud.google.com/compute/docs/compute-optimized-machines" target="_blank">compute optimized GCE instance</a> that will be used to run FEOTS.  This instance will have 16 Intel Cascade Lake vCPU&#39;s.</p>
 <ol type="1" start="1">
 <li><a href="https://console.cloud.google.com/?cloudshell=true" target="_blank">Open your Cloud Shell on GCP.</a></li>
-<li>Clone the FluidNumerics/hpc-apps-gcp repository</li>
+<li>Clone the FluidNumerics/rcc-apps repository</li>
 </ol>
 <pre>cd ~
-git clone https://github.com/FluidNumerics/hpc-apps-gcp.git</pre>
+git clone https://github.com/FluidNumerics/rcc-apps.git</pre>
 <ol type="1" start="3">
 <li>Change to the <code>feots</code> terraform directory:</li>
 </ol>
-<pre>cd  ~/hpc-apps-gcp/feots/tf/gce_cluster</pre>
+<pre>cd  ~/rcc-apps/feots/tf/gce_cluster</pre>
 <aside class="special"><p><strong>Note:</strong> By default, the deployment is configured to launch with one c2-standard-16 instance in us-west1-b using your currently active GCP project in cloud-shell. To change the machine type, set the <code>FEOTS_MACHINE_TYPE</code> environment variable. To change the project you want to deploy the instance on, set the FEOTS_PROJECT environment variable to your Google Cloud project ID.</p>
 </aside>
 <ol type="1" start="4">
@@ -261,7 +261,7 @@ Tracer.00000.0000000800.nc  Tracer.00001.0000001200.nc  Tracer.00002.0000001600.
 <ol type="1" start="1">
 <li><a href="https://console.cloud.google.com/?cloudshell=true" target="_blank">Open your cloud shell</a> and navigate to the <code>feots/tf/gce_cluster</code> example directory</li>
 </ol>
-<pre><code>cd  ~/hpc-apps-gcp/feots/tf/gce_cluster</code></pre>
+<pre><code>cd  ~/rcc-apps/feots/tf/gce_cluster</code></pre>
 <ol type="1" start="2">
 <li>Run make destroy to delete all of the resources.</li>
 </ol>
