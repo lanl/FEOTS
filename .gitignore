@@ -3,6 +3,7 @@
 *.png
 *.jpg
 *.o
+*.a
 *.mod
 *.dvi
 *.bbl
@@ -12,12 +13,15 @@
 *.toc
 *.svg
 *.slurm.*
+*.txt
 
-GreedyColoring
-GenerateMeshOnlyFile
-GenMask
-OperatorDiagnosis
-RegionalExtraction
-ExtractOceanState
-FEOTSInitialize
-FEOTSDriver
+autom4te.cache/*
+output*
+penmp
+config.status
+
+feots_logs*
+genmask
+init
+feots
+Makefile

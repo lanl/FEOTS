@@ -1,0 +1,25 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2021-07-23T21:14:25Z",
+  "id": "feots-on-google-cloud",
+  "duration": 20,
+  "title": "Run FEOTS Offline Tracer Simulations on Google Cloud",
+  "authors": "Joseph Schoonover",
+  "summary": "This codelab will walk you through running the Argentine Basin offline tracer simulation with FEOTS on Google Cloud",
+  "source": "1Z9bG9fpDg8TqWcDc43uJxyBJRwc9A8rJ1ze_-2vZuAM",
+  "theme": "hpc",
+  "status": [
+    "draft"
+  ],
+  "category": [
+    "hpc"
+  ],
+  "tags": [
+    "web"
+  ],
+  "ga": "UA-125720260-6",
+  "url": "feots-on-google-cloud"
+}

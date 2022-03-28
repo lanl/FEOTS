@@ -1,0 +1,18 @@
+#%Module 1.0
+#
+#
+
+conflict                feots
+
+set  FEOTS_INSTALL "/users/jschoonover/feots"
+
+prereq gcc/8.2.0 mvapich2/2.3 hdf5-parallel/1.8.16 netcdf-h5parallel/4.4.0
+
+prepend-path            LD_LIBRARY_PATH             $FEOTS_INSTALL/lib
+prepend-path            PATH             $FEOTS_INSTALL/bin
+prepend-path            PATH             $FEOTS_INSTALL/include
+
+setenv	FEOTS_VER "1.0.0"
+setenv  FEOTS_INSTALL "$FEOTS_INSTALL"
+setenv	FEOTS_INCLUDE "-I$FEOTS_INSTALL/include"
+setenv	FEOTS_LIB "-L$FEOTS_INSTALL/lib/ -lfeots"
